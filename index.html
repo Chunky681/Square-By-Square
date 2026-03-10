@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rift Run</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main id="app">
+      <section id="id-screen" class="screen card active">
+        <h1>Rift Run</h1>
+        <p>Enter a Player ID. Existing IDs resume that player. New IDs create a profile.</p>
+        <label>
+          Player ID
+          <input id="player-id-input" maxlength="24" placeholder="e.g. blaze01" />
+        </label>
+        <button id="id-continue-btn" type="button">Continue</button>
+        <p id="id-message" class="message"></p>
+      </section>
+
+      <section id="menu-screen" class="screen card">
+        <h2 id="menu-title">Welcome</h2>
+        <div class="stats-grid">
+          <div><span>Banked Essence</span><strong id="stat-xp">0</strong></div>
+          <div><span>Best Survival</span><strong id="stat-best">0s</strong></div>
+          <div><span>Total Kills</span><strong id="stat-kills">0</strong></div>
+          <div><span>Runs Won</span><strong id="stat-wins">0</strong></div>
+        </div>
+        <div class="currency-row">
+          <div class="currency-chip void-chip">Void <strong id="stat-void">0</strong></div>
+          <div class="currency-chip azure-chip">Azure <strong id="stat-azure">0</strong></div>
+          <div class="currency-chip amber-chip">Amber <strong id="stat-amber">0</strong></div>
+        </div>
+
+        <label class="difficulty-box">
+          Difficulty (1-10)
+          <select id="difficulty-select"></select>
+        </label>
+
+        <div class="button-row">
+          <button id="play-btn">Play (1:00 Survival)</button>
+          <button id="upgrade-btn">Configure Loadout</button>
+          <button id="switch-id-btn">Switch ID</button>
+        </div>
+        <p id="difficulty-note" class="message"></p>
+      </section>
+
+      <section id="upgrade-screen" class="screen card">
+        <h2>Ship Builder</h2>
+        <p>Click a slot to buy, upgrade, or sell the module in that slot.</p>
+
+        <div class="upgrade-builder">
+          <div class="builder-arena">
+            <div class="ship-core" id="ship-frame">
+              <div class="ship-shell"></div>
+              <div id="ship-slot-grid" class="ship-slot-grid"></div>
+            </div>
+            <div class="arena-xp" id="upgrade-xp-chip">Essence: 0</div>
+            <div class="slot-action-panel" id="slot-action-panel">
+              <p id="upgrade-part-label" class="part-label">Selected Slot: Front</p>
+              <div id="slot-actions" class="slot-actions"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="button-row">
+          <button id="upgrade-back-btn">Back</button>
+        </div>
+        <p id="upgrade-message" class="message"></p>
+      </section>
+
+      <section id="game-screen" class="screen game-screen">
+        <canvas id="game-canvas"></canvas>
+        <div class="hud top-left">
+          <div id="hud-timer">1:00</div>
+          <div id="hud-health">HP 100</div>
+          <div id="hud-run-essence">Run Essence 0</div>
+          <div id="hud-run-void">Run Void 0</div>
+          <div id="hud-run-azure">Run Azure 0</div>
+          <div id="hud-run-amber">Run Amber 0</div>
+        </div>
+        <div class="hud top-right">
+          <div id="hud-kills">Kills 0</div>
+          <div id="hud-wave">Threat 1</div>
+          <div id="hud-difficulty">D1</div>
+        </div>
+        <div class="hud bottom-left">WASD move | Mouse aim | LMB cannon | Space special | C secondary</div>
+      </section>
+
+      <section id="result-screen" class="screen card">
+        <h2 id="result-title">Run Result</h2>
+        <p id="result-summary"></p>
+        <div class="button-row">
+          <button id="result-menu-btn">Back To Menu</button>
+          <button id="result-retry-btn">Play Again</button>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
+
+
+
+
+
+
+
+
+
