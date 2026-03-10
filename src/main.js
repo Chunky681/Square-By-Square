@@ -353,13 +353,13 @@ function openMenu() {
   }
 
   ui.menuTitle.textContent = `Player: ${state.player.id}`;
-  ui.statXp.textContent = String(state.player.xpBank);
+  if (ui.statXp) ui.statXp.textContent = String(state.player.xpBank);
   if (ui.statVoid) ui.statVoid.textContent = String(state.player.voidBank || 0);
   if (ui.statAzure) ui.statAzure.textContent = String(state.player.azureBank || 0);
   if (ui.statAmber) ui.statAmber.textContent = String(state.player.amberBank || 0);
-  ui.statBest.textContent = `${Math.floor(state.player.bestTime)}s`;
-  ui.statKills.textContent = String(state.player.totalKills);
-  ui.statWins.textContent = String(state.player.wins);
+  if (ui.statBest) ui.statBest.textContent = `${Math.floor(state.player.bestTime)}s`;
+  if (ui.statKills) ui.statKills.textContent = String(state.player.totalKills);
+  if (ui.statWins) ui.statWins.textContent = String(state.player.wins);
   ui.difficultySelect.value = String(state.selectedDifficulty);
   updateDifficultyNote();
   setScreen("menu");

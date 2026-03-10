@@ -44,6 +44,16 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .stats-grid > div { border: 1px solid #2b4053; background: #10212f; border-radius: 8px; padding: 0.45rem 0.55rem; display: flex; justify-content: space-between; align-items: center; }
 .stats-grid span { color: #a8bfd3; }
 .label-with-icon { display: inline-flex; align-items: center; gap: 0.35rem; }
+.menu-stats { max-width: 980px; }
+.menu-currency-grid { grid-template-columns: repeat(2, minmax(240px, 1fr)); gap: 0.65rem; }
+.currency-stat-card { padding: 0.68rem 0.85rem; }
+.currency-stat-card .label-with-icon { font-size: 1.02rem; font-weight: 600; gap: 0.62rem; }
+.menu-currency-grid .currency-stat-card .currency-icon { width: 2.3rem; height: 2.3rem; }
+.menu-currency-grid .currency-stat-card strong { font-size: clamp(1.12rem, 1.35vw, 1.55rem); letter-spacing: 0.02em; }
+.menu-currency-grid .essence-chip .currency-icon { filter: drop-shadow(0 0 8px rgba(96, 255, 124, 0.35)); }
+.menu-currency-grid .void-chip .currency-icon { filter: drop-shadow(0 0 8px rgba(184, 110, 255, 0.35)); }
+.menu-currency-grid .azure-chip .currency-icon { filter: drop-shadow(0 0 8px rgba(87, 166, 255, 0.35)); }
+.menu-currency-grid .amber-chip .currency-icon { filter: drop-shadow(0 0 8px rgba(255, 171, 63, 0.35)); }
 .currency-row { display: flex; gap: 0.55rem; flex-wrap: wrap; }
 .currency-chip { border: 1px solid #2b4053; border-radius: 999px; padding: 0.3rem 0.55rem; font-size: 0.82rem; color: #d5e6f7; background: #10212f; display: inline-flex; align-items: center; gap: 0.35rem; }
 .currency-chip strong { margin-left: 0.25rem; }
@@ -250,6 +260,8 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 
 @media (max-width: 800px) {
+  .menu-currency-grid { grid-template-columns: minmax(0, 1fr); }
+
   .builder-arena {
     min-height: 520px;
   }
