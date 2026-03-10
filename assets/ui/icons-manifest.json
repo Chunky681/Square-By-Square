@@ -1,0 +1,93 @@
+[
+  {
+    "name": "front_l_hammer",
+    "center_x": 97,
+    "center_y": 58,
+    "radius": 20,
+    "file": "icons\\front_l_hammer.png"
+  },
+  {
+    "name": "top_flower",
+    "center_x": 152,
+    "center_y": 28,
+    "radius": 20,
+    "file": "icons\\top_flower.png"
+  },
+  {
+    "name": "top_crate",
+    "center_x": 221,
+    "center_y": 31,
+    "radius": 22,
+    "file": "icons\\top_crate.png"
+  },
+  {
+    "name": "right_up_green",
+    "center_x": 278,
+    "center_y": 58,
+    "radius": 21,
+    "file": "icons\\right_up_green.png"
+  },
+  {
+    "name": "right_up_grid",
+    "center_x": 314,
+    "center_y": 117,
+    "radius": 21,
+    "file": "icons\\right_up_grid.png"
+  },
+  {
+    "name": "right_mid_hook",
+    "center_x": 335,
+    "center_y": 172,
+    "radius": 20,
+    "file": "icons\\right_mid_hook.png"
+  },
+  {
+    "name": "right_low_shield",
+    "center_x": 316,
+    "center_y": 239,
+    "radius": 21,
+    "file": "icons\\right_low_shield.png"
+  },
+  {
+    "name": "back_r_plane",
+    "center_x": 269,
+    "center_y": 293,
+    "radius": 19,
+    "file": "icons\\back_r_plane.png"
+  },
+  {
+    "name": "back_core",
+    "center_x": 185,
+    "center_y": 316,
+    "radius": 23,
+    "file": "icons\\back_core.png"
+  },
+  {
+    "name": "back_l_eye",
+    "center_x": 100,
+    "center_y": 292,
+    "radius": 20,
+    "file": "icons\\back_l_eye.png"
+  },
+  {
+    "name": "left_low_star",
+    "center_x": 55,
+    "center_y": 236,
+    "radius": 22,
+    "file": "icons\\left_low_star.png"
+  },
+  {
+    "name": "left_mid_check",
+    "center_x": 33,
+    "center_y": 171,
+    "radius": 19,
+    "file": "icons\\left_mid_check.png"
+  },
+  {
+    "name": "left_up_purple",
+    "center_x": 56,
+    "center_y": 117,
+    "radius": 21,
+    "file": "icons\\left_up_purple.png"
+  }
+]

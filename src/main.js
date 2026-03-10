@@ -182,6 +182,7 @@ const ui = {
   upgradePartLabel: document.getElementById("upgrade-part-label"),
   slotActions: document.getElementById("slot-actions"),
   upgradeXpChip: document.getElementById("upgrade-xp-chip"),
+  upgradeXpValue: document.getElementById("upgrade-xp-value"),
   resultTitle: document.getElementById("result-title"),
   resultSummary: document.getElementById("result-summary"),
   resultMenu: document.getElementById("result-menu-btn"),
@@ -189,9 +190,13 @@ const ui = {
   timer: document.getElementById("hud-timer"),
   health: document.getElementById("hud-health"),
   runEssence: document.getElementById("hud-run-essence"),
+  runEssenceValue: document.getElementById("hud-run-essence-value"),
   runVoid: document.getElementById("hud-run-void"),
+  runVoidValue: document.getElementById("hud-run-void-value"),
   runAzure: document.getElementById("hud-run-azure"),
+  runAzureValue: document.getElementById("hud-run-azure-value"),
   runAmber: document.getElementById("hud-run-amber"),
+  runAmberValue: document.getElementById("hud-run-amber-value"),
   kills: document.getElementById("hud-kills"),
   wave: document.getElementById("hud-wave"),
   hudDifficulty: document.getElementById("hud-difficulty"),
@@ -386,7 +391,8 @@ function renderLoadoutPanel() {
     ? `Selected Slot: ${slot.name} (${ITEM_CATALOG[occupied.type]?.name || occupied.type}, Lv ${occupied.level})`
     : `Selected Slot: ${slot.name} (Empty)`;
 
-  if (ui.upgradeXpChip) ui.upgradeXpChip.textContent = `Essence: ${state.player.xpBank}`;
+  if (ui.upgradeXpValue) ui.upgradeXpValue.textContent = String(state.player.xpBank);
+  else if (ui.upgradeXpChip) ui.upgradeXpChip.textContent = `Essence: ${state.player.xpBank}`;
 
   renderSlotGrid();
   renderSlotActions(slot, occupied);
@@ -1391,10 +1397,14 @@ function updateHud(w) {
   const p = w.player;
   ui.timer.textContent = formatTime(w.timer);
   ui.health.textContent = `HP ${Math.max(0, Math.floor(p.hp))}/${Math.floor(p.maxHp)}`;
-  ui.runEssence.textContent = `Run Essence ${Math.floor(w.runEssence)}`;
-  ui.runVoid.textContent = `Run Void ${Math.floor(w.runVoid)}`;
-  ui.runAzure.textContent = `Run Azure ${Math.floor(w.runAzure)}`;
-  ui.runAmber.textContent = `Run Amber ${Math.floor(w.runAmber)}`;
+  if (ui.runEssenceValue) ui.runEssenceValue.textContent = String(Math.floor(w.runEssence));
+  else ui.runEssence.textContent = `Run Essence ${Math.floor(w.runEssence)}`;
+  if (ui.runVoidValue) ui.runVoidValue.textContent = String(Math.floor(w.runVoid));
+  else ui.runVoid.textContent = `Run Void ${Math.floor(w.runVoid)}`;
+  if (ui.runAzureValue) ui.runAzureValue.textContent = String(Math.floor(w.runAzure));
+  else ui.runAzure.textContent = `Run Azure ${Math.floor(w.runAzure)}`;
+  if (ui.runAmberValue) ui.runAmberValue.textContent = String(Math.floor(w.runAmber));
+  else ui.runAmber.textContent = `Run Amber ${Math.floor(w.runAmber)}`;
   ui.kills.textContent = `Kills ${w.kills}`;
   ui.wave.textContent = `Threat ${w.threat}`;
   ui.hudDifficulty.textContent = `D${w.difficulty}`;

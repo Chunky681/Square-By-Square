@@ -43,12 +43,16 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .stats-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.55rem; }
 .stats-grid > div { border: 1px solid #2b4053; background: #10212f; border-radius: 8px; padding: 0.45rem 0.55rem; display: flex; justify-content: space-between; align-items: center; }
 .stats-grid span { color: #a8bfd3; }
+.label-with-icon { display: inline-flex; align-items: center; gap: 0.35rem; }
 .currency-row { display: flex; gap: 0.55rem; flex-wrap: wrap; }
-.currency-chip { border: 1px solid #2b4053; border-radius: 999px; padding: 0.3rem 0.55rem; font-size: 0.82rem; color: #d5e6f7; background: #10212f; }
+.currency-chip { border: 1px solid #2b4053; border-radius: 999px; padding: 0.3rem 0.55rem; font-size: 0.82rem; color: #d5e6f7; background: #10212f; display: inline-flex; align-items: center; gap: 0.35rem; }
 .currency-chip strong { margin-left: 0.25rem; }
+.currency-icon { width: 1.1rem; height: 1.1rem; object-fit: contain; flex: 0 0 auto; display: inline-block; }
+.stats-grid .currency-icon { width: 0.95rem; height: 0.95rem; }
 .void-chip { border-color: #6b4ca3; color: #e6dcff; }
 .azure-chip { border-color: #3b77c2; color: #d7ebff; }
 .amber-chip { border-color: #9b7a2c; color: #ffe4a5; }
+.essence-chip { border-color: #3f8c52; color: #d8ffd9; }
 
 .difficulty-box { max-width: 250px; }
 
@@ -158,6 +162,18 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   letter-spacing: 0.04em;
   padding: 0.52rem 0.7rem;
   z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+}
+
+.arena-xp .currency-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.arena-xp strong {
+  margin-left: 0.18rem;
 }
 
 .part-label {
@@ -259,6 +275,9 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .top-left { top: 0.65rem; left: 0.65rem; }
 .top-right { top: 0.65rem; right: 0.65rem; text-align: right; }
 .bottom-left { left: 0.65rem; bottom: 0.65rem; font-size: 0.84rem; color: #abd0eb; }
+.hud-currency { display: flex; align-items: center; gap: 0.35rem; margin-top: 0.2rem; border-radius: 999px; border: 1px solid rgba(80, 108, 133, 0.8); padding: 0.22rem 0.45rem; background: rgba(6, 11, 18, 0.5); }
+.hud-currency .currency-icon { width: 0.92rem; height: 0.92rem; }
+.hud-currency strong { margin-left: 0.2rem; }
 
 
 
