@@ -160,6 +160,36 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   background: rgba(23, 57, 81, 0.95);
 }
 
+.slot-node.slot-void {
+  border-color: #8b5dca;
+  box-shadow: inset 0 0 0 1px rgba(170, 125, 255, 0.25);
+}
+
+.slot-node.slot-azure {
+  border-color: #4f86d9;
+  box-shadow: inset 0 0 0 1px rgba(127, 189, 255, 0.24);
+}
+
+.slot-node.slot-amber {
+  border-color: #c79244;
+  box-shadow: inset 0 0 0 1px rgba(255, 194, 110, 0.24);
+}
+
+.slot-node.slot-void.active {
+  border-color: #c8b2ff;
+  box-shadow: 0 0 0 2px rgba(200, 178, 255, 0.3), 0 0 20px rgba(170, 125, 255, 0.25);
+}
+
+.slot-node.slot-azure.active {
+  border-color: #b8ddff;
+  box-shadow: 0 0 0 2px rgba(174, 223, 255, 0.3), 0 0 20px rgba(106, 181, 255, 0.25);
+}
+
+.slot-node.slot-amber.active {
+  border-color: #ffe0aa;
+  box-shadow: 0 0 0 2px rgba(255, 224, 170, 0.3), 0 0 20px rgba(255, 179, 83, 0.25);
+}
+
 .arena-xp {
   position: absolute;
   right: 22px;
@@ -290,7 +320,13 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .game-screen { display: none; }
 .game-screen.active { display: block; }
-#game-canvas { width: 100%; height: 100%; display: block; background: #0e1720; }
+#game-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: #0e1720;
+  cursor: crosshair;
+}
 .hud { position: absolute; z-index: 5; background: rgba(9, 15, 22, 0.72); border: 1px solid rgba(125, 211, 252, 0.35); border-radius: 8px; padding: 0.45rem 0.6rem; backdrop-filter: blur(4px); }
 .top-left { top: 0.65rem; left: 0.65rem; }
 .top-right { top: 0.65rem; right: 0.65rem; text-align: right; }

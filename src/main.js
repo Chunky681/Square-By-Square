@@ -6,7 +6,7 @@ const RUN_DURATION = 60;
 const MAX_UPGRADE_LEVEL = 50;
 const SHIP_MOUNT_RADIUS = 16;
 
-const MAX_VISIBLE_SLOTS = 15;
+const MAX_VISIBLE_SLOTS = 18;
 
 const SLOT_LAYOUT = [
   { key: 0, name: "Front", x: 50, y: 14 },
@@ -24,7 +24,17 @@ const SLOT_LAYOUT = [
   { key: 12, name: "Nose-R", x: 58, y: 12 },
   { key: 13, name: "Nose-L", x: 42, y: 12 },
   { key: 14, name: "Core", x: 50, y: 50 },
+  { key: 15, name: "Void", x: 41, y: 42, affinity: "void" },
+  { key: 16, name: "Azure", x: 59, y: 42, affinity: "azure" },
+  { key: 17, name: "Amber", x: 50, y: 62, affinity: "amber" },
 ];
+
+const SPECIAL_AFFINITY_BY_TYPE = {
+  warp: "void",
+  helper: "azure",
+  rocket: "azure",
+  mine: "amber",
+};
 
 const ITEM_CATALOG = {
   cannon: {
@@ -60,27 +70,27 @@ const ITEM_CATALOG = {
   warp: {
     name: "Warp Module",
     kind: "ability",
-    trigger: "special",
+    trigger: "void",
     buyBase: 140,
     buyScale: 1.42,
     upgradeBase: 55,
     color: "#58c5ff",
-    desc: "Space key short-range teleport.",
+    desc: "Space key directional teleport + burst.",
   },
   mine: {
     name: "Mine Layer",
     kind: "ability",
-    trigger: "special",
+    trigger: "amber",
     buyBase: 130,
     buyScale: 1.4,
     upgradeBase: 53,
     color: "#ffbf7a",
-    desc: "Space key deployable mine.",
+    desc: "E key deployable mine.",
   },
   rocket: {
     name: "Rocket Pod",
     kind: "ability",
-    trigger: "secondary",
+    trigger: "azure",
     buyBase: 175,
     buyScale: 1.46,
     upgradeBase: 62,
@@ -90,7 +100,7 @@ const ITEM_CATALOG = {
   helper: {
     name: "Helper Bay",
     kind: "ability",
-    trigger: "secondary",
+    trigger: "azure",
     buyBase: 190,
     buyScale: 1.48,
     upgradeBase: 64,
@@ -148,8 +158,9 @@ const DROP_COLORS = {
 };
 
 const SPECIAL_CURRENCY_BY_KILL = {
+  warp: "void",
   mine: "amber",
-  helper: "void",
+  helper: "azure",
   rocket: "azure",
 };
 
@@ -215,7 +226,7 @@ const state = {
   playerAtRunStart: null,
   mode: "id",
   selectedDifficulty: 1,
-  input: { up: false, down: false, left: false, right: false, firing: false, special: false, secondary: false },
+  input: { up: false, down: false, left: false, right: false, firing: false, void: false, azure: false, amber: false },
   mouse: { x: 0, y: 0 },
   world: null,
   raf: 0,
@@ -290,8 +301,9 @@ function bindInput() {
     if (k === "s" || k === "arrowdown") state.input.down = true;
     if (k === "a" || k === "arrowleft") state.input.left = true;
     if (k === "d" || k === "arrowright") state.input.right = true;
-    if (k === " ") state.input.special = true;
-    if (k === "c") state.input.secondary = true;
+    if (k === " ") state.input.void = true;
+    if (k === "c") state.input.azure = true;
+    if (k === "e") state.input.amber = true;
   });
 
   window.addEventListener("keyup", (e) => {
@@ -452,14 +464,47 @@ function selectLoadoutPart(slotKey) {
   renderLoadoutPanel();
 }
 
+function getSlotByKey(slotKey) {
+  return SLOT_LAYOUT.find((slot) => slot.key === slotKey) || null;
+}
+
+function getSlotAffinity(slotKey) {
+  const slot = getSlotByKey(slotKey);
+  return slot?.affinity || null;
+}
+
+function getSlotLabel(slot) {
+  if (!slot?.affinity) return slot?.name || "Slot";
+  return `${slot.name} Slot`;
+}
+
+function isItemAllowedInSlot(type, slotKey) {
+  const slotAffinity = getSlotAffinity(slotKey);
+  const itemAffinity = SPECIAL_AFFINITY_BY_TYPE[type] || null;
+  if (slotAffinity) return itemAffinity === slotAffinity;
+  if (itemAffinity) return false;
+  return true;
+}
+
+function getAllowedItemTypesForSlot(slotKey) {
+  return Object.keys(ITEM_CATALOG).filter((type) => isItemAllowedInSlot(type, slotKey));
+}
+
+function getSlotActionHint(slot) {
+  if (slot.affinity === "void") return "Void slot: only Void abilities can be installed.";
+  if (slot.affinity === "azure") return "Azure slot: only Azure abilities can be installed.";
+  if (slot.affinity === "amber") return "Amber slot: only Amber abilities can be installed.";
+  return "Core/weapon slots cannot hold Void, Azure, or Amber abilities.";
+}
+
 function renderLoadoutPanel() {
   if (!state.player) return;
 
   const slot = SLOT_LAYOUT[state.selectedSlotKey] || SLOT_LAYOUT[0];
   const occupied = getItemInSlot(slot.key);
   ui.upgradePartLabel.textContent = occupied
-    ? `Selected Slot: ${slot.name} (${ITEM_CATALOG[occupied.type]?.name || occupied.type}, Lv ${occupied.level})`
-    : `Selected Slot: ${slot.name} (Empty)`;
+    ? `Selected Slot: ${getSlotLabel(slot)} (${ITEM_CATALOG[occupied.type]?.name || occupied.type}, Lv ${occupied.level})`
+    : `Selected Slot: ${getSlotLabel(slot)} (Empty)`;
 
   if (ui.upgradeXpValue) ui.upgradeXpValue.textContent = String(state.player.xpBank);
   else if (ui.upgradeXpChip) ui.upgradeXpChip.textContent = `Essence: ${state.player.xpBank}`;
@@ -478,6 +523,7 @@ function renderSlotGrid() {
     btn.className = "slot-node";
     if (state.selectedSlotKey === slot.key) btn.classList.add("active");
     if (item) btn.classList.add("filled");
+    if (slot.affinity) btn.classList.add(`slot-${slot.affinity}`);
     btn.style.left = `${slot.x}%`;
     btn.style.top = `${slot.y}%`;
     btn.type = "button";
@@ -491,13 +537,18 @@ function renderSlotActions(slot, occupied) {
   if (!ui.slotActions) return;
   ui.slotActions.innerHTML = "";
 
+  const allowedTypes = getAllowedItemTypesForSlot(slot.key);
+
   if (!occupied) {
     const hint = document.createElement("p");
     hint.className = "slot-actions-empty";
-    hint.textContent = "This slot is empty. Buy a module to install it here.";
+    hint.textContent = `This slot is empty. ${getSlotActionHint(slot)}`;
     ui.slotActions.appendChild(hint);
 
-    for (const [type, data] of Object.entries(ITEM_CATALOG)) {
+    if (!allowedTypes.length) return;
+
+    for (const type of allowedTypes) {
+      const data = ITEM_CATALOG[type];
       const buyCost = calculateBuyCost(type);
       const row = document.createElement("div");
       row.className = "slot-action-item";
@@ -556,6 +607,7 @@ function renderSlotActions(slot, occupied) {
 function buyItemForSlot(slotKey, type) {
   if (!state.player) return;
   if (getItemInSlot(slotKey)) return;
+  if (!isItemAllowedInSlot(type, slotKey)) return;
 
   const cost = calculateBuyCost(type);
   if (state.player.xpBank < cost) return;
@@ -615,24 +667,39 @@ function getItemRefundValue(item) {
 
 function assignUnslottedItemsToOpenSlots() {
   const occupiedByItem = new Map();
-  const displaced = [];
+  const pending = [];
   for (const item of state.player.items) {
-    if (item.slot === null || item.slot < 0 || item.slot >= MAX_VISIBLE_SLOTS) continue;
-    if (!occupiedByItem.has(item.slot)) occupiedByItem.set(item.slot, item);
-    else displaced.push(item);
+    if (item.slot === null || item.slot < 0 || item.slot >= MAX_VISIBLE_SLOTS) {
+      pending.push(item);
+      continue;
+    }
+
+    if (!isItemAllowedInSlot(item.type, item.slot)) {
+      pending.push(item);
+      continue;
+    }
+
+    if (occupiedByItem.has(item.slot)) {
+      pending.push(item);
+      continue;
+    }
+
+    occupiedByItem.set(item.slot, item);
   }
 
-  const openSlots = SLOT_LAYOUT.map((slot) => slot.key).filter((key) => !occupiedByItem.has(key));
-  const pending = [
-    ...displaced,
-    ...state.player.items.filter((item) => item.slot === null || item.slot < 0 || item.slot >= MAX_VISIBLE_SLOTS),
-  ];
+  const openSlots = SLOT_LAYOUT
+    .map((slot) => slot.key)
+    .filter((key) => !occupiedByItem.has(key));
 
-  let changed = displaced.length > 0;
+  let changed = false;
   for (const item of pending) {
-    const nextSlot = openSlots.shift();
+    const idx = openSlots.findIndex((slotKey) => isItemAllowedInSlot(item.type, slotKey));
+    const nextSlot = idx < 0 ? undefined : openSlots.splice(idx, 1)[0];
     if (nextSlot === undefined) {
-      item.slot = null;
+      if (item.slot !== null) {
+        item.slot = null;
+        changed = true;
+      }
       continue;
     }
     if (item.slot !== nextSlot) {
@@ -674,6 +741,9 @@ function calculateUpgradeCost(item) {
 
 function startRun() {
   if (!state.player) return;
+
+  const hadMigration = assignUnslottedItemsToOpenSlots();
+  if (hadMigration) savePlayer(state.player);
 
   audio.unlock();
   state.playerAtRunStart = clonePlayer(state.player);
@@ -731,8 +801,9 @@ function makeWorld(profile, difficulty) {
       regen,
       magnet,
       fireCdByItem: {},
-      specialCd: 0,
-      secondaryCd: 0,
+      voidCd: 0,
+      azureCd: 0,
+      amberCd: 0,
       hitFlash: 0,
       angle: 0,
       dashIFrames: 0,
@@ -760,8 +831,9 @@ function stepGame(dt) {
   w.timer = Math.max(0, RUN_DURATION - w.t);
   w.threat = 1 + Math.floor(w.t / 22);
 
-  p.specialCd = Math.max(0, p.specialCd - dt);
-  p.secondaryCd = Math.max(0, p.secondaryCd - dt);
+  p.voidCd = Math.max(0, p.voidCd - dt);
+  p.azureCd = Math.max(0, p.azureCd - dt);
+  p.amberCd = Math.max(0, p.amberCd - dt);
   p.dashIFrames = Math.max(0, p.dashIFrames - dt);
   p.hitFlash = Math.max(0, p.hitFlash - dt);
   p.hp = Math.min(p.maxHp, p.hp + p.regen * dt);
@@ -781,14 +853,19 @@ function stepGame(dt) {
   p.angle = Math.atan2(state.mouse.y - p.y, state.mouse.x - p.x);
   clampPlayer(p);
 
-  if (state.input.special) {
-    useSpecialAbility(w);
-    state.input.special = false;
+  if (state.input.void) {
+    useVoidAbility(w);
+    state.input.void = false;
   }
 
-  if (state.input.secondary) {
-    useSecondaryAbility(w);
-    state.input.secondary = false;
+  if (state.input.azure) {
+    useAzureAbility(w);
+    state.input.azure = false;
+  }
+
+  if (state.input.amber) {
+    useAmberAbility(w);
+    state.input.amber = false;
   }
 
   if (state.input.firing) {
@@ -917,43 +994,76 @@ function countSlottedByType(type) {
   return getSlottedItems().filter((item) => item.type === type).length;
 }
 
-function useSpecialAbility(w) {
-  const p = w.player;
-  if (p.specialCd > 0) return;
+function getInputDirectionVector() {
+  const x = (state.input.right ? 1 : 0) - (state.input.left ? 1 : 0);
+  const y = (state.input.down ? 1 : 0) - (state.input.up ? 1 : 0);
+  const len = Math.hypot(x, y);
+  if (len <= 0.001) return null;
+  return { x: x / len, y: y / len };
+}
 
-  const module = pickAbility("special");
+function applyWarpBurstDamage(w, x, y, moduleLevel) {
+  const radius = 94 + moduleLevel * 1.9;
+  const baseDamage = 54 + moduleLevel * 3.1;
+
+  for (const e of w.enemies) {
+    if (e.hp <= 0) continue;
+    const d = Math.hypot(e.x - x, e.y - y);
+    if (d > radius) continue;
+
+    const falloff = 1 - d / radius;
+    const raw = baseDamage * (0.35 + falloff * 0.65);
+
+    if (e.kind === "mega_cannon_boss" && e.shieldT > 0) {
+      e.hp = Math.min(e.maxHp || e.hp, e.hp + raw * 0.45);
+      splash(w, e.x, e.y, "#9fd7ff", 6, 0.9);
+      continue;
+    }
+
+    let dealt = raw;
+    if (isMiniBossKind(e.kind)) {
+      const guard = Math.max(0, Math.min(0.9, e.guard || 0));
+      dealt *= (1 - guard);
+    }
+
+    e.hp -= dealt;
+    e.lastHitKind = "warp";
+  }
+
+  splash(w, x, y, "#8edbff", 22, 2.7);
+}
+
+function useVoidAbility(w) {
+  const p = w.player;
+  if (p.voidCd > 0) return;
+
+  const module = pickAbility("void");
   if (!module) return;
 
   const stacks = countSlottedByType(module.type);
 
   if (module.type === "warp") {
+    const sourceX = p.x;
+    const sourceY = p.y;
+    const dir = getInputDirectionVector();
+    if (!dir) return;
     const distance = 150 + module.level * 4.2;
-    const dx = Math.cos(p.angle);
-    const dy = Math.sin(p.angle);
-    p.x += dx * distance;
-    p.y += dy * distance;
+    p.x += dir.x * distance;
+    p.y += dir.y * distance;
     clampPlayer(p);
+    applyWarpBurstDamage(w, p.x, p.y, module.level);
+    splash(w, sourceX, sourceY, "#70ccff", 10, 1.45);
     p.dashIFrames = 0.22 + module.level * 0.003;
-    p.specialCd = Math.max(6 - module.level * 0.06, 1.1) * (1 - Math.min(0.35, (stacks - 1) * 0.08));
-    splash(w, p.x, p.y, "#7dd3fc", 16, 2.4);
+    p.voidCd = Math.max(6 - module.level * 0.06, 1.1) * (1 - Math.min(0.35, (stacks - 1) * 0.08));
     audio.play("warp");
-    return;
-  }
-
-  if (module.type === "mine") {
-    const radius = 46 + module.level * 1.7;
-    const damage = 44 + module.level * 3.4;
-    w.mines.push({ x: p.x, y: p.y, r: radius, dmg: damage, life: 18, armed: 0.35 });
-    p.specialCd = Math.max(4.6 - module.level * 0.05, 0.9) * (1 - Math.min(0.35, (stacks - 1) * 0.08));
-    audio.play("minePlace");
   }
 }
 
-function useSecondaryAbility(w) {
+function useAzureAbility(w) {
   const p = w.player;
-  if (p.secondaryCd > 0) return;
+  if (p.azureCd > 0) return;
 
-  const module = pickAbility("secondary");
+  const module = pickAbility("azure");
   if (!module) return;
 
   const stacks = countSlottedByType(module.type);
@@ -963,7 +1073,7 @@ function useSecondaryAbility(w) {
     const damage = 56 + module.level * 3.2;
     const speed = 280;
     w.rockets.push({ x: p.x, y: p.y, vx: Math.cos(p.angle) * speed, vy: Math.sin(p.angle) * speed, life: 4.2, dmg: damage, turn });
-    p.secondaryCd = Math.max(5.2 - module.level * 0.06, 1.0) * (1 - Math.min(0.35, (stacks - 1) * 0.08));
+    p.azureCd = Math.max(5.2 - module.level * 0.06, 1.0) * (1 - Math.min(0.35, (stacks - 1) * 0.08));
     audio.play("rocketLaunch");
     return;
   }
@@ -975,8 +1085,26 @@ function useSecondaryAbility(w) {
     const dmg = 11 + module.level * 1.6;
 
     w.helper = { x: p.x + 34, y: p.y, hp, maxHp: hp, life, fireCd: 0, fireRate, dmg, orbit: 0 };
-    p.secondaryCd = Math.max(8 - module.level * 0.05, 2.0) * (1 - Math.min(0.35, (stacks - 1) * 0.08));
+    p.azureCd = Math.max(8 - module.level * 0.05, 2.0) * (1 - Math.min(0.35, (stacks - 1) * 0.08));
     audio.play("helperSpawn");
+  }
+}
+
+function useAmberAbility(w) {
+  const p = w.player;
+  if (p.amberCd > 0) return;
+
+  const module = pickAbility("amber");
+  if (!module) return;
+
+  const stacks = countSlottedByType(module.type);
+
+  if (module.type === "mine") {
+    const radius = 46 + module.level * 1.7;
+    const damage = 44 + module.level * 3.4;
+    w.mines.push({ x: p.x, y: p.y, r: radius, dmg: damage, life: 18, armed: 0.35 });
+    p.amberCd = Math.max(4.6 - module.level * 0.05, 0.9) * (1 - Math.min(0.35, (stacks - 1) * 0.08));
+    audio.play("minePlace");
   }
 }
 

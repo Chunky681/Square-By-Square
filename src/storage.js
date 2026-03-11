@@ -1,6 +1,6 @@
 const STORAGE_KEY = "rift_run_profiles_v2";
 const MAX_LEVEL = 50;
-const MAX_SLOTS = 15;
+const MAX_SLOTS = 18;
 
 const ITEM_TYPES = new Set([
   "cannon",
