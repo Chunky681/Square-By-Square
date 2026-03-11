@@ -220,6 +220,24 @@ const ui = {
 const canvas = document.getElementById("game-canvas");
 const ctx = canvas.getContext("2d");
 const audio = createAudioSystem();
+const ENEMY_SKIN_CONFIG = {
+  chaser: { src: "./assets/ui/enemies/sheet/cell_r0_c0.png", scale: 2.2, spin: 0.26, pulseRate: 3.0, pulseAmp: 0.055, bobRate: 2.8, bobAmp: 0.55, glowRgb: "255,126,84", glowRate: 7.3 },
+  brute: { src: "./assets/ui/enemies/sheet/cell_r0_c4.png", scale: 2.3, spin: -0.14, pulseRate: 2.2, pulseAmp: 0.04, bobRate: 2.0, bobAmp: 0.35, glowRgb: "255,145,92", glowRate: 5.6 },
+  dart: { src: "./assets/ui/enemies/sheet/cell_r2_c3.png", scale: 2.65, spin: 0.82, pulseRate: 4.2, pulseAmp: 0.03, bobRate: 4.0, bobAmp: 0.7, glowRgb: "255,170,92", glowRate: 10.2 },
+  berserker: { src: "./assets/ui/enemies/sheet/cell_r2_c1.png", scale: 2.3, spin: 0.64, pulseRate: 4.4, pulseAmp: 0.075, bobRate: 3.2, bobAmp: 0.65, glowRgb: "255,102,92", glowRate: 11.2 },
+  tank: { src: "./assets/ui/enemies/sheet/cell_r1_c3.png", scale: 2.35, spin: -0.08, pulseRate: 2.0, pulseAmp: 0.03, bobRate: 1.9, bobAmp: 0.28, glowRgb: "124,236,118", glowRate: 4.8 },
+  phantom: { src: "./assets/ui/enemies/sheet/cell_r1_c1.png", scale: 2.3, spin: 0.24, pulseRate: 2.7, pulseAmp: 0.09, bobRate: 3.5, bobAmp: 0.85, glowRgb: "210,130,255", glowRate: 8.9, alpha: 0.88 },
+  leaper: { src: "./assets/ui/enemies/sheet/cell_r0_c3.png", scale: 2.4, spin: 0.48, pulseRate: 3.6, pulseAmp: 0.05, bobRate: 3.6, bobAmp: 0.85, glowRgb: "255,108,86", glowRate: 9.6 },
+  splitter: { src: "./assets/ui/enemies/sheet/cell_r0_c2.png", scale: 2.5, spin: -0.42, pulseRate: 2.9, pulseAmp: 0.06, bobRate: 2.7, bobAmp: 0.78, glowRgb: "255,116,226", glowRate: 8.3 },
+  shardling: { src: "./assets/ui/enemies/sheet/cell_r2_c0.png", scale: 2.0, spin: 0.54, pulseRate: 4.1, pulseAmp: 0.08, bobRate: 3.9, bobAmp: 0.76, glowRgb: "255,192,85", glowRate: 10.8 },
+  siphon: { src: "./assets/ui/enemies/sheet/cell_r2_c2.png", scale: 2.45, spin: -0.35, pulseRate: 3.3, pulseAmp: 0.065, bobRate: 2.6, bobAmp: 0.7, glowRgb: "201,120,255", glowRate: 7.9 },
+  mini_boss: { src: "./assets/ui/enemies/sheet/cell_r1_c0.png", scale: 2.8, spin: 0.2, pulseRate: 2.2, pulseAmp: 0.05, bobRate: 2.1, bobAmp: 0.62, glowRgb: "212,125,255", glowRate: 6.1 },
+  mini_boss_miner: { src: "./assets/ui/enemies/sheet/cell_r0_c1.png", scale: 2.85, spin: -0.18, pulseRate: 2.0, pulseAmp: 0.045, bobRate: 2.0, bobAmp: 0.58, glowRgb: "255,176,92", glowRate: 5.9 },
+  mega_cannon_boss: { src: "./assets/ui/enemies/sheet/cell_r2_c4.png", scale: 3.0, spin: 0.12, pulseRate: 1.8, pulseAmp: 0.035, bobRate: 1.8, bobAmp: 0.42, glowRgb: "255,176,118", glowRate: 5.2 },
+};
+const ENEMY_SPRITES = Object.fromEntries(
+  Object.entries(ENEMY_SKIN_CONFIG).map(([kind, cfg]) => [kind, { ...cfg, img: loadImage(cfg.src) }]),
+);
 
 const state = {
   player: null,
@@ -246,6 +264,12 @@ function boot() {
   loop(performance.now());
   buildTestSpawnButtons();
   updateTestSpawnPanelVisibility();
+}
+
+function loadImage(src) {
+  const img = new Image();
+  img.src = src;
+  return img;
 }
 
 function bindUI() {
@@ -1010,13 +1034,14 @@ function applyWarpBurstDamage(w, x, y, moduleLevel) {
     if (e.hp <= 0) continue;
     const d = Math.hypot(e.x - x, e.y - y);
     if (d > radius) continue;
+    markEnemyHit(e);
 
     const falloff = 1 - d / radius;
     const raw = baseDamage * (0.35 + falloff * 0.65);
 
     if (e.kind === "mega_cannon_boss" && e.shieldT > 0) {
       e.hp = Math.min(e.maxHp || e.hp, e.hp + raw * 0.45);
-      splash(w, e.x, e.y, "#9fd7ff", 6, 0.9);
+      splash(w, e.x, e.y, "#8effa8", 6, 0.9);
       continue;
     }
 
@@ -1151,6 +1176,28 @@ function placeEnemyMine(w, x, y, opts = {}) {
     trigger,
     pulse: Math.random() * 6.28,
   });
+}
+
+function markEnemyHit(e) {
+  if (!e) return;
+  const fallbackMax = Math.max(1, e.hp || 1);
+  if (!Number.isFinite(e.maxHp) || e.maxHp <= 0) e.maxHp = fallbackMax;
+  e.showHp = true;
+  e.hitFlash = Math.max(e.hitFlash || 0, 0.16);
+}
+
+function shortestAngleDelta(fromAngle, toAngle) {
+  let delta = toAngle - fromAngle;
+  while (delta > Math.PI) delta -= Math.PI * 2;
+  while (delta < -Math.PI) delta += Math.PI * 2;
+  return delta;
+}
+
+function getEnemyTurnRate(kind) {
+  if (kind === "dart" || kind === "shardling") return 12.5;
+  if (kind === "berserker" || kind === "phantom") return 10.5;
+  if (kind === "mini_boss" || kind === "mini_boss_miner" || kind === "mega_cannon_boss") return 5.8;
+  return 8.8;
 }
 
 function spawnEnemyByKind(w, kind, x, y) {
@@ -1406,11 +1453,12 @@ function stepMines(w, dt) {
       if (e.hp <= 0) continue;
       const d = Math.hypot(e.x - m.x, e.y - m.y);
       if (d <= m.r) {
+        markEnemyHit(e);
         const falloff = 1 - d / m.r;
         const dealt = m.dmg * (0.35 + falloff * 0.65);
         if (e.kind === "mega_cannon_boss" && e.shieldT > 0) {
           e.hp = Math.min(e.maxHp || e.hp, e.hp + dealt * 0.55);
-          splash(w, e.x, e.y, "#9ed3ff", 6, 1.0);
+          splash(w, e.x, e.y, "#8bff9f", 6, 1.0);
         } else {
           e.hp -= dealt;
           e.lastHitKind = "mine";
@@ -1517,9 +1565,17 @@ function stepHelper(w, dt) {
 function stepEnemies(w, dt) {
   const p = w.player;
   for (const e of w.enemies) {
+    if (!Number.isFinite(e.maxHp) || e.maxHp <= 0) e.maxHp = Math.max(1, e.hp || 1);
+    e.hitFlash = Math.max(0, (e.hitFlash || 0) - dt);
+
     const dx = p.x - e.x;
     const dy = p.y - e.y;
     const d = Math.hypot(dx, dy) || 1;
+    const desiredFacing = Math.atan2(dy, dx);
+    if (!Number.isFinite(e.facing)) e.facing = desiredFacing;
+    const turnRate = getEnemyTurnRate(e.kind);
+    const deltaFacing = shortestAngleDelta(e.facing, desiredFacing);
+    e.facing += clamp(deltaFacing, -turnRate * dt, turnRate * dt);
 
     if (e.kind === "dart") {
       const preferred = 250;
@@ -1795,7 +1851,7 @@ function stepEnemies(w, dt) {
       if (e.shieldCd <= 0 && e.shieldT <= 0) {
         e.shieldT = phase === 1 ? 2.0 : 2.8;
         e.shieldCd = phase === 1 ? 8.9 : 6.7;
-        splash(w, e.x, e.y, "#9fd8ff", 12, 1.45);
+        splash(w, e.x, e.y, "#7cff95", 14, 1.7);
       }
 
       e.guard = e.shieldT > 0 ? 0.85 : (phase === 1 ? 0.34 : 0.4);
@@ -1893,11 +1949,12 @@ function resolveCombat(w) {
       for (const e of w.enemies) {
         if (e.hp <= 0) continue;
         if (Math.hypot(b.x - e.x, b.y - e.y) <= e.r + 4) {
+          markEnemyHit(e);
           if (e.kind === "mega_cannon_boss" && e.shieldT > 0) {
             const heal = Math.max(4, b.dmg * 0.6);
             e.hp = Math.min(e.maxHp || e.hp, e.hp + heal);
             b.life = 0;
-            splash(w, e.x, e.y, "#9fd7ff", 7, 1.05);
+            splash(w, e.x, e.y, "#8effa6", 7, 1.05);
             break;
           }
 
@@ -1957,10 +2014,11 @@ function resolveCombat(w) {
       if (e.hp <= 0) continue;
       const d = Math.hypot(e.x - r.x, e.y - r.y);
       if (d <= 95) {
+        markEnemyHit(e);
         if (e.kind === "mega_cannon_boss" && e.shieldT > 0) {
           const heal = Math.max(5, r.dmg * 0.48);
           e.hp = Math.min(e.maxHp || e.hp, e.hp + heal);
-          splash(w, e.x, e.y, "#9fd7ff", 8, 1.1);
+          splash(w, e.x, e.y, "#8effa6", 8, 1.1);
           continue;
         }
         const falloff = 1 - d / 95;
@@ -2082,6 +2140,95 @@ function stepParticles(w, dt) {
   w.particles = w.particles.filter((p) => p.life > 0);
 }
 
+function getEnemyTelegraphState(e, worldTime) {
+  let intensity = 0;
+  let color = "255,170,112";
+  const setTelegraph = (value, rgb) => {
+    if (value > intensity) {
+      intensity = value;
+      color = rgb;
+    }
+  };
+
+  if (e.windup > 0) {
+    const total = e.kind === "mini_boss" ? 0.44 : 0.36;
+    const p = 1 - clamp(e.windup / Math.max(0.01, total), 0, 1);
+    setTelegraph(0.46 + p * 0.54, e.kind === "mini_boss" ? "255,162,104" : "140,255,196");
+  }
+  if (e.kind === "mega_cannon_boss" && e.chargeT > 0) {
+    const total = e.phase === 1 ? 1.2 : 1.0;
+    const p = 1 - clamp(e.chargeT / Math.max(0.01, total), 0, 1);
+    setTelegraph(0.52 + p * 0.48, "255,188,118");
+  }
+  if (e.kind === "mega_cannon_boss" && e.shieldT > 0) {
+    const total = e.phase === 1 ? 2.0 : 2.8;
+    const p = 1 - clamp(e.shieldT / Math.max(0.01, total), 0, 1);
+    setTelegraph(0.62 + p * 0.3, "126,255,156");
+  }
+  if (e.kind === "dart" && (e.cd || 0) < 0.24) {
+    const p = 1 - clamp((e.cd || 0) / 0.24, 0, 1);
+    setTelegraph(0.22 + p * 0.5, "255,134,108");
+  }
+  if (e.kind === "siphon" && (e.drainCd || 0) < 0.14) {
+    const p = 1 - clamp((e.drainCd || 0) / 0.14, 0, 1);
+    setTelegraph(0.24 + p * 0.46, "203,138,255");
+  }
+  if (e.kind === "mini_boss" && (e.volleyCd || 0) < 0.2) {
+    const p = 1 - clamp((e.volleyCd || 0) / 0.2, 0, 1);
+    setTelegraph(0.24 + p * 0.36, "255,150,114");
+  }
+  if (e.kind === "mini_boss_miner" && (e.detonateCd || 0) < 0.5) {
+    const p = 1 - clamp((e.detonateCd || 0) / 0.5, 0, 1);
+    setTelegraph(0.28 + p * 0.52, "255,187,106");
+  }
+
+  const clampedIntensity = clamp(intensity, 0, 1);
+  const pulse = (Math.sin(worldTime * (10 + clampedIntensity * 10) + e.r * 0.37 + (e.orbit || e.zig || 0)) + 1) * 0.5;
+  return { intensity: clampedIntensity, color, pulse };
+}
+
+function drawEnemySprite(e, worldTime, telegraph) {
+  const skin = ENEMY_SPRITES[e.kind];
+  if (!skin || !skin.img || !skin.img.complete || skin.img.naturalWidth <= 0) return false;
+
+  const seed = (e.orbit || e.zig || e.phase || 0) + e.r * 0.17;
+  const telegraphIntensity = clamp(telegraph?.intensity || 0, 0, 1);
+  const hitFlash = clamp((e.hitFlash || 0) / 0.16, 0, 1);
+  const pulse = 1 + Math.sin(worldTime * (skin.pulseRate || 2.8) + seed) * (skin.pulseAmp || 0.04);
+  const bob = Math.sin(worldTime * (skin.bobRate || 2.4) + seed * 1.3) * (skin.bobAmp || 0.45) * (e.r / 20);
+  const size = e.r * (skin.scale || 2.25) * pulse * (1 + telegraphIntensity * 0.08 + (telegraph?.pulse || 0) * telegraphIntensity * 0.04);
+  const shake = Math.sin(worldTime * (12 + telegraphIntensity * 18) + seed * 2.1) * telegraphIntensity * 0.08;
+  const rot = (e.facing || 0) + (skin.facingOffset || 0) + shake;
+
+  ctx.save();
+  ctx.translate(e.x, e.y + bob);
+  ctx.rotate(rot);
+  ctx.globalAlpha = (skin.alpha ?? 0.98) * (1 + hitFlash * 0.05);
+  if (telegraphIntensity > 0.02) {
+    ctx.shadowColor = `rgba(${telegraph?.color || skin.glowRgb || "255,160,110"},${0.24 + telegraphIntensity * 0.4})`;
+    ctx.shadowBlur = 7 + telegraphIntensity * 14;
+  }
+  ctx.drawImage(skin.img, -size * 0.5, -size * 0.5, size, size);
+  ctx.restore();
+
+  const glowPulse = (Math.sin(worldTime * (skin.glowRate || 6.5) + seed) + 1) * 0.5;
+  const glowRgb = telegraphIntensity > 0.08 ? (telegraph?.color || skin.glowRgb || "255,142,94") : (skin.glowRgb || "255,142,94");
+  const glowAlpha = 0.16 + glowPulse * 0.22 + telegraphIntensity * 0.35 + hitFlash * 0.34;
+  ctx.strokeStyle = `rgba(${glowRgb},${glowAlpha})`;
+  ctx.lineWidth = 1.4 + telegraphIntensity * 1.1;
+  ctx.beginPath();
+  ctx.arc(e.x, e.y, e.r + 3 + glowPulse * 2.2 + telegraphIntensity * 3.4, 0, Math.PI * 2);
+  ctx.stroke();
+  if (hitFlash > 0.02) {
+    ctx.fillStyle = `rgba(255,247,213,${hitFlash * 0.22})`;
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, e.r + 1.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.lineWidth = 1;
+  return true;
+}
+
 function drawGame() {
   const w = state.world;
   if (!w) return;
@@ -2158,56 +2305,86 @@ function drawGame() {
   ctx.lineWidth = 1;
 
   for (const e of w.enemies) {
-    ctx.fillStyle = e.kind === "mini_boss"
-      ? "#ff8b5c"
-      : e.kind === "mini_boss_miner"
+    const telegraph = getEnemyTelegraphState(e, w.t);
+    const drewSprite = drawEnemySprite(e, w.t, telegraph);
+    if (!drewSprite) {
+      ctx.fillStyle = e.kind === "mini_boss_miner"
         ? "#ffb160"
         : e.kind === "mega_cannon_boss"
           ? "#ffcb84"
-      : e.kind === "tank"
-      ? "#ffcc74"
-      : e.kind === "phantom"
-        ? "#7f9bff"
-        : e.kind === "brute"
-          ? "#ffb36a"
-          : e.kind === "dart"
-            ? "#c58bff"
-            : e.kind === "berserker"
-              ? "#ff7f94"
-              : e.kind === "leaper"
-                ? "#8bffc5"
-                : e.kind === "splitter"
-                  ? "#ff9cd7"
-                  : e.kind === "shardling"
-                    ? "#ffd5fb"
-                    : e.kind === "siphon"
-                      ? "#b388ff"
-                      : "#ff6f6f";
-    ctx.beginPath();
-    ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2);
-    ctx.fill();
+        : e.kind === "tank"
+        ? "#ffcc74"
+        : e.kind === "phantom"
+          ? "#7f9bff"
+          : e.kind === "brute"
+            ? "#ffb36a"
+            : e.kind === "dart"
+              ? "#c58bff"
+              : e.kind === "berserker"
+                ? "#ff7f94"
+                : e.kind === "leaper"
+                  ? "#8bffc5"
+                  : e.kind === "splitter"
+                    ? "#ff9cd7"
+                    : e.kind === "shardling"
+                      ? "#ffd5fb"
+                      : e.kind === "siphon"
+                        ? "#b388ff"
+                        : "#ff6f6f";
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2);
+      ctx.fill();
+
+      const nose = e.facing || 0;
+      ctx.strokeStyle = "rgba(255,255,255,0.72)";
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.moveTo(e.x, e.y);
+      ctx.lineTo(e.x + Math.cos(nose) * (e.r + 6), e.y + Math.sin(nose) * (e.r + 6));
+      ctx.stroke();
+      ctx.lineWidth = 1;
+    }
+
+    if (telegraph.intensity > 0.05) {
+      const outer = e.r + 7 + telegraph.pulse * (3 + telegraph.intensity * 5);
+      const burstSpin = w.t * (1.8 + telegraph.intensity * 2.4);
+      ctx.strokeStyle = `rgba(${telegraph.color},${0.22 + telegraph.intensity * 0.48})`;
+      ctx.lineWidth = 1.1 + telegraph.intensity * 1.6;
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, outer, 0, Math.PI * 2);
+      ctx.stroke();
+
+      const spikes = 3 + Math.floor(telegraph.intensity * 4);
+      for (let i = 0; i < spikes; i += 1) {
+        const a = burstSpin + (i / spikes) * Math.PI * 2;
+        const inner = outer + 1.5;
+        const tip = inner + 4 + telegraph.intensity * 7;
+        ctx.beginPath();
+        ctx.moveTo(e.x + Math.cos(a) * inner, e.y + Math.sin(a) * inner);
+        ctx.lineTo(e.x + Math.cos(a) * tip, e.y + Math.sin(a) * tip);
+        ctx.stroke();
+      }
+      ctx.lineWidth = 1;
+    }
+
+    if (e.showHp) {
+      const hpPct = clamp(e.hp / Math.max(1, e.maxHp || e.hp), 0, 1);
+      const barW = Math.max(24, e.r * 2.2);
+      const barH = e.kind === "mini_boss" || e.kind === "mini_boss_miner" || e.kind === "mega_cannon_boss" ? 6 : 4;
+      const barX = e.x - barW * 0.5;
+      const barY = e.y - e.r - 15;
+
+      ctx.fillStyle = "rgba(12,18,27,0.78)";
+      ctx.fillRect(barX - 1.5, barY - 1.5, barW + 3, barH + 3);
+      ctx.fillStyle = "rgba(255,255,255,0.16)";
+      ctx.fillRect(barX, barY, barW, barH);
+      ctx.fillStyle = hpPct > 0.6 ? "#84ef9a" : hpPct > 0.32 ? "#ffd17a" : "#ff8989";
+      ctx.fillRect(barX, barY, barW * hpPct, barH);
+    }
 
     if (e.kind === "mini_boss" || e.kind === "mini_boss_miner" || e.kind === "mega_cannon_boss") {
-      const hpPct = e.hp / Math.max(1, e.maxHp || e.hp);
       const guard = Math.max(0, Math.min(0.85, e.guard || 0));
       const phase = e.phase || 1;
-      const phaseColor = e.kind === "mini_boss_miner"
-        ? (phase === 1 ? "#ffd892" : phase === 2 ? "#ffaf64" : "#ff8a54")
-        : e.kind === "mega_cannon_boss"
-          ? (phase === 1 ? "#ffe0a8" : "#ffb770")
-        : (phase === 1 ? "#ffd38c" : phase === 2 ? "#ff9f6f" : "#ff6f5c");
-
-      ctx.strokeStyle = "rgba(255, 220, 170, 0.35)";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(e.x, e.y, e.r + 7, 0, Math.PI * 2);
-      ctx.stroke();
-
-      ctx.strokeStyle = phaseColor;
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.arc(e.x, e.y, e.r + 7, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * hpPct);
-      ctx.stroke();
 
       if (e.kind === "mini_boss" && e.windup > 0) {
         const t = Math.max(0, Math.min(1, e.windup / 0.45));
@@ -2239,16 +2416,45 @@ function drawGame() {
         ctx.stroke();
 
         if (e.shieldT > 0) {
-          const pulse = (Math.sin(w.t * 8.5) + 1) * 0.5;
-          ctx.strokeStyle = `rgba(159,216,255,${0.45 + pulse * 0.35})`;
-          ctx.lineWidth = 3;
+          const total = phase === 1 ? 2.0 : 2.8;
+          const chargeUp = 1 - clamp(e.shieldT / total, 0, 1);
+          const pulse = (Math.sin(w.t * 9.2) + 1) * 0.5;
+          const spin = w.t * (2.4 + pulse * 0.8);
+
+          ctx.fillStyle = `rgba(112,255,144,${0.12 + pulse * 0.08 + chargeUp * 0.08})`;
           ctx.beginPath();
-          ctx.arc(e.x, e.y, e.r + 16 + pulse * 3, 0, Math.PI * 2);
+          ctx.arc(e.x, e.y, e.r + 11 + pulse * 5, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.strokeStyle = `rgba(122,255,156,${0.5 + pulse * 0.3})`;
+          ctx.lineWidth = 2.8;
+          ctx.beginPath();
+          ctx.arc(e.x, e.y, e.r + 16 + pulse * 4, 0, Math.PI * 2);
           ctx.stroke();
+
+          ctx.strokeStyle = `rgba(186,255,200,${0.22 + chargeUp * 0.35})`;
+          ctx.lineWidth = 1.6;
+          ctx.beginPath();
+          ctx.arc(e.x, e.y, e.r + 25 + pulse * 8, 0, Math.PI * 2);
+          ctx.stroke();
+
+          const rays = 6;
+          ctx.strokeStyle = `rgba(154,255,176,${0.24 + pulse * 0.28})`;
+          ctx.lineWidth = 1.3;
+          for (let i = 0; i < rays; i += 1) {
+            const a = spin + (i / rays) * Math.PI * 2;
+            const inner = e.r + 12 + pulse * 3;
+            const outer = e.r + 22 + pulse * 8 + chargeUp * 6;
+            ctx.beginPath();
+            ctx.moveTo(e.x + Math.cos(a) * inner, e.y + Math.sin(a) * inner);
+            ctx.lineTo(e.x + Math.cos(a) * outer, e.y + Math.sin(a) * outer);
+            ctx.stroke();
+          }
         }
 
         if (e.chargeT > 0) {
-          const t = Math.max(0, Math.min(1, e.chargeT / 1.2));
+          const total = phase === 1 ? 1.2 : 1.0;
+          const t = Math.max(0, Math.min(1, e.chargeT / total));
           ctx.strokeStyle = `rgba(255,178,117,${0.35 + (1 - t) * 0.5})`;
           ctx.lineWidth = 2.2;
           ctx.beginPath();
