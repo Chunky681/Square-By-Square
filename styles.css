@@ -351,6 +351,16 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 .test-spawn-panel.active { display: grid; gap: 0.45rem; }
 .test-spawn-panel h3 { margin: 0; font-size: 0.88rem; letter-spacing: 0.05em; color: #cbe8ff; }
+.test-controls { display: grid; gap: 0.38rem; }
+.test-control { display: grid; gap: 0.22rem; font-size: 0.72rem; color: #bfd8ee; letter-spacing: 0.03em; }
+.test-control select { padding: 0.32rem 0.44rem; border-radius: 7px; font-size: 0.78rem; }
+.test-exit-btn {
+  border-color: #6d4f5f;
+  background: #2b1d26;
+  font-size: 0.78rem;
+  padding: 0.34rem 0.48rem;
+}
+.test-exit-btn:hover { background: #3a2532; }
 .test-spawn-list { display: grid; gap: 0.35rem; overflow: auto; padding-right: 0.2rem; }
 .test-spawn-btn {
   border: 1px solid #2f5777;

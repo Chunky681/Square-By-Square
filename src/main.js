@@ -215,6 +215,8 @@ const ui = {
   hudDifficulty: document.getElementById("hud-difficulty"),
   testSpawnPanel: document.getElementById("test-spawn-panel"),
   testSpawnList: document.getElementById("test-spawn-list"),
+  testDifficultySelect: document.getElementById("test-difficulty-select"),
+  testExitBtn: document.getElementById("test-exit-btn"),
 };
 
 const canvas = document.getElementById("game-canvas");
@@ -245,6 +247,7 @@ const state = {
   playerAtRunStart: null,
   mode: "id",
   selectedDifficulty: 1,
+  testDifficulty: 1,
   input: { up: false, down: false, left: false, right: false, firing: false, void: false, azure: false, amber: false },
   mouse: { x: 0, y: 0 },
   world: null,
@@ -259,6 +262,7 @@ function boot() {
   bindUI();
   bindInput();
   fillDifficultySelect();
+  fillTestDifficultySelect();
   updateDifficultyNote();
   resize();
   window.addEventListener("resize", resize);
@@ -295,6 +299,18 @@ function bindUI() {
     state.selectedDifficulty = selected === TEST_DIFFICULTY_VALUE ? TEST_DIFFICULTY_VALUE : (Number(selected) || 1);
     updateDifficultyNote();
   });
+
+  if (ui.testDifficultySelect) {
+    ui.testDifficultySelect.addEventListener("change", () => {
+      const selected = Number(ui.testDifficultySelect.value) || 1;
+      setTestModeDifficulty(selected);
+    });
+  }
+  if (ui.testExitBtn) {
+    ui.testExitBtn.addEventListener("click", () => {
+      if (state.world?.isTestMode && state.mode === "game") exitTestModeRun();
+    });
+  }
 }
 
 function submitPlayerId() {
@@ -322,6 +338,11 @@ function submitPlayerId() {
 function bindInput() {
   window.addEventListener("keydown", (e) => {
     const k = e.key.toLowerCase();
+    if (k === "escape" && state.mode === "game" && state.world?.isTestMode) {
+      e.preventDefault();
+      exitTestModeRun();
+      return;
+    }
     if (k === "w" || k === "arrowup") state.input.up = true;
     if (k === "s" || k === "arrowdown") state.input.down = true;
     if (k === "a" || k === "arrowleft") state.input.left = true;
@@ -367,6 +388,18 @@ function fillDifficultySelect() {
   ui.difficultySelect.value = String(state.selectedDifficulty);
 }
 
+function fillTestDifficultySelect() {
+  if (!ui.testDifficultySelect) return;
+  ui.testDifficultySelect.innerHTML = "";
+  for (let d = 1; d <= 10; d += 1) {
+    const option = document.createElement("option");
+    option.value = String(d);
+    option.textContent = `D${d}`;
+    ui.testDifficultySelect.appendChild(option);
+  }
+  ui.testDifficultySelect.value = String(state.testDifficulty || 1);
+}
+
 function isTestDifficulty(difficulty) {
   return difficulty === TEST_DIFFICULTY_VALUE;
 }
@@ -379,7 +412,7 @@ function getDifficultyTier(difficulty) {
 
 function updateDifficultyNote() {
   if (isTestDifficulty(state.selectedDifficulty)) {
-    ui.difficultyNote.textContent = "Test: 1:00 run, no auto waves, use the right-side spawn panel to spawn enemies.";
+    ui.difficultyNote.textContent = `Test: endless run, no auto waves. Use the right panel to spawn enemies and live-scale at D${state.testDifficulty}.`;
     return;
   }
 
@@ -420,10 +453,36 @@ function buildTestSpawnButtons() {
   }
 }
 
+function setTestModeDifficulty(difficulty) {
+  const d = getDifficultyTier(difficulty);
+  state.testDifficulty = d;
+  if (ui.testDifficultySelect) ui.testDifficultySelect.value = String(d);
+  updateDifficultyNote();
+
+  const w = state.world;
+  if (!w || !w.isTestMode) return;
+  w.difficulty = d;
+  w.scale = difficultyScale(d);
+  w.difficultyMode = `test-${d}`;
+}
+
+function exitTestModeRun() {
+  if (!state.world?.isTestMode) return;
+  state.world = null;
+  state.input.firing = false;
+  state.input.void = false;
+  state.input.azure = false;
+  state.input.amber = false;
+  openMenu();
+}
+
 function updateTestSpawnPanelVisibility() {
   if (!ui.testSpawnPanel) return;
   const show = state.mode === "game" && !!state.world?.isTestMode;
   ui.testSpawnPanel.classList.toggle("active", show);
+  if (show && ui.testDifficultySelect) {
+    ui.testDifficultySelect.value = String(state.world?.difficulty || state.testDifficulty || 1);
+  }
 }
 
 function spawnEnemyFromTestPanel(kind) {
@@ -778,7 +837,7 @@ function startRun() {
 
 function makeWorld(profile, difficulty) {
   const isTestMode = isTestDifficulty(difficulty);
-  const difficultyTier = getDifficultyTier(difficulty);
+  const difficultyTier = isTestMode ? getDifficultyTier(state.testDifficulty) : getDifficultyTier(difficulty);
   const scale = difficultyScale(difficultyTier);
 
   const slottedItems = profile.items.filter((item) => item.slot !== null && item.slot >= 0 && item.slot < MAX_VISIBLE_SLOTS);
@@ -798,7 +857,7 @@ function makeWorld(profile, difficulty) {
     isTestMode,
     scale,
     t: 0,
-    timer: RUN_DURATION,
+    timer: isTestMode ? Number.POSITIVE_INFINITY : RUN_DURATION,
     nextSpawn: 0.8,
     threat: 1,
     kills: 0,
@@ -853,7 +912,7 @@ function stepGame(dt) {
   const p = w.player;
 
   w.t += dt;
-  w.timer = Math.max(0, RUN_DURATION - w.t);
+  w.timer = w.isTestMode ? Number.POSITIVE_INFINITY : Math.max(0, RUN_DURATION - w.t);
   w.threat = 1 + Math.floor(w.t / 22);
 
   p.voidCd = Math.max(0, p.voidCd - dt);
@@ -916,11 +975,15 @@ function stepGame(dt) {
   updateHud(w);
 
   if (p.hp <= 0) {
+    if (w.isTestMode) {
+      exitTestModeRun();
+      return;
+    }
     endRun(false);
     return;
   }
 
-  if (w.timer <= 0) {
+  if (!w.isTestMode && w.timer <= 0) {
     endRun(true);
   }
 }
@@ -2957,7 +3020,7 @@ function clampPlayer(p) {
 
 function updateHud(w) {
   const p = w.player;
-  ui.timer.textContent = formatTime(w.timer);
+  ui.timer.textContent = w.isTestMode ? "TEST \u221e" : formatTime(w.timer);
   ui.health.textContent = `HP ${Math.max(0, Math.floor(p.hp))}/${Math.floor(p.maxHp)}`;
   if (ui.runEssenceValue) ui.runEssenceValue.textContent = String(Math.floor(w.runEssence));
   else ui.runEssence.textContent = `Run Essence ${Math.floor(w.runEssence)}`;
@@ -2969,7 +3032,7 @@ function updateHud(w) {
   else ui.runAmber.textContent = `Run Amber ${Math.floor(w.runAmber)}`;
   ui.kills.textContent = `Kills ${w.kills}`;
   ui.wave.textContent = `Threat ${w.threat}`;
-  ui.hudDifficulty.textContent = w.isTestMode ? "TEST" : `D${w.difficulty}`;
+  ui.hudDifficulty.textContent = w.isTestMode ? `TEST D${w.difficulty}` : `D${w.difficulty}`;
 }
 
 function createAudioSystem() {
