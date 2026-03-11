@@ -1,5 +1,6 @@
 
 import { clonePlayer, getOrCreatePlayer, savePlayer } from "./storage.js";
+import { ENEMY_CONFIG, pickEnemyKindForDifficulty } from "./enemyConfig.js";
 
 const RUN_DURATION = 60;
 const MAX_UPGRADE_LEVEL = 50;
@@ -137,6 +138,7 @@ const DIFFICULTY_META = {
   9: "Cataclysm",
   10: "Abyss",
 };
+const TEST_DIFFICULTY_VALUE = "test";
 
 const DROP_COLORS = {
   essence: "#9cf3a6",
@@ -200,6 +202,8 @@ const ui = {
   kills: document.getElementById("hud-kills"),
   wave: document.getElementById("hud-wave"),
   hudDifficulty: document.getElementById("hud-difficulty"),
+  testSpawnPanel: document.getElementById("test-spawn-panel"),
+  testSpawnList: document.getElementById("test-spawn-list"),
 };
 
 const canvas = document.getElementById("game-canvas");
@@ -229,6 +233,8 @@ function boot() {
   resize();
   window.addEventListener("resize", resize);
   loop(performance.now());
+  buildTestSpawnButtons();
+  updateTestSpawnPanelVisibility();
 }
 
 function bindUI() {
@@ -249,7 +255,8 @@ function bindUI() {
   ui.resultRetry.addEventListener("click", startRun);
 
   ui.difficultySelect.addEventListener("change", () => {
-    state.selectedDifficulty = Number(ui.difficultySelect.value) || 1;
+    const selected = ui.difficultySelect.value;
+    state.selectedDifficulty = selected === TEST_DIFFICULTY_VALUE ? TEST_DIFFICULTY_VALUE : (Number(selected) || 1);
     updateDifficultyNote();
   });
 }
@@ -316,11 +323,30 @@ function fillDifficultySelect() {
     option.textContent = `D${d} - ${DIFFICULTY_META[d]}`;
     ui.difficultySelect.appendChild(option);
   }
+  const testOption = document.createElement("option");
+  testOption.value = TEST_DIFFICULTY_VALUE;
+  testOption.textContent = "Test - Manual Spawns";
+  ui.difficultySelect.appendChild(testOption);
   ui.difficultySelect.value = String(state.selectedDifficulty);
 }
 
+function isTestDifficulty(difficulty) {
+  return difficulty === TEST_DIFFICULTY_VALUE;
+}
+
+function getDifficultyTier(difficulty) {
+  const n = Number(difficulty);
+  if (!Number.isFinite(n)) return 1;
+  return clamp(Math.floor(n), 1, 10);
+}
+
 function updateDifficultyNote() {
-  const d = state.selectedDifficulty;
+  if (isTestDifficulty(state.selectedDifficulty)) {
+    ui.difficultyNote.textContent = "Test: 1:00 run, no auto waves, use the right-side spawn panel to spawn enemies.";
+    return;
+  }
+
+  const d = getDifficultyTier(state.selectedDifficulty);
   const s = difficultyScale(d);
   ui.difficultyNote.textContent = `D${d} ${DIFFICULTY_META[d]}: enemy HP x${s.enemyHp.toFixed(2)}, speed x${s.enemySpeed.toFixed(2)}, rewards x${s.reward.toFixed(2)}.`;
 }
@@ -335,6 +361,49 @@ function difficultyScale(d) {
   };
 }
 
+function formatEnemyName(kind) {
+  return String(kind)
+    .split(/[_-]/g)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function buildTestSpawnButtons() {
+  if (!ui.testSpawnList) return;
+  ui.testSpawnList.innerHTML = "";
+
+  for (const kind of Object.keys(ENEMY_CONFIG)) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "test-spawn-btn";
+    btn.textContent = formatEnemyName(kind);
+    btn.addEventListener("click", () => spawnEnemyFromTestPanel(kind));
+    ui.testSpawnList.appendChild(btn);
+  }
+}
+
+function updateTestSpawnPanelVisibility() {
+  if (!ui.testSpawnPanel) return;
+  const show = state.mode === "game" && !!state.world?.isTestMode;
+  ui.testSpawnPanel.classList.toggle("active", show);
+}
+
+function spawnEnemyFromTestPanel(kind) {
+  const w = state.world;
+  if (!w || !w.isTestMode || state.mode !== "game") return;
+
+  const edge = Math.floor(Math.random() * 4);
+  let x = 0;
+  let y = 0;
+  if (edge === 0) { x = -24; y = Math.random() * canvas.height; }
+  if (edge === 1) { x = canvas.width + 24; y = Math.random() * canvas.height; }
+  if (edge === 2) { x = Math.random() * canvas.width; y = -24; }
+  if (edge === 3) { x = Math.random() * canvas.width; y = canvas.height + 24; }
+
+  spawnEnemyByKind(w, kind, x, y);
+}
+
 function resize() {
   const dpr = Math.max(1, window.devicePixelRatio || 1);
   canvas.width = Math.floor(window.innerWidth * dpr);
@@ -344,6 +413,7 @@ function resize() {
 function setScreen(name) {
   state.mode = name;
   Object.entries(screens).forEach(([key, el]) => el.classList.toggle("active", key === name));
+  updateTestSpawnPanelVisibility();
 }
 
 function openMenu() {
@@ -612,7 +682,9 @@ function startRun() {
 }
 
 function makeWorld(profile, difficulty) {
-  const scale = difficultyScale(difficulty);
+  const isTestMode = isTestDifficulty(difficulty);
+  const difficultyTier = getDifficultyTier(difficulty);
+  const scale = difficultyScale(difficultyTier);
 
   const slottedItems = profile.items.filter((item) => item.slot !== null && item.slot >= 0 && item.slot < MAX_VISIBLE_SLOTS);
   const platingPower = totalItemLevel(slottedItems, "plating");
@@ -626,7 +698,9 @@ function makeWorld(profile, difficulty) {
   const magnet = 120 + profile.upgrades.magnet * 3;
 
   return {
-    difficulty,
+    difficulty: difficultyTier,
+    difficultyMode: isTestMode ? TEST_DIFFICULTY_VALUE : String(difficultyTier),
+    isTestMode,
     scale,
     t: 0,
     timer: RUN_DURATION,
@@ -642,6 +716,7 @@ function makeWorld(profile, difficulty) {
     enemies: [],
     drops: [],
     mines: [],
+    enemyMines: [],
     rockets: [],
     helper: null,
     player: {
@@ -720,7 +795,7 @@ function stepGame(dt) {
     fireSlottedWeapons(w);
   }
 
-  if (w.t >= w.nextSpawn) {
+  if (!w.isTestMode && w.t >= w.nextSpawn) {
     spawnEnemyWave(w);
     const baseGap = Math.max(0.35, 1.02 - w.threat * 0.022);
     w.nextSpawn += baseGap / w.scale.spawnRate;
@@ -729,6 +804,7 @@ function stepGame(dt) {
   stepBullets(w, dt);
   stepRockets(w, dt);
   stepMines(w, dt);
+  stepEnemyMines(w, dt);
   stepHelper(w, dt);
   stepEnemies(w, dt);
   resolveCombat(w);
@@ -920,10 +996,206 @@ function fireCannon(w, originX, originY, angle, damage, speed) {
   });
 }
 
+function isEnemyEnabledForWorld(w, kind) {
+  const cfg = ENEMY_CONFIG[kind];
+  if (!cfg) return false;
+  if (!cfg.enabled) return false;
+  return w.difficulty >= (cfg.startDifficulty || 1);
+}
+
+function isMiniBossKind(kind) {
+  return kind === "mini_boss" || kind === "mini_boss_miner" || kind === "mega_cannon_boss";
+}
+
+function placeEnemyMine(w, x, y, opts = {}) {
+  const radius = opts.radius ?? 72;
+  const damage = opts.damage ?? 26;
+  const armed = opts.armed ?? 0.9;
+  const life = opts.life ?? 11.5;
+  const trigger = opts.trigger ?? Math.max(30, radius * 0.48);
+  w.enemyMines.push({
+    x,
+    y,
+    r: radius,
+    dmg: damage,
+    armed,
+    life,
+    trigger,
+    pulse: Math.random() * 6.28,
+  });
+}
+
+function spawnEnemyByKind(w, kind, x, y) {
+  const hpScale = w.scale.enemyHp;
+  const spdScale = w.scale.enemySpeed;
+
+  if (kind === "chaser") {
+    w.enemies.push({ kind, x, y, hp: (34 + w.threat * 4) * hpScale, speed: (140 + w.threat * 2) * spdScale, r: 12, cd: 0, zig: 0 });
+    return;
+  }
+
+  if (kind === "brute") {
+    w.enemies.push({ kind, x, y, hp: (90 + w.threat * 10) * hpScale, speed: (92 + w.threat) * spdScale, r: 17, cd: 0, zig: 0 });
+    return;
+  }
+
+  if (kind === "dart") {
+    w.enemies.push({ kind, x, y, hp: (30 + w.threat * 3) * hpScale, speed: (125 + w.threat * 2) * spdScale, r: 10, cd: 1.2, zig: 0 });
+    return;
+  }
+
+  if (kind === "berserker") {
+    w.enemies.push({ kind, x, y, hp: (42 + w.threat * 5) * hpScale, speed: (170 + w.threat * 3) * spdScale, r: 11, cd: 0.4, zig: Math.random() * 6.28 });
+    return;
+  }
+
+  if (kind === "tank") {
+    w.enemies.push({ kind, x, y, hp: (170 + w.threat * 14) * hpScale, speed: (72 + w.threat * 0.9) * spdScale, r: 22, cd: 1.6, zig: 0 });
+    return;
+  }
+
+  if (kind === "leaper") {
+    w.enemies.push({
+      kind,
+      x,
+      y,
+      hp: (54 + w.threat * 6) * hpScale,
+      speed: (130 + w.threat * 1.8) * spdScale,
+      r: 12,
+      cd: 1.2,
+      zig: Math.random() * 6.28,
+      windup: 0,
+      dashT: 0,
+      dashVx: 0,
+      dashVy: 0,
+    });
+    return;
+  }
+
+  if (kind === "splitter") {
+    const hp = (84 + w.threat * 9) * hpScale;
+    w.enemies.push({
+      kind,
+      x,
+      y,
+      hp,
+      maxHp: hp,
+      speed: (112 + w.threat * 1.6) * spdScale,
+      r: 14,
+      cd: 0,
+      zig: Math.random() * 6.28,
+    });
+    return;
+  }
+
+  if (kind === "siphon") {
+    const hp = (66 + w.threat * 7) * hpScale;
+    w.enemies.push({
+      kind,
+      x,
+      y,
+      hp,
+      maxHp: hp,
+      speed: (102 + w.threat * 1.25) * spdScale,
+      r: 13,
+      cd: 0,
+      drainCd: 0.32,
+      orbit: Math.random() * 6.28,
+    });
+    return;
+  }
+
+  if (kind === "mini_boss") {
+    const hp = (560 + w.threat * 44) * hpScale;
+    w.enemies.push({
+      kind,
+      x,
+      y,
+      hp,
+      maxHp: hp,
+      speed: (88 + w.threat * 1.2) * spdScale,
+      r: 30,
+      cd: 0,
+      orbit: Math.random() * 6.28,
+      volleyCd: 1.7,
+      dashCd: 4.8,
+      summonCd: 8.8,
+      windup: 0,
+      dashT: 0,
+      dashVx: 0,
+      dashVy: 0,
+      guard: 0.2,
+      phase: 1,
+    });
+    return;
+  }
+
+  if (kind === "mini_boss_miner") {
+    const hp = (590 + w.threat * 48) * hpScale;
+    w.enemies.push({
+      kind,
+      x,
+      y,
+      hp,
+      maxHp: hp,
+      speed: (84 + w.threat * 1.12) * spdScale,
+      r: 32,
+      cd: 0,
+      orbit: Math.random() * 6.28,
+      mineCd: 1.45,
+      detonateCd: 5.6,
+      volleyCd: 2.25,
+      guard: 0.22,
+      phase: 1,
+    });
+    return;
+  }
+
+  if (kind === "mega_cannon_boss") {
+    const hp = (1540 + w.threat * 96) * hpScale;
+    w.enemies.push({
+      kind,
+      x,
+      y,
+      hp,
+      maxHp: hp,
+      speed: (74 + w.threat * 0.82) * spdScale,
+      r: 38,
+      orbit: Math.random() * 6.28,
+      cannonAim: Math.random() * Math.PI * 2,
+      chargeCd: 3.0,
+      chargeT: 0,
+      chargeFired: true,
+      shieldCd: 6.6,
+      shieldT: 0,
+      guard: 0.34,
+      phase: 1,
+    });
+    return;
+  }
+
+  if (kind === "shardling") {
+    w.enemies.push({
+      kind,
+      x,
+      y,
+      hp: Math.max(10, (22 + w.threat * 2.5) * hpScale),
+      speed: (168 + w.threat * 2.4) * spdScale,
+      r: 8,
+      cd: 0,
+      zig: Math.random() * 6.28,
+    });
+    return;
+  }
+
+  // Fallback: phantom
+  w.enemies.push({ kind: "phantom", x, y, hp: (58 + w.threat * 6) * hpScale, speed: (150 + w.threat * 2.2) * spdScale, r: 12, cd: 1.0, zig: Math.random() * 6.28, phase: 0 });
+}
+
 function spawnEnemyWave(w) {
   const count = 1 + Math.floor(w.threat * 0.48 + (w.difficulty - 1) * 0.35);
   for (let i = 0; i < count; i += 1) {
-    const kind = pickEnemyKind(w.difficulty);
+    const kind = pickEnemyKindForDifficulty(w.difficulty);
     const edge = Math.floor(Math.random() * 4);
     let x = 0;
     let y = 0;
@@ -931,29 +1203,29 @@ function spawnEnemyWave(w) {
     if (edge === 1) { x = canvas.width + 24; y = Math.random() * canvas.height; }
     if (edge === 2) { x = Math.random() * canvas.width; y = -24; }
     if (edge === 3) { x = Math.random() * canvas.width; y = canvas.height + 24; }
-
-    const hpScale = w.scale.enemyHp;
-    const spdScale = w.scale.enemySpeed;
-
-    if (kind === "chaser") w.enemies.push({ kind, x, y, hp: (34 + w.threat * 4) * hpScale, speed: (140 + w.threat * 2) * spdScale, r: 12, cd: 0, zig: 0 });
-    else if (kind === "brute") w.enemies.push({ kind, x, y, hp: (90 + w.threat * 10) * hpScale, speed: (92 + w.threat) * spdScale, r: 17, cd: 0, zig: 0 });
-    else if (kind === "dart") w.enemies.push({ kind, x, y, hp: (30 + w.threat * 3) * hpScale, speed: (125 + w.threat * 2) * spdScale, r: 10, cd: 1.2, zig: 0 });
-    else if (kind === "berserker") w.enemies.push({ kind, x, y, hp: (42 + w.threat * 5) * hpScale, speed: (170 + w.threat * 3) * spdScale, r: 11, cd: 0.4, zig: Math.random() * 6.28 });
-    else if (kind === "tank") w.enemies.push({ kind, x, y, hp: (170 + w.threat * 14) * hpScale, speed: (72 + w.threat * 0.9) * spdScale, r: 22, cd: 1.6, zig: 0 });
-    else w.enemies.push({ kind: "phantom", x, y, hp: (58 + w.threat * 6) * hpScale, speed: (150 + w.threat * 2.2) * spdScale, r: 12, cd: 1.0, zig: Math.random() * 6.28, phase: 0 });
+    const spawnKind = isMiniBossKind(kind) && w.enemies.some((e) => isMiniBossKind(e.kind)) ? "tank" : kind;
+    spawnEnemyByKind(w, spawnKind, x, y);
   }
-}
-
-function pickEnemyKind(difficulty) {
-  const r = Math.random();
-  if (difficulty <= 2) return r < 0.72 ? "chaser" : r < 0.95 ? "dart" : "brute";
-  if (difficulty <= 4) return r < 0.54 ? "chaser" : r < 0.76 ? "dart" : r < 0.93 ? "brute" : "berserker";
-  if (difficulty <= 7) return r < 0.38 ? "chaser" : r < 0.57 ? "dart" : r < 0.75 ? "berserker" : r < 0.9 ? "brute" : "tank";
-  return r < 0.22 ? "chaser" : r < 0.38 ? "dart" : r < 0.58 ? "berserker" : r < 0.75 ? "brute" : r < 0.9 ? "tank" : "phantom";
 }
 
 function stepBullets(w, dt) {
   for (const b of w.bullets) {
+    if (b.enemy && b.megaShot) {
+      const p = w.player;
+      const lead = b.targetLead ?? 0.22;
+      const tx = p.x + p.vx * lead;
+      const ty = p.y + p.vy * lead;
+      const desired = Math.atan2(ty - b.y, tx - b.x);
+      const current = Math.atan2(b.vy, b.vx);
+      let delta = desired - current;
+      while (delta > Math.PI) delta -= Math.PI * 2;
+      while (delta < -Math.PI) delta += Math.PI * 2;
+      const next = current + clamp(delta, -(b.turn ?? 3.4) * dt, (b.turn ?? 3.4) * dt);
+      const speed = Math.hypot(b.vx, b.vy) || 1;
+      b.vx = Math.cos(next) * speed;
+      b.vy = Math.sin(next) * speed;
+    }
+
     b.x += b.vx * dt;
     b.y += b.vy * dt;
     b.life -= dt;
@@ -1007,8 +1279,14 @@ function stepMines(w, dt) {
       const d = Math.hypot(e.x - m.x, e.y - m.y);
       if (d <= m.r) {
         const falloff = 1 - d / m.r;
-        e.hp -= m.dmg * (0.35 + falloff * 0.65);
-        e.lastHitKind = "mine";
+        const dealt = m.dmg * (0.35 + falloff * 0.65);
+        if (e.kind === "mega_cannon_boss" && e.shieldT > 0) {
+          e.hp = Math.min(e.maxHp || e.hp, e.hp + dealt * 0.55);
+          splash(w, e.x, e.y, "#9ed3ff", 6, 1.0);
+        } else {
+          e.hp -= dealt;
+          e.lastHitKind = "mine";
+        }
       }
     }
 
@@ -1018,6 +1296,58 @@ function stepMines(w, dt) {
   }
 
   w.mines = w.mines.filter((m) => m.life > 0);
+}
+
+function stepEnemyMines(w, dt) {
+  const p = w.player;
+  const kept = [];
+
+  for (const m of w.enemyMines) {
+    m.life -= dt;
+    m.armed -= dt;
+    m.pulse = (m.pulse || 0) + dt * 4.6;
+
+    let shouldExplode = false;
+    const dist = Math.hypot(p.x - m.x, p.y - m.y);
+    if (m.armed <= 0 && dist <= m.trigger) shouldExplode = true;
+    if (m.life <= 0) shouldExplode = true;
+
+    if (!shouldExplode) {
+      kept.push(m);
+      continue;
+    }
+
+    const applyExplosionToPlayer = p.dashIFrames <= 0;
+    if (applyExplosionToPlayer) {
+      const d = Math.hypot(p.x - m.x, p.y - m.y);
+      if (d <= m.r) {
+        const falloff = 1 - d / m.r;
+        const raw = m.dmg * (0.32 + falloff * 0.68) * w.scale.enemyDamage;
+        const damage = raw * (1 - Math.min(0.62, p.armor));
+        p.hp -= damage;
+        p.hitFlash = 0.14;
+      }
+    }
+
+    if (w.helper) {
+      const hd = Math.hypot(w.helper.x - m.x, w.helper.y - m.y);
+      if (hd <= m.r) {
+        const hfalloff = 1 - hd / m.r;
+        w.helper.hp -= m.dmg * (0.28 + hfalloff * 0.52) * 0.48;
+      }
+    }
+
+    for (const other of w.enemyMines) {
+      if (other === m || other.life <= 0) continue;
+      const od = Math.hypot(other.x - m.x, other.y - m.y);
+      if (od <= m.r * 0.7) other.armed = Math.min(other.armed, 0.05);
+    }
+
+    splash(w, m.x, m.y, "#ff945f", 20, 2.8);
+    audio.play("mineBlast");
+  }
+
+  w.enemyMines = kept;
 }
 
 function stepHelper(w, dt) {
@@ -1075,9 +1405,310 @@ function stepEnemies(w, dt) {
         w.bullets.push({ x: e.x, y: e.y, vx: (dx / d) * v, vy: (dy / d) * v, life: 2.2, dmg: -(8 + w.threat * 0.55), enemy: true });
         audio.play("enemyShot");
       }
+    } else if (e.kind === "leaper") {
+      if (e.dashT > 0) {
+        e.x += e.dashVx * dt;
+        e.y += e.dashVy * dt;
+        e.dashT -= dt;
+        continue;
+      }
+
+      if (e.windup > 0) {
+        e.windup -= dt;
+        if (e.windup <= 0) {
+          const leadX = p.x + p.vx * 0.16;
+          const leadY = p.y + p.vy * 0.16;
+          const ldx = leadX - e.x;
+          const ldy = leadY - e.y;
+          const ld = Math.hypot(ldx, ldy) || 1;
+          const dashSpeed = (440 + w.threat * 4) * w.scale.enemySpeed;
+          e.dashVx = (ldx / ld) * dashSpeed;
+          e.dashVy = (ldy / ld) * dashSpeed;
+          e.dashT = 0.26;
+          splash(w, e.x, e.y, "#92ffbe", 8, 1.25);
+        }
+        continue;
+      }
+
+      e.zig += dt * 5.2;
+      const side = Math.sin(e.zig) * 0.3;
+      const moveBias = d > 170 ? 1 : d < 95 ? -0.45 : 0.1;
+      e.x += ((dx / d) + (-dy / d) * side) * e.speed * moveBias * dt;
+      e.y += ((dy / d) + (dx / d) * side) * e.speed * moveBias * dt;
+      e.cd -= dt;
+      if (e.cd <= 0 && d < 360) {
+        e.windup = 0.36;
+        e.cd = 1.55 + Math.random() * 0.22;
+      }
     } else if (e.kind === "berserker") {
       e.zig += dt * 7;
       const side = Math.sin(e.zig) * 0.55;
+      e.x += ((dx / d) + (-dy / d) * side) * e.speed * dt;
+      e.y += ((dy / d) + (dx / d) * side) * e.speed * dt;
+    } else if (e.kind === "siphon") {
+      e.orbit += dt * 3.3;
+      const side = Math.sin(e.orbit) * 0.45;
+      const preferred = 185;
+      const dir = d > preferred ? 1 : d < 132 ? -0.75 : 0.08;
+      e.x += ((dx / d) + (-dy / d) * side) * e.speed * dir * dt;
+      e.y += ((dy / d) + (dx / d) * side) * e.speed * dir * dt;
+
+      e.drainCd = Math.max(0, (e.drainCd || 0) - dt);
+      if (d < 230 && e.drainCd <= 0) {
+        const rawDmg = (5 + w.threat * 0.22) * w.scale.enemyDamage;
+        const applied = rawDmg * (1 - Math.min(0.62, p.armor));
+        if (p.dashIFrames <= 0) {
+          p.hp -= applied;
+          p.hitFlash = 0.12;
+          splash(w, p.x, p.y, "#ff8df0", 8, 1.15);
+          audio.play("enemyShot");
+        }
+        if (e.maxHp) {
+          e.hp = Math.min(e.maxHp, e.hp + applied * 0.42);
+          splash(w, e.x, e.y, "#b58cff", 6, 1.0);
+        }
+        e.drainCd = 0.45;
+      }
+    } else if (e.kind === "mini_boss") {
+      const hpPct = e.hp / Math.max(1, e.maxHp || e.hp);
+      const phase = hpPct > 0.66 ? 1 : hpPct > 0.33 ? 2 : 3;
+      e.phase = phase;
+
+      if (e.dashT > 0) {
+        e.x += e.dashVx * dt;
+        e.y += e.dashVy * dt;
+        e.dashT -= dt;
+        e.guard = 0.45;
+        if (e.dashT <= 0) {
+          const burstShots = phase >= 3 ? 14 : 10;
+          const burstDmg = -(11 + phase * 2 + w.threat * 0.35);
+          for (let i = 0; i < burstShots; i += 1) {
+            const a = (i / burstShots) * Math.PI * 2;
+            const v = 280 + phase * 25;
+            w.bullets.push({
+              x: e.x,
+              y: e.y,
+              vx: Math.cos(a) * v,
+              vy: Math.sin(a) * v,
+              life: 2.1,
+              dmg: burstDmg,
+              enemy: true,
+            });
+          }
+          splash(w, e.x, e.y, "#ffb774", 18, 1.9);
+          audio.play("mineBlast");
+        }
+        continue;
+      }
+
+      if (e.windup > 0) {
+        e.windup -= dt;
+        e.guard = 0.72;
+        if (e.windup <= 0) {
+          const leadX = p.x + p.vx * 0.2;
+          const leadY = p.y + p.vy * 0.2;
+          const ldx = leadX - e.x;
+          const ldy = leadY - e.y;
+          const ld = Math.hypot(ldx, ldy) || 1;
+          const dashSpeed = (470 + w.threat * 3.8) * w.scale.enemySpeed;
+          e.dashVx = (ldx / ld) * dashSpeed;
+          e.dashVy = (ldy / ld) * dashSpeed;
+          e.dashT = phase >= 3 ? 0.38 : 0.32;
+          splash(w, e.x, e.y, "#ffd48a", 12, 1.5);
+        }
+        continue;
+      }
+
+      e.orbit += dt * (2.2 + phase * 0.32);
+      const side = Math.sin(e.orbit) * 0.58;
+      const preferred = 240 - phase * 18;
+      const dir = d > preferred ? 1 : d < preferred - 60 ? -0.45 : 0.06;
+      e.x += ((dx / d) + (-dy / d) * side) * e.speed * dir * dt;
+      e.y += ((dy / d) + (dx / d) * side) * e.speed * dir * dt;
+      e.guard = phase >= 3 ? 0.28 : 0.2;
+
+      e.volleyCd = Math.max(0, (e.volleyCd || 0) - dt);
+      if (e.volleyCd <= 0 && d < 540) {
+        const aim = Math.atan2(dy, dx);
+        const shots = phase === 1 ? 5 : phase === 2 ? 7 : 9;
+        const spread = phase === 1 ? 0.72 : 0.95;
+        const shotSpeed = 305 + phase * 35 + w.threat * 1.2;
+        const dmg = -(10 + phase * 2 + w.threat * 0.42);
+        for (let i = 0; i < shots; i += 1) {
+          const t = shots <= 1 ? 0.5 : i / (shots - 1);
+          const a = aim + (t - 0.5) * spread;
+          w.bullets.push({
+            x: e.x,
+            y: e.y,
+            vx: Math.cos(a) * shotSpeed,
+            vy: Math.sin(a) * shotSpeed,
+            life: 2.6,
+            dmg,
+            enemy: true,
+          });
+        }
+        e.volleyCd = phase === 1 ? 1.95 : phase === 2 ? 1.5 : 1.1;
+        audio.play("enemyShot");
+      }
+
+      e.dashCd = Math.max(0, (e.dashCd || 0) - dt);
+      if (e.dashCd <= 0 && d < 470) {
+        e.windup = phase === 1 ? 0.44 : 0.34;
+        e.dashCd = phase === 1 ? 5.2 : phase === 2 ? 4.3 : 3.6;
+      }
+
+      e.summonCd = Math.max(0, (e.summonCd || 0) - dt);
+      if (phase >= 2 && e.summonCd <= 0) {
+        const summonKindA = phase >= 3 ? "splitter" : "leaper";
+        const summonKindB = phase >= 3 ? "siphon" : "berserker";
+        const options = [summonKindA, summonKindB].filter((k) => isEnemyEnabledForWorld(w, k));
+        const summonCount = phase >= 3 ? 2 : 1;
+        for (let i = 0; i < summonCount; i += 1) {
+          const spawnKind = options[i % Math.max(1, options.length)] || "chaser";
+          const a = Math.random() * Math.PI * 2;
+          const sx = e.x + Math.cos(a) * (30 + Math.random() * 16);
+          const sy = e.y + Math.sin(a) * (30 + Math.random() * 16);
+          spawnEnemyByKind(w, spawnKind, sx, sy);
+        }
+        e.summonCd = phase >= 3 ? 7.6 : 10.0;
+        splash(w, e.x, e.y, "#ff9a7d", 10, 1.35);
+      }
+    } else if (e.kind === "mini_boss_miner") {
+      const hpPct = e.hp / Math.max(1, e.maxHp || e.hp);
+      const phase = hpPct > 0.66 ? 1 : hpPct > 0.33 ? 2 : 3;
+      e.phase = phase;
+
+      e.orbit += dt * (1.85 + phase * 0.26);
+      const side = Math.sin(e.orbit) * 0.52;
+      const preferred = 255 - phase * 20;
+      const dir = d > preferred ? 1 : d < preferred - 65 ? -0.38 : 0.05;
+      e.x += ((dx / d) + (-dy / d) * side) * e.speed * dir * dt;
+      e.y += ((dy / d) + (dx / d) * side) * e.speed * dir * dt;
+      e.guard = phase >= 3 ? 0.34 : 0.25;
+
+      e.mineCd = Math.max(0, (e.mineCd || 0) - dt);
+      if (e.mineCd <= 0) {
+        const mineCount = phase === 1 ? 1 : phase === 2 ? 2 : 3;
+        for (let i = 0; i < mineCount; i += 1) {
+          const offset = (i - (mineCount - 1) * 0.5) * 22;
+          const angle = Math.atan2(dy, dx) + Math.PI * 0.5;
+          const mx = e.x + Math.cos(angle) * offset;
+          const my = e.y + Math.sin(angle) * offset;
+          placeEnemyMine(w, mx, my, {
+            radius: 66 + phase * 9,
+            damage: 24 + phase * 4 + w.threat * 0.36,
+            armed: Math.max(0.26, 0.78 - phase * 0.14),
+            life: 10.2 + phase * 0.6,
+            trigger: 34 + phase * 3,
+          });
+        }
+        e.mineCd = phase === 1 ? 2.2 : phase === 2 ? 1.6 : 1.2;
+        splash(w, e.x, e.y, "#ffad72", 9, 1.2);
+      }
+
+      e.volleyCd = Math.max(0, (e.volleyCd || 0) - dt);
+      if (e.volleyCd <= 0 && d < 520) {
+        const aim = Math.atan2(dy, dx);
+        const shots = phase === 1 ? 3 : phase === 2 ? 5 : 7;
+        const spread = phase === 1 ? 0.42 : 0.68;
+        const speed = 280 + phase * 22;
+        const dmg = -(8 + phase * 2 + w.threat * 0.3);
+        for (let i = 0; i < shots; i += 1) {
+          const t = shots <= 1 ? 0.5 : i / (shots - 1);
+          const a = aim + (t - 0.5) * spread;
+          w.bullets.push({
+            x: e.x,
+            y: e.y,
+            vx: Math.cos(a) * speed,
+            vy: Math.sin(a) * speed,
+            life: 2.2,
+            dmg,
+            enemy: true,
+          });
+        }
+        e.volleyCd = phase === 1 ? 2.6 : phase === 2 ? 1.9 : 1.35;
+        audio.play("enemyShot");
+      }
+
+      e.detonateCd = Math.max(0, (e.detonateCd || 0) - dt);
+      if (e.detonateCd <= 0 && w.enemyMines.length > 0) {
+        let detonated = 0;
+        for (const m of w.enemyMines) {
+          const md = Math.hypot(p.x - m.x, p.y - m.y);
+          if (md < 260 || phase >= 3) {
+            m.armed = Math.min(m.armed, 0.02);
+            detonated += 1;
+          }
+          if (detonated >= (phase === 1 ? 2 : phase === 2 ? 3 : 5)) break;
+        }
+        e.detonateCd = phase === 1 ? 6.2 : phase === 2 ? 4.9 : 3.8;
+        splash(w, e.x, e.y, "#ffbf7b", 11, 1.3);
+      }
+    } else if (e.kind === "mega_cannon_boss") {
+      const hpPct = e.hp / Math.max(1, e.maxHp || e.hp);
+      const phase = hpPct > 0.55 ? 1 : 2;
+      e.phase = phase;
+
+      e.orbit += dt * (1.3 + phase * 0.25);
+      const side = Math.sin(e.orbit) * 0.36;
+      const preferred = phase === 1 ? 300 : 250;
+      const dir = d > preferred ? 1 : d < preferred - 70 ? -0.28 : 0.04;
+      e.x += ((dx / d) + (-dy / d) * side) * e.speed * dir * dt;
+      e.y += ((dy / d) + (dx / d) * side) * e.speed * dir * dt;
+
+      const desiredAim = Math.atan2(dy, dx);
+      let deltaAim = desiredAim - (e.cannonAim ?? desiredAim);
+      while (deltaAim > Math.PI) deltaAim -= Math.PI * 2;
+      while (deltaAim < -Math.PI) deltaAim += Math.PI * 2;
+      e.cannonAim = (e.cannonAim ?? desiredAim) + clamp(deltaAim, -(1.2 + phase * 0.4) * dt, (1.2 + phase * 0.4) * dt);
+
+      e.shieldT = Math.max(0, (e.shieldT || 0) - dt);
+      e.shieldCd = Math.max(0, (e.shieldCd || 0) - dt);
+      if (e.shieldCd <= 0 && e.shieldT <= 0) {
+        e.shieldT = phase === 1 ? 2.0 : 2.8;
+        e.shieldCd = phase === 1 ? 8.9 : 6.7;
+        splash(w, e.x, e.y, "#9fd8ff", 12, 1.45);
+      }
+
+      e.guard = e.shieldT > 0 ? 0.85 : (phase === 1 ? 0.34 : 0.4);
+      if (e.shieldT > 0) continue;
+
+      e.chargeT = Math.max(0, (e.chargeT || 0) - dt);
+      e.chargeCd = Math.max(0, (e.chargeCd || 0) - dt);
+      if (e.chargeT <= 0 && e.chargeCd <= 0 && d < 760) {
+        e.chargeT = phase === 1 ? 1.2 : 1.0;
+        e.chargeCd = phase === 1 ? 4.9 : 3.9;
+        e.chargeFired = false;
+        splash(w, e.x, e.y, "#ffcc8f", 10, 1.2);
+      }
+
+      if (e.chargeT <= 0 && e.chargeCd > 0 && !e.chargeFired) {
+        const shotSpeed = 430 + phase * 60;
+        const megaDmg = -(24 + phase * 5 + w.threat * 0.52);
+        w.bullets.push({
+          x: e.x + Math.cos(e.cannonAim) * (e.r + 12),
+          y: e.y + Math.sin(e.cannonAim) * (e.r + 12),
+          vx: Math.cos(e.cannonAim) * shotSpeed,
+          vy: Math.sin(e.cannonAim) * shotSpeed,
+          life: 4.4,
+          dmg: megaDmg,
+          enemy: true,
+          megaShot: true,
+          turn: phase === 1 ? 0.65 : 0.95,
+          targetLead: phase === 1 ? 0.03 : 0.06,
+        });
+        e.chargeFired = true;
+        splash(w, e.x, e.y, "#ffb275", 14, 1.8);
+        audio.play("mineBlast");
+      }
+    } else if (e.kind === "splitter") {
+      e.zig += dt * 4.8;
+      const side = Math.sin(e.zig) * 0.24;
+      e.x += ((dx / d) + (-dy / d) * side) * e.speed * dt;
+      e.y += ((dy / d) + (dx / d) * side) * e.speed * dt;
+    } else if (e.kind === "shardling") {
+      e.zig += dt * 8.2;
+      const side = Math.sin(e.zig) * 0.38;
       e.x += ((dx / d) + (-dy / d) * side) * e.speed * dt;
       e.y += ((dy / d) + (dx / d) * side) * e.speed * dt;
     } else if (e.kind === "tank") {
@@ -1096,6 +1727,36 @@ function stepEnemies(w, dt) {
   }
 }
 
+function getEnemyContactBase(kind) {
+  if (kind === "mega_cannon_boss") return 66;
+  if (kind === "mini_boss_miner") return 50;
+  if (kind === "mini_boss") return 54;
+  if (kind === "tank") return 42;
+  if (kind === "splitter") return 30;
+  if (kind === "leaper") return 29;
+  if (kind === "berserker") return 28;
+  if (kind === "brute") return 24;
+  if (kind === "siphon") return 20;
+  if (kind === "shardling") return 15;
+  return 16;
+}
+
+function getEnemyEssenceBase(kind) {
+  if (kind === "mega_cannon_boss") return 88;
+  if (kind === "mini_boss_miner") return 42;
+  if (kind === "mini_boss") return 44;
+  if (kind === "tank") return 19;
+  if (kind === "splitter") return 18;
+  if (kind === "phantom") return 16;
+  if (kind === "siphon") return 15;
+  if (kind === "leaper") return 13;
+  if (kind === "brute") return 12;
+  if (kind === "berserker") return 11;
+  if (kind === "dart") return 9;
+  if (kind === "shardling") return 5;
+  return 7;
+}
+
 function resolveCombat(w) {
   const p = w.player;
 
@@ -1104,7 +1765,20 @@ function resolveCombat(w) {
       for (const e of w.enemies) {
         if (e.hp <= 0) continue;
         if (Math.hypot(b.x - e.x, b.y - e.y) <= e.r + 4) {
-          e.hp -= b.dmg;
+          if (e.kind === "mega_cannon_boss" && e.shieldT > 0) {
+            const heal = Math.max(4, b.dmg * 0.6);
+            e.hp = Math.min(e.maxHp || e.hp, e.hp + heal);
+            b.life = 0;
+            splash(w, e.x, e.y, "#9fd7ff", 7, 1.05);
+            break;
+          }
+
+          let dealt = b.dmg;
+          if (isMiniBossKind(e.kind)) {
+            const guard = Math.max(0, Math.min(0.9, e.guard || 0));
+            dealt *= (1 - guard);
+          }
+          e.hp -= dealt;
           e.lastHitKind = b.helper ? "helper" : "essence";
           b.life = 0;
           splash(w, e.x, e.y, b.crit ? "#fff1a4" : "#ffd37d", b.crit ? 12 : 6, 1.6);
@@ -1113,16 +1787,16 @@ function resolveCombat(w) {
           break;
         }
       }
-    } else if (Math.hypot(b.x - p.x, b.y - p.y) <= 15 && p.dashIFrames <= 0) {
+    } else if (Math.hypot(b.x - p.x, b.y - p.y) <= (b.megaShot ? 22 : 15) && p.dashIFrames <= 0) {
       const dmg = Math.abs(b.dmg) * w.scale.enemyDamage * (1 - Math.min(0.62, p.armor));
       p.hp -= dmg;
       p.hitFlash = 0.14;
       b.life = 0;
-      splash(w, p.x, p.y, "#ff8b8b", 10, 2.2);
+      splash(w, p.x, p.y, b.megaShot ? "#ffb87f" : "#ff8b8b", b.megaShot ? 18 : 10, b.megaShot ? 2.9 : 2.2);
       audio.play("playerHit");
     }
 
-    if (b.enemy && w.helper && Math.hypot(b.x - w.helper.x, b.y - w.helper.y) <= 12) {
+    if (b.enemy && w.helper && Math.hypot(b.x - w.helper.x, b.y - w.helper.y) <= (b.megaShot ? 18 : 12)) {
       w.helper.hp -= Math.abs(b.dmg) * 0.9;
       b.life = 0;
     }
@@ -1130,7 +1804,7 @@ function resolveCombat(w) {
 
   for (const e of w.enemies) {
     if (Math.hypot(e.x - p.x, e.y - p.y) <= e.r + 13 && p.dashIFrames <= 0) {
-      const baseContact = e.kind === "tank" ? 42 : e.kind === "berserker" ? 28 : e.kind === "brute" ? 24 : 16;
+      const baseContact = getEnemyContactBase(e.kind);
       const dmg = baseContact * 0.016 * w.scale.enemyDamage * (1 - Math.min(0.62, p.armor));
       p.hp -= dmg;
       p.hitFlash = 0.1;
@@ -1155,8 +1829,19 @@ function resolveCombat(w) {
       if (e.hp <= 0) continue;
       const d = Math.hypot(e.x - r.x, e.y - r.y);
       if (d <= 95) {
+        if (e.kind === "mega_cannon_boss" && e.shieldT > 0) {
+          const heal = Math.max(5, r.dmg * 0.48);
+          e.hp = Math.min(e.maxHp || e.hp, e.hp + heal);
+          splash(w, e.x, e.y, "#9fd7ff", 8, 1.1);
+          continue;
+        }
         const falloff = 1 - d / 95;
-        e.hp -= r.dmg * (0.4 + falloff * 0.6);
+        let dealt = r.dmg * (0.4 + falloff * 0.6);
+        if (isMiniBossKind(e.kind)) {
+          const guard = Math.max(0, Math.min(0.9, e.guard || 0));
+          dealt *= (1 - guard);
+        }
+        e.hp -= dealt;
         e.lastHitKind = "rocket";
       }
     }
@@ -1167,6 +1852,7 @@ function resolveCombat(w) {
   }
 
   const alive = [];
+  const spawned = [];
   for (const e of w.enemies) {
     if (e.hp > 0) {
       alive.push(e);
@@ -1174,11 +1860,51 @@ function resolveCombat(w) {
     }
 
     w.kills += 1;
-    const baseXp = e.kind === "tank" ? 19 : e.kind === "phantom" ? 16 : e.kind === "brute" ? 12 : e.kind === "berserker" ? 11 : e.kind === "dart" ? 9 : 7;
+    const baseXp = getEnemyEssenceBase(e.kind);
     const essence = Math.floor(baseXp * w.scale.reward);
     const bonusEssence = Math.max(1, Math.floor(essence * 0.45));
     const specialKind = SPECIAL_CURRENCY_BY_KILL[e.lastHitKind];
     const specialAmount = Math.max(1, Math.floor(essence * 0.35));
+
+    if (e.kind === "splitter") {
+      const shardlingsEnabled = isEnemyEnabledForWorld(w, "shardling");
+      if (shardlingsEnabled) {
+        const shardHp = Math.max(10, Math.floor((e.maxHp || 44) * 0.24));
+        const shardSpeed = (168 + w.threat * 2.4) * w.scale.enemySpeed;
+        for (let i = 0; i < 2; i += 1) {
+          const a = Math.random() * Math.PI * 2;
+          spawned.push({
+            kind: "shardling",
+            x: e.x + Math.cos(a) * 11,
+            y: e.y + Math.sin(a) * 11,
+            hp: shardHp,
+            speed: shardSpeed,
+            r: 8,
+            cd: 0,
+            zig: Math.random() * 6.28,
+          });
+        }
+      }
+      splash(w, e.x, e.y, "#ffb4f7", 12, 1.75);
+    }
+
+    if (e.kind === "mini_boss") {
+      const bonusOrb = Math.max(8, Math.floor(essence * 0.75));
+      w.drops.push({ x: e.x - 9, y: e.y + 3, t: 2.8, kind: "essence", amount: bonusOrb, color: DROP_COLORS.essence });
+      splash(w, e.x, e.y, "#ff9b6b", 30, 3.3);
+    }
+    if (e.kind === "mini_boss_miner") {
+      const amberBonus = Math.max(6, Math.floor(essence * 0.6));
+      w.drops.push({ x: e.x + 9, y: e.y - 2, t: 2.8, kind: "amber", amount: amberBonus, color: DROP_COLORS.amber });
+      splash(w, e.x, e.y, "#ffad62", 32, 3.4);
+      w.enemyMines = w.enemyMines.filter((m) => Math.hypot(m.x - e.x, m.y - e.y) > 280);
+    }
+    if (e.kind === "mega_cannon_boss") {
+      const bonusOrb = Math.max(14, Math.floor(essence * 0.9));
+      w.drops.push({ x: e.x, y: e.y, t: 3.2, kind: "essence", amount: bonusOrb, color: DROP_COLORS.essence });
+      w.drops.push({ x: e.x - 12, y: e.y + 6, t: 3.2, kind: "azure", amount: Math.max(4, Math.floor(essence * 0.3)), color: DROP_COLORS.azure });
+      splash(w, e.x, e.y, "#ffbd89", 40, 3.9);
+    }
 
     w.runEssence += essence;
     w.drops.push({ x: e.x, y: e.y, t: 2.2, kind: "essence", amount: bonusEssence, color: DROP_COLORS.essence });
@@ -1188,7 +1914,7 @@ function resolveCombat(w) {
     splash(w, e.x, e.y, "#90f59a", 14, 2.9);
     audio.play("kill");
   }
-  w.enemies = alive;
+  w.enemies = alive.concat(spawned);
   w.rockets = w.rockets.filter((r) => r.life > 0);
 }
 
@@ -1239,6 +1965,7 @@ function drawGame() {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   drawGrid();
+  const p = w.player;
 
   for (const m of w.mines) {
     ctx.strokeStyle = "#ffbb7d";
@@ -1248,6 +1975,30 @@ function drawGame() {
     ctx.fillStyle = "#ffcc8b";
     ctx.fillRect(m.x - 3, m.y - 3, 6, 6);
   }
+
+  for (const m of w.enemyMines) {
+    const arm = Math.max(0, m.armed || 0);
+    const t = Math.max(0, Math.min(1, 1 - arm / 0.9));
+    const pulse = (Math.sin(m.pulse || 0) + 1) * 0.5;
+
+    ctx.fillStyle = `rgba(255,120,72,${0.4 + pulse * 0.28})`;
+    ctx.beginPath();
+    ctx.arc(m.x, m.y, m.r * 0.14, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = `rgba(255,160,102,${0.5 + t * 0.38})`;
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.arc(m.x, m.y, m.r * 0.2 + t * (m.r * 0.1), 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.strokeStyle = `rgba(255,96,68,${0.2 + t * 0.45})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(m.x, m.y, m.trigger, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.lineWidth = 1;
 
   for (const r of w.rockets) {
     ctx.fillStyle = "#ffd78a";
@@ -1264,17 +2015,151 @@ function drawGame() {
   }
 
   for (const b of w.bullets) {
-    ctx.fillStyle = b.enemy ? "#ff8b8b" : b.crit ? "#fff3a8" : b.helper ? "#9ec9ff" : "#7dd3fc";
+    ctx.fillStyle = b.megaShot ? "#ffc58f" : b.enemy ? "#ff8b8b" : b.crit ? "#fff3a8" : b.helper ? "#9ec9ff" : "#7dd3fc";
     ctx.beginPath();
-    ctx.arc(b.x, b.y, b.enemy ? 3.5 : 3, 0, Math.PI * 2);
+    ctx.arc(b.x, b.y, b.megaShot ? 6.5 : b.enemy ? 3.5 : 3, 0, Math.PI * 2);
     ctx.fill();
+    if (b.megaShot) {
+      ctx.strokeStyle = "rgba(255, 173, 111, 0.65)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, 9.5, 0, Math.PI * 2);
+      ctx.stroke();
+    }
   }
+  ctx.lineWidth = 1;
 
   for (const e of w.enemies) {
-    ctx.fillStyle = e.kind === "tank" ? "#ffcc74" : e.kind === "phantom" ? "#7f9bff" : e.kind === "brute" ? "#ffb36a" : e.kind === "dart" ? "#c58bff" : e.kind === "berserker" ? "#ff7f94" : "#ff6f6f";
+    ctx.fillStyle = e.kind === "mini_boss"
+      ? "#ff8b5c"
+      : e.kind === "mini_boss_miner"
+        ? "#ffb160"
+        : e.kind === "mega_cannon_boss"
+          ? "#ffcb84"
+      : e.kind === "tank"
+      ? "#ffcc74"
+      : e.kind === "phantom"
+        ? "#7f9bff"
+        : e.kind === "brute"
+          ? "#ffb36a"
+          : e.kind === "dart"
+            ? "#c58bff"
+            : e.kind === "berserker"
+              ? "#ff7f94"
+              : e.kind === "leaper"
+                ? "#8bffc5"
+                : e.kind === "splitter"
+                  ? "#ff9cd7"
+                  : e.kind === "shardling"
+                    ? "#ffd5fb"
+                    : e.kind === "siphon"
+                      ? "#b388ff"
+                      : "#ff6f6f";
     ctx.beginPath();
     ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2);
     ctx.fill();
+
+    if (e.kind === "mini_boss" || e.kind === "mini_boss_miner" || e.kind === "mega_cannon_boss") {
+      const hpPct = e.hp / Math.max(1, e.maxHp || e.hp);
+      const guard = Math.max(0, Math.min(0.85, e.guard || 0));
+      const phase = e.phase || 1;
+      const phaseColor = e.kind === "mini_boss_miner"
+        ? (phase === 1 ? "#ffd892" : phase === 2 ? "#ffaf64" : "#ff8a54")
+        : e.kind === "mega_cannon_boss"
+          ? (phase === 1 ? "#ffe0a8" : "#ffb770")
+        : (phase === 1 ? "#ffd38c" : phase === 2 ? "#ff9f6f" : "#ff6f5c");
+
+      ctx.strokeStyle = "rgba(255, 220, 170, 0.35)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, e.r + 7, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.strokeStyle = phaseColor;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, e.r + 7, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * hpPct);
+      ctx.stroke();
+
+      if (e.kind === "mini_boss" && e.windup > 0) {
+        const t = Math.max(0, Math.min(1, e.windup / 0.45));
+        ctx.strokeStyle = `rgba(255,171,114,${0.35 + t * 0.5})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, e.r + 14 + (1 - t) * 8, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      if (e.kind === "mini_boss_miner") {
+        const mineRing = 17 + ((Math.sin(w.t * 4.2 + e.orbit) + 1) * 0.5) * 6;
+        ctx.strokeStyle = "rgba(255,176,96,0.4)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, e.r + mineRing, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      if (e.kind === "mega_cannon_boss") {
+        const cannonLen = e.r + 20;
+        const ax = e.x + Math.cos(e.cannonAim || 0) * cannonLen;
+        const ay = e.y + Math.sin(e.cannonAim || 0) * cannonLen;
+        ctx.strokeStyle = "rgba(255, 210, 150, 0.85)";
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(e.x, e.y);
+        ctx.lineTo(ax, ay);
+        ctx.stroke();
+
+        if (e.shieldT > 0) {
+          const pulse = (Math.sin(w.t * 8.5) + 1) * 0.5;
+          ctx.strokeStyle = `rgba(159,216,255,${0.45 + pulse * 0.35})`;
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(e.x, e.y, e.r + 16 + pulse * 3, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        if (e.chargeT > 0) {
+          const t = Math.max(0, Math.min(1, e.chargeT / 1.2));
+          ctx.strokeStyle = `rgba(255,178,117,${0.35 + (1 - t) * 0.5})`;
+          ctx.lineWidth = 2.2;
+          ctx.beginPath();
+          ctx.arc(e.x, e.y, e.r + 22 - t * 10, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
+
+      if (guard > 0.01) {
+        ctx.strokeStyle = `rgba(255,225,186,${0.14 + guard * 0.45})`;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, e.r + 2.5, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.lineWidth = 1;
+    }
+
+    if (e.kind === "leaper" && e.windup > 0) {
+      const t = Math.max(0, Math.min(1, e.windup / 0.36));
+      ctx.strokeStyle = `rgba(139,255,197,${0.28 + t * 0.42})`;
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, e.r + 8 + (1 - t) * 6, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    if (e.kind === "siphon") {
+      const distToPlayer = Math.hypot(e.x - p.x, e.y - p.y);
+      if (distToPlayer < 240) {
+        const glow = 1 - distToPlayer / 240;
+        ctx.strokeStyle = `rgba(204,146,255,${0.2 + glow * 0.55})`;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(e.x, e.y);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+        ctx.lineWidth = 1;
+      }
+    }
   }
 
   if (w.helper) {
@@ -1284,7 +2169,6 @@ function drawGame() {
     ctx.fill();
   }
 
-  const p = w.player;
   ctx.save();
   ctx.translate(p.x, p.y);
   ctx.rotate(p.angle);
@@ -1407,7 +2291,7 @@ function updateHud(w) {
   else ui.runAmber.textContent = `Run Amber ${Math.floor(w.runAmber)}`;
   ui.kills.textContent = `Kills ${w.kills}`;
   ui.wave.textContent = `Threat ${w.threat}`;
-  ui.hudDifficulty.textContent = `D${w.difficulty}`;
+  ui.hudDifficulty.textContent = w.isTestMode ? "TEST" : `D${w.difficulty}`;
 }
 
 function createAudioSystem() {
