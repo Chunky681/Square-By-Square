@@ -13,6 +13,7 @@ export const ENEMY_CONFIG = {
   mini_boss: { enabled: true, startDifficulty: 9 },
   mini_boss_miner: { enabled: true, startDifficulty: 9 },
   mega_cannon_boss: { enabled: true, startDifficulty: 10 },
+  siphon_overlord: { enabled: true, startDifficulty: 10 },
   siphon: { enabled: true, startDifficulty: 8 },
   phantom: { enabled: true, startDifficulty: 8 },
 };
@@ -25,7 +26,7 @@ const SPAWN_WEIGHT_PROFILES = [
   // D5-D7
   { maxDifficulty: 7, weights: { chaser: 26, dart: 14, berserker: 17, brute: 13, tank: 11, leaper: 11, splitter: 8 } },
   // D8-D10
-  { maxDifficulty: Number.POSITIVE_INFINITY, weights: { chaser: 12, dart: 10, berserker: 13, brute: 12, tank: 12, leaper: 10, splitter: 10, siphon: 9, phantom: 8, mini_boss: 2, mini_boss_miner: 2, mega_cannon_boss: 1 } },
+  { maxDifficulty: Number.POSITIVE_INFINITY, weights: { chaser: 12, dart: 10, berserker: 13, brute: 12, tank: 12, leaper: 10, splitter: 10, siphon: 9, phantom: 8, mini_boss: 2, mini_boss_miner: 2, mega_cannon_boss: 1, siphon_overlord: 1 } },
 ];
 
 function getWeightProfile(difficulty) {

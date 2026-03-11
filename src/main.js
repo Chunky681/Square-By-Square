@@ -234,6 +234,7 @@ const ENEMY_SKIN_CONFIG = {
   mini_boss: { src: "./assets/ui/enemies/sheet/cell_r1_c0.png", scale: 2.8, spin: 0.2, pulseRate: 2.2, pulseAmp: 0.05, bobRate: 2.1, bobAmp: 0.62, glowRgb: "212,125,255", glowRate: 6.1 },
   mini_boss_miner: { src: "./assets/ui/enemies/sheet/cell_r0_c1.png", scale: 2.85, spin: -0.18, pulseRate: 2.0, pulseAmp: 0.045, bobRate: 2.0, bobAmp: 0.58, glowRgb: "255,176,92", glowRate: 5.9 },
   mega_cannon_boss: { src: "./assets/ui/enemies/sheet/cell_r2_c4.png", scale: 3.0, spin: 0.12, pulseRate: 1.8, pulseAmp: 0.035, bobRate: 1.8, bobAmp: 0.42, glowRgb: "255,176,118", glowRate: 5.2 },
+  siphon_overlord: { src: "./assets/ui/enemies/sheet/cell_r3_c2.png", scale: 3.2, spin: 0.06, pulseRate: 1.9, pulseAmp: 0.03, bobRate: 1.7, bobAmp: 0.35, glowRgb: "174,124,255", glowRate: 5.3 },
 };
 const ENEMY_SPRITES = Object.fromEntries(
   Object.entries(ENEMY_SKIN_CONFIG).map(([kind, cfg]) => [kind, { ...cfg, img: loadImage(cfg.src) }]),
@@ -1052,6 +1053,7 @@ function applyWarpBurstDamage(w, x, y, moduleLevel) {
     }
 
     e.hp -= dealt;
+    registerSiphonOverlordHit(w, e, dealt);
     e.lastHitKind = "warp";
   }
 
@@ -1157,7 +1159,7 @@ function isEnemyEnabledForWorld(w, kind) {
 }
 
 function isMiniBossKind(kind) {
-  return kind === "mini_boss" || kind === "mini_boss_miner" || kind === "mega_cannon_boss";
+  return kind === "mini_boss" || kind === "mini_boss_miner" || kind === "mega_cannon_boss" || kind === "siphon_overlord";
 }
 
 function placeEnemyMine(w, x, y, opts = {}) {
@@ -1196,8 +1198,44 @@ function shortestAngleDelta(fromAngle, toAngle) {
 function getEnemyTurnRate(kind) {
   if (kind === "dart" || kind === "shardling") return 12.5;
   if (kind === "berserker" || kind === "phantom") return 10.5;
+  if (kind === "siphon_overlord") return 4.8;
   if (kind === "mini_boss" || kind === "mini_boss_miner" || kind === "mega_cannon_boss") return 5.8;
   return 8.8;
+}
+
+function isSiphonOverlord(kind) {
+  return kind === "siphon_overlord";
+}
+
+function healEnemy(e, amount) {
+  if (!e || amount <= 0 || e.hp <= 0) return;
+  e.hp = Math.min(e.maxHp || e.hp, e.hp + amount);
+}
+
+function isSiphonWeakSpotHit(e, hitX, hitY) {
+  const impact = Math.atan2(hitY - e.y, hitX - e.x);
+  const back = (e.facing || 0) + Math.PI;
+  return Math.abs(shortestAngleDelta(back, impact)) <= 0.68;
+}
+
+function registerSiphonOverlordHit(w, e, dealt) {
+  if (!isSiphonOverlord(e.kind)) return;
+  if (dealt <= 0) return;
+  if (e.stunnedT > 0) return;
+
+  e.staggerNeed = e.staggerNeed || 84;
+  e.staggerMeter = (e.staggerMeter || 0) + Math.max(2.4, dealt * 0.2);
+  if (e.staggerMeter >= e.staggerNeed) {
+    e.staggerMeter = 0;
+    e.stunnedT = 3.6;
+    e.staggerNeed = Math.min(175, e.staggerNeed + 20);
+    e.guard = 0;
+    e.weakSpotFlash = Math.max(e.weakSpotFlash || 0, 0.22);
+    e.laserChargeT = 0;
+    e.laserFired = true;
+    splash(w, e.x, e.y, "#9cc8ff", 20, 2.1);
+    audio.play("mineBlast");
+  }
 }
 
 function spawnEnemyByKind(w, kind, x, y) {
@@ -1349,6 +1387,35 @@ function spawnEnemyByKind(w, kind, x, y) {
     return;
   }
 
+  if (kind === "siphon_overlord") {
+    const hp = (3080 + w.threat * 192) * hpScale;
+    w.enemies.push({
+      kind,
+      x,
+      y,
+      hp,
+      maxHp: hp,
+      speed: (79 + w.threat * 0.9) * spdScale,
+      r: 44,
+      orbit: Math.random() * 6.28,
+      guard: 0.38,
+      phase: 1,
+      missileCd: 1.3,
+      laserCd: 3.8,
+      laserChargeT: 0,
+      laserFired: true,
+      summonCd: 6.6,
+      allyDrainCd: 1.6,
+      allyDrainPulse: 0,
+      drainLinks: [],
+      staggerMeter: 0,
+      staggerNeed: 84,
+      stunnedT: 0,
+      weakSpotFlash: 0,
+    });
+    return;
+  }
+
   if (kind === "shardling") {
     w.enemies.push({
       kind,
@@ -1385,9 +1452,9 @@ function spawnEnemyWave(w) {
 
 function stepBullets(w, dt) {
   for (const b of w.bullets) {
-    if (b.enemy && b.megaShot) {
+    if (b.enemy && (b.megaShot || b.voidMissile)) {
       const p = w.player;
-      const lead = b.targetLead ?? 0.22;
+      const lead = b.voidMissile ? (b.targetLead ?? 0.15) : (b.targetLead ?? 0.22);
       const tx = p.x + p.vx * lead;
       const ty = p.y + p.vy * lead;
       const desired = Math.atan2(ty - b.y, tx - b.x);
@@ -1395,7 +1462,8 @@ function stepBullets(w, dt) {
       let delta = desired - current;
       while (delta > Math.PI) delta -= Math.PI * 2;
       while (delta < -Math.PI) delta += Math.PI * 2;
-      const next = current + clamp(delta, -(b.turn ?? 3.4) * dt, (b.turn ?? 3.4) * dt);
+      const turnRate = b.voidMissile ? (b.turn ?? 2.9) : (b.turn ?? 3.4);
+      const next = current + clamp(delta, -turnRate * dt, turnRate * dt);
       const speed = Math.hypot(b.vx, b.vy) || 1;
       b.vx = Math.cos(next) * speed;
       b.vy = Math.sin(next) * speed;
@@ -1461,6 +1529,7 @@ function stepMines(w, dt) {
           splash(w, e.x, e.y, "#8bff9f", 6, 1.0);
         } else {
           e.hp -= dealt;
+          registerSiphonOverlordHit(w, e, dealt);
           e.lastHitKind = "mine";
         }
       }
@@ -1567,15 +1636,19 @@ function stepEnemies(w, dt) {
   for (const e of w.enemies) {
     if (!Number.isFinite(e.maxHp) || e.maxHp <= 0) e.maxHp = Math.max(1, e.hp || 1);
     e.hitFlash = Math.max(0, (e.hitFlash || 0) - dt);
+    e.weakSpotFlash = Math.max(0, (e.weakSpotFlash || 0) - dt);
+    e.allyDrainPulse = Math.max(0, (e.allyDrainPulse || 0) - dt);
 
     const dx = p.x - e.x;
     const dy = p.y - e.y;
     const d = Math.hypot(dx, dy) || 1;
     const desiredFacing = Math.atan2(dy, dx);
     if (!Number.isFinite(e.facing)) e.facing = desiredFacing;
-    const turnRate = getEnemyTurnRate(e.kind);
-    const deltaFacing = shortestAngleDelta(e.facing, desiredFacing);
-    e.facing += clamp(deltaFacing, -turnRate * dt, turnRate * dt);
+    if (!(isSiphonOverlord(e.kind) && e.stunnedT > 0)) {
+      const turnRate = getEnemyTurnRate(e.kind);
+      const deltaFacing = shortestAngleDelta(e.facing, desiredFacing);
+      e.facing += clamp(deltaFacing, -turnRate * dt, turnRate * dt);
+    }
 
     if (e.kind === "dart") {
       const preferred = 250;
@@ -1828,6 +1901,136 @@ function stepEnemies(w, dt) {
         e.detonateCd = phase === 1 ? 6.2 : phase === 2 ? 4.9 : 3.8;
         splash(w, e.x, e.y, "#ffbf7b", 11, 1.3);
       }
+    } else if (e.kind === "siphon_overlord") {
+      const hpPct = e.hp / Math.max(1, e.maxHp || e.hp);
+      const phase = hpPct > 0.5 ? 1 : 2;
+      e.phase = phase;
+
+      if (e.stunnedT > 0) {
+        e.stunnedT = Math.max(0, e.stunnedT - dt);
+        e.guard = 0;
+        if (e.stunnedT <= 0) splash(w, e.x, e.y, "#8ddfba", 12, 1.2);
+        continue;
+      }
+
+      e.orbit += dt * (1.55 + phase * 0.18);
+      const side = Math.sin(e.orbit) * 0.42;
+      const preferred = phase === 1 ? 320 : 280;
+      const dir = d > preferred ? 1 : d < preferred - 75 ? -0.24 : 0.05;
+      e.x += ((dx / d) + (-dy / d) * side) * e.speed * dir * dt;
+      e.y += ((dy / d) + (dx / d) * side) * e.speed * dir * dt;
+      e.guard = phase === 1 ? 0.42 : 0.48;
+
+      if (hpPct <= 0.5) {
+        e.allyDrainCd = Math.max(0, (e.allyDrainCd || 0) - dt);
+        if (e.allyDrainCd <= 0) {
+          const donors = w.enemies
+            .filter((other) => other !== e && other.hp > 4 && !isMiniBossKind(other.kind))
+            .map((other) => ({ enemy: other, dist: Math.hypot(other.x - e.x, other.y - e.y) }))
+            .filter((entry) => entry.dist < 260)
+            .sort((a, b) => a.dist - b.dist)
+            .slice(0, 3);
+
+          let drained = 0;
+          e.drainLinks = [];
+          for (const entry of donors) {
+            const ally = entry.enemy;
+            const amount = Math.min(ally.hp - 1, 16 + w.threat * 0.65);
+            if (amount <= 0) continue;
+            ally.hp -= amount;
+            drained += amount;
+            e.drainLinks.push({ x: ally.x, y: ally.y });
+            splash(w, ally.x, ally.y, "#9b6dff", 5, 0.8);
+          }
+
+          if (drained > 0) {
+            healEnemy(e, drained * 0.82);
+            e.allyDrainPulse = 0.3;
+            splash(w, e.x, e.y, "#9ef3bc", 11, 1.25);
+          }
+          e.allyDrainCd = phase === 1 ? 1.45 : 0.95;
+        }
+      } else {
+        e.drainLinks = [];
+      }
+
+      e.missileCd = Math.max(0, (e.missileCd || 0) - dt);
+      if (e.missileCd <= 0 && d < 760) {
+        const missiles = phase === 1 ? 3 : 4;
+        const spread = phase === 1 ? 0.62 : 0.82;
+        const aim = Math.atan2(dy, dx);
+        for (let i = 0; i < missiles; i += 1) {
+          const t = missiles <= 1 ? 0.5 : i / (missiles - 1);
+          const a = aim + (t - 0.5) * spread;
+          const speed = 230 + phase * 18;
+          w.bullets.push({
+            x: e.x + Math.cos(a) * (e.r + 8),
+            y: e.y + Math.sin(a) * (e.r + 8),
+            vx: Math.cos(a) * speed,
+            vy: Math.sin(a) * speed,
+            life: 4.8,
+            dmg: -(13 + phase * 2 + w.threat * 0.44),
+            enemy: true,
+            voidMissile: true,
+            turn: phase === 1 ? 2.6 : 3.2,
+            targetLead: phase === 1 ? 0.12 : 0.18,
+            siphonSource: e,
+            siphonRatio: 0.45,
+          });
+        }
+        e.missileCd = phase === 1 ? 2.35 : 1.75;
+        splash(w, e.x, e.y, "#a678ff", 9, 1.1);
+        audio.play("enemyShot");
+      }
+
+      e.laserChargeT = Math.max(0, (e.laserChargeT || 0) - dt);
+      e.laserCd = Math.max(0, (e.laserCd || 0) - dt);
+      if (e.laserChargeT <= 0 && e.laserCd <= 0 && d < 760) {
+        e.laserChargeT = phase === 1 ? 1.05 : 0.88;
+        e.laserChargeTotal = e.laserChargeT;
+        e.laserCd = phase === 1 ? 5.8 : 4.8;
+        e.laserFired = false;
+        splash(w, e.x, e.y, "#d79cff", 10, 1.2);
+      }
+
+      if (e.laserChargeT > 0) {
+        e.guard = Math.max(e.guard, 0.68);
+      } else if (!e.laserFired && e.laserCd > 0) {
+        const aim = Math.atan2(dy, dx);
+        const spread = phase === 1 ? 0.26 : 0.34;
+        for (let i = 0; i < 3; i += 1) {
+          const t = i / 2;
+          const a = aim + (t - 0.5) * spread;
+          const speed = 980;
+          w.bullets.push({
+            x: e.x + Math.cos(a) * (e.r + 10),
+            y: e.y + Math.sin(a) * (e.r + 10),
+            vx: Math.cos(a) * speed,
+            vy: Math.sin(a) * speed,
+            life: 1.3,
+            dmg: -(20 + phase * 3 + w.threat * 0.54),
+            enemy: true,
+            laserShot: true,
+            siphonSource: e,
+            siphonRatio: 0.6,
+          });
+        }
+        e.laserFired = true;
+        splash(w, e.x, e.y, "#ffc3fb", 16, 1.6);
+        audio.play("mineBlast");
+      }
+
+      e.summonCd = Math.max(0, (e.summonCd || 0) - dt);
+      if (e.summonCd <= 0) {
+        const summonCount = phase === 1 ? 2 : 3;
+        for (let i = 0; i < summonCount; i += 1) {
+          if (!isEnemyEnabledForWorld(w, "siphon")) break;
+          const a = Math.random() * Math.PI * 2;
+          spawnEnemyByKind(w, "siphon", e.x + Math.cos(a) * (40 + Math.random() * 22), e.y + Math.sin(a) * (40 + Math.random() * 22));
+        }
+        e.summonCd = phase === 1 ? 9.0 : 6.8;
+        splash(w, e.x, e.y, "#bc8cff", 12, 1.4);
+      }
     } else if (e.kind === "mega_cannon_boss") {
       const hpPct = e.hp / Math.max(1, e.maxHp || e.hp);
       const phase = hpPct > 0.55 ? 1 : 2;
@@ -1912,6 +2115,7 @@ function stepEnemies(w, dt) {
 }
 
 function getEnemyContactBase(kind) {
+  if (kind === "siphon_overlord") return 78;
   if (kind === "mega_cannon_boss") return 66;
   if (kind === "mini_boss_miner") return 50;
   if (kind === "mini_boss") return 54;
@@ -1926,6 +2130,7 @@ function getEnemyContactBase(kind) {
 }
 
 function getEnemyEssenceBase(kind) {
+  if (kind === "siphon_overlord") return 132;
   if (kind === "mega_cannon_boss") return 88;
   if (kind === "mini_boss_miner") return 42;
   if (kind === "mini_boss") return 44;
@@ -1963,25 +2168,37 @@ function resolveCombat(w) {
             const guard = Math.max(0, Math.min(0.9, e.guard || 0));
             dealt *= (1 - guard);
           }
+          let weakSpotHit = false;
+          if (isSiphonOverlord(e.kind) && e.stunnedT > 0 && isSiphonWeakSpotHit(e, b.x, b.y)) {
+            dealt *= 10;
+            weakSpotHit = true;
+            e.weakSpotFlash = Math.max(e.weakSpotFlash || 0, 0.28);
+            splash(w, e.x, e.y, "#ffdff8", 14, 1.7);
+          }
           e.hp -= dealt;
+          registerSiphonOverlordHit(w, e, dealt);
           e.lastHitKind = b.helper ? "helper" : "essence";
           b.life = 0;
-          splash(w, e.x, e.y, b.crit ? "#fff1a4" : "#ffd37d", b.crit ? 12 : 6, 1.6);
+          splash(w, e.x, e.y, weakSpotHit ? "#ffcfff" : b.crit ? "#fff1a4" : "#ffd37d", weakSpotHit ? 15 : (b.crit ? 12 : 6), weakSpotHit ? 2.0 : 1.6);
           if (b.crit) audio.play("crit");
           else audio.play("hit");
           break;
         }
       }
-    } else if (Math.hypot(b.x - p.x, b.y - p.y) <= (b.megaShot ? 22 : 15) && p.dashIFrames <= 0) {
+    } else if (Math.hypot(b.x - p.x, b.y - p.y) <= (b.megaShot ? 22 : b.voidMissile ? 17 : b.laserShot ? 16 : 15) && p.dashIFrames <= 0) {
       const dmg = Math.abs(b.dmg) * w.scale.enemyDamage * (1 - Math.min(0.62, p.armor));
       p.hp -= dmg;
       p.hitFlash = 0.14;
       b.life = 0;
-      splash(w, p.x, p.y, b.megaShot ? "#ffb87f" : "#ff8b8b", b.megaShot ? 18 : 10, b.megaShot ? 2.9 : 2.2);
+      splash(w, p.x, p.y, b.voidMissile ? "#bf8fff" : b.laserShot ? "#ff9ae9" : b.megaShot ? "#ffb87f" : "#ff8b8b", b.megaShot ? 18 : b.voidMissile ? 13 : b.laserShot ? 12 : 10, b.megaShot ? 2.9 : 2.2);
+      if (b.siphonSource && b.siphonRatio > 0) {
+        healEnemy(b.siphonSource, dmg * b.siphonRatio);
+        splash(w, b.siphonSource.x, b.siphonSource.y, "#9af2ba", 6, 0.9);
+      }
       audio.play("playerHit");
     }
 
-    if (b.enemy && w.helper && Math.hypot(b.x - w.helper.x, b.y - w.helper.y) <= (b.megaShot ? 18 : 12)) {
+    if (b.enemy && w.helper && Math.hypot(b.x - w.helper.x, b.y - w.helper.y) <= (b.megaShot ? 18 : b.voidMissile ? 14 : b.laserShot ? 13 : 12)) {
       w.helper.hp -= Math.abs(b.dmg) * 0.9;
       b.life = 0;
     }
@@ -1993,6 +2210,10 @@ function resolveCombat(w) {
       const dmg = baseContact * 0.016 * w.scale.enemyDamage * (1 - Math.min(0.62, p.armor));
       p.hp -= dmg;
       p.hitFlash = 0.1;
+      if (isSiphonOverlord(e.kind)) {
+        healEnemy(e, dmg * 0.68);
+        splash(w, e.x, e.y, "#8be0b0", 5, 0.9);
+      }
     }
 
     if (w.helper && Math.hypot(e.x - w.helper.x, e.y - w.helper.y) <= e.r + 12) {
@@ -2028,6 +2249,7 @@ function resolveCombat(w) {
           dealt *= (1 - guard);
         }
         e.hp -= dealt;
+        registerSiphonOverlordHit(w, e, dealt);
         e.lastHitKind = "rocket";
       }
     }
@@ -2090,6 +2312,13 @@ function resolveCombat(w) {
       w.drops.push({ x: e.x, y: e.y, t: 3.2, kind: "essence", amount: bonusOrb, color: DROP_COLORS.essence });
       w.drops.push({ x: e.x - 12, y: e.y + 6, t: 3.2, kind: "azure", amount: Math.max(4, Math.floor(essence * 0.3)), color: DROP_COLORS.azure });
       splash(w, e.x, e.y, "#ffbd89", 40, 3.9);
+    }
+    if (e.kind === "siphon_overlord") {
+      const bonusOrb = Math.max(22, Math.floor(essence * 1.1));
+      w.drops.push({ x: e.x, y: e.y, t: 3.4, kind: "essence", amount: bonusOrb, color: DROP_COLORS.essence });
+      w.drops.push({ x: e.x - 14, y: e.y - 2, t: 3.4, kind: "void", amount: Math.max(6, Math.floor(essence * 0.34)), color: DROP_COLORS.void });
+      w.drops.push({ x: e.x + 14, y: e.y + 4, t: 3.4, kind: "azure", amount: Math.max(5, Math.floor(essence * 0.24)), color: DROP_COLORS.azure });
+      splash(w, e.x, e.y, "#c7a0ff", 54, 4.3);
     }
 
     w.runEssence += essence;
@@ -2180,6 +2409,24 @@ function getEnemyTelegraphState(e, worldTime) {
   if (e.kind === "mini_boss_miner" && (e.detonateCd || 0) < 0.5) {
     const p = 1 - clamp((e.detonateCd || 0) / 0.5, 0, 1);
     setTelegraph(0.28 + p * 0.52, "255,187,106");
+  }
+  if (isSiphonOverlord(e.kind)) {
+    if (e.stunnedT > 0) {
+      const p = clamp(e.stunnedT / 3.6, 0, 1);
+      setTelegraph(0.55 + (1 - p) * 0.38, "156,220,255");
+    }
+    if (e.laserChargeT > 0) {
+      const total = e.laserChargeTotal || 1.0;
+      const p = 1 - clamp(e.laserChargeT / Math.max(0.01, total), 0, 1);
+      setTelegraph(0.58 + p * 0.4, "241,167,255");
+    }
+    if ((e.missileCd || 0) < 0.22) {
+      const p = 1 - clamp((e.missileCd || 0) / 0.22, 0, 1);
+      setTelegraph(0.36 + p * 0.42, "173,132,255");
+    }
+    if ((e.allyDrainPulse || 0) > 0.01) {
+      setTelegraph(0.65, "138,255,180");
+    }
   }
 
   const clampedIntensity = clamp(intensity, 0, 1);
@@ -2290,15 +2537,39 @@ function drawGame() {
   }
 
   for (const b of w.bullets) {
-    ctx.fillStyle = b.megaShot ? "#ffc58f" : b.enemy ? "#ff8b8b" : b.crit ? "#fff3a8" : b.helper ? "#9ec9ff" : "#7dd3fc";
+    ctx.fillStyle = b.voidMissile
+      ? "#a678ff"
+      : b.laserShot
+        ? "#ffb9f8"
+        : b.megaShot
+          ? "#ffc58f"
+          : b.enemy
+            ? "#ff8b8b"
+            : b.crit
+              ? "#fff3a8"
+              : b.helper
+                ? "#9ec9ff"
+                : "#7dd3fc";
     ctx.beginPath();
-    ctx.arc(b.x, b.y, b.megaShot ? 6.5 : b.enemy ? 3.5 : 3, 0, Math.PI * 2);
+    ctx.arc(b.x, b.y, b.megaShot ? 6.5 : b.voidMissile ? 4.8 : b.laserShot ? 4.4 : b.enemy ? 3.5 : 3, 0, Math.PI * 2);
     ctx.fill();
     if (b.megaShot) {
       ctx.strokeStyle = "rgba(255, 173, 111, 0.65)";
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.arc(b.x, b.y, 9.5, 0, Math.PI * 2);
+      ctx.stroke();
+    } else if (b.voidMissile) {
+      ctx.strokeStyle = "rgba(193, 148, 255, 0.58)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, 7.1, 0, Math.PI * 2);
+      ctx.stroke();
+    } else if (b.laserShot) {
+      ctx.strokeStyle = "rgba(255, 198, 252, 0.62)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, 6.5, 0, Math.PI * 2);
       ctx.stroke();
     }
   }
@@ -2312,6 +2583,8 @@ function drawGame() {
         ? "#ffb160"
         : e.kind === "mega_cannon_boss"
           ? "#ffcb84"
+        : e.kind === "siphon_overlord"
+          ? "#b48cff"
         : e.kind === "tank"
         ? "#ffcc74"
         : e.kind === "phantom"
@@ -2370,7 +2643,7 @@ function drawGame() {
     if (e.showHp) {
       const hpPct = clamp(e.hp / Math.max(1, e.maxHp || e.hp), 0, 1);
       const barW = Math.max(24, e.r * 2.2);
-      const barH = e.kind === "mini_boss" || e.kind === "mini_boss_miner" || e.kind === "mega_cannon_boss" ? 6 : 4;
+      const barH = e.kind === "mini_boss" || e.kind === "mini_boss_miner" || e.kind === "mega_cannon_boss" || e.kind === "siphon_overlord" ? 6 : 4;
       const barX = e.x - barW * 0.5;
       const barY = e.y - e.r - 15;
 
@@ -2380,9 +2653,18 @@ function drawGame() {
       ctx.fillRect(barX, barY, barW, barH);
       ctx.fillStyle = hpPct > 0.6 ? "#84ef9a" : hpPct > 0.32 ? "#ffd17a" : "#ff8989";
       ctx.fillRect(barX, barY, barW * hpPct, barH);
+
+      if (isSiphonOverlord(e.kind)) {
+        const stunPct = e.stunnedT > 0 ? 1 : clamp((e.staggerMeter || 0) / Math.max(1, e.staggerNeed || 84), 0, 1);
+        const stunY = barY + barH + 3;
+        ctx.fillStyle = "rgba(90,120,170,0.2)";
+        ctx.fillRect(barX, stunY, barW, 3);
+        ctx.fillStyle = e.stunnedT > 0 ? "#8edcff" : "#8ba8ff";
+        ctx.fillRect(barX, stunY, barW * stunPct, 3);
+      }
     }
 
-    if (e.kind === "mini_boss" || e.kind === "mini_boss_miner" || e.kind === "mega_cannon_boss") {
+    if (e.kind === "mini_boss" || e.kind === "mini_boss_miner" || e.kind === "mega_cannon_boss" || e.kind === "siphon_overlord") {
       const guard = Math.max(0, Math.min(0.85, e.guard || 0));
       const phase = e.phase || 1;
 
@@ -2460,6 +2742,68 @@ function drawGame() {
           ctx.beginPath();
           ctx.arc(e.x, e.y, e.r + 22 - t * 10, 0, Math.PI * 2);
           ctx.stroke();
+        }
+      }
+
+      if (e.kind === "siphon_overlord") {
+        const back = (e.facing || 0) + Math.PI;
+        const weakSpotR = e.stunnedT > 0 ? 8.5 : 5.4;
+        const weakSpotX = e.x + Math.cos(back) * (e.r + 5);
+        const weakSpotY = e.y + Math.sin(back) * (e.r + 5);
+        const weakAlpha = e.stunnedT > 0 ? 0.82 : 0.35;
+        const weakPulse = (Math.sin(w.t * (e.stunnedT > 0 ? 12 : 5.2)) + 1) * 0.5;
+        const weakFlash = clamp((e.weakSpotFlash || 0) / 0.28, 0, 1);
+
+        ctx.fillStyle = `rgba(255,182,246,${weakAlpha + weakPulse * 0.14 + weakFlash * 0.24})`;
+        ctx.beginPath();
+        ctx.arc(weakSpotX, weakSpotY, weakSpotR + weakFlash * 1.6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = `rgba(255,227,255,${0.34 + weakPulse * 0.35 + weakFlash * 0.3})`;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(weakSpotX, weakSpotY, weakSpotR + 2.4 + weakPulse * 2.2, 0, Math.PI * 2);
+        ctx.stroke();
+
+        if (e.stunnedT > 0) {
+          const stunPulse = (Math.sin(w.t * 9.4) + 1) * 0.5;
+          ctx.strokeStyle = `rgba(160,228,255,${0.3 + stunPulse * 0.36})`;
+          ctx.lineWidth = 2.2;
+          ctx.beginPath();
+          ctx.arc(e.x, e.y, e.r + 13 + stunPulse * 4, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        if ((e.allyDrainPulse || 0) > 0.01 && Array.isArray(e.drainLinks)) {
+          const linkA = clamp((e.allyDrainPulse || 0) / 0.3, 0, 1);
+          ctx.strokeStyle = `rgba(145,255,189,${0.16 + linkA * 0.52})`;
+          ctx.lineWidth = 2;
+          for (const link of e.drainLinks) {
+            if (!link) continue;
+            ctx.beginPath();
+            ctx.moveTo(link.x, link.y);
+            ctx.lineTo(e.x, e.y);
+            ctx.stroke();
+          }
+          ctx.lineWidth = 1;
+        }
+
+        if (e.laserChargeT > 0) {
+          const total = e.laserChargeTotal || 1.0;
+          const t = 1 - clamp(e.laserChargeT / Math.max(0.01, total), 0, 1);
+          const baseAim = e.facing || 0;
+          const spread = e.phase === 1 ? 0.26 : 0.34;
+          const len = 220 + t * 620;
+          ctx.strokeStyle = `rgba(246,182,255,${0.22 + t * 0.46})`;
+          ctx.lineWidth = 1.5 + t * 1.4;
+          for (let i = 0; i < 3; i += 1) {
+            const m = i / 2 - 0.5;
+            const a = baseAim + m * spread;
+            ctx.beginPath();
+            ctx.moveTo(e.x, e.y);
+            ctx.lineTo(e.x + Math.cos(a) * len, e.y + Math.sin(a) * len);
+            ctx.stroke();
+          }
+          ctx.lineWidth = 1;
         }
       }
 
