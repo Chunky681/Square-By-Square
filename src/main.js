@@ -271,6 +271,7 @@ const BOSS_BOTTOM_LEFT_SHIELD_IMAGES = {
   azure: loadImage("./assets/ui/enemies/shields/shield_azure.png"),
   amber: loadImage("./assets/ui/enemies/shields/shield_amber.png"),
 };
+const PLAYER_BULLET_IMAGE = loadImage("./assets/ui/pixel-aet/polished/player_bullet.png");
 
 const state = {
   player: null,
@@ -366,6 +367,17 @@ function submitPlayerId() {
 }
 
 function bindInput() {
+  const clearInputState = () => {
+    state.input.up = false;
+    state.input.down = false;
+    state.input.left = false;
+    state.input.right = false;
+    state.input.firing = false;
+    state.input.void = false;
+    state.input.azure = false;
+    state.input.amber = false;
+  };
+
   window.addEventListener("keydown", (e) => {
     const k = e.key.toLowerCase();
     if (k === "escape" && state.mode === "game" && state.world?.isTestMode) {
@@ -390,16 +402,37 @@ function bindInput() {
     if (k === "d" || k === "arrowright") state.input.right = false;
   });
 
+  window.addEventListener("blur", clearInputState);
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) clearInputState();
+  });
+
+  window.addEventListener("wheel", (e) => {
+    if (state.mode === "game" && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+    }
+  }, { passive: false });
+  window.addEventListener("contextmenu", (e) => {
+    if (state.mode === "game") e.preventDefault();
+  });
+
   canvas.addEventListener("pointermove", (e) => {
     const r = canvas.getBoundingClientRect();
     state.mouse.x = ((e.clientX - r.left) / Math.max(1, r.width)) * canvas.width;
     state.mouse.y = ((e.clientY - r.top) / Math.max(1, r.height)) * canvas.height;
   });
-  canvas.addEventListener("pointerdown", () => {
+  canvas.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0) {
+      if (state.mode === "game") e.preventDefault();
+      return;
+    }
     audio.unlock();
     state.input.firing = true;
   });
-  canvas.addEventListener("pointerup", () => { state.input.firing = false; });
+  canvas.addEventListener("pointerup", (e) => {
+    if (e.button === 0) state.input.firing = false;
+  });
+  canvas.addEventListener("pointercancel", () => { state.input.firing = false; });
   canvas.addEventListener("pointerleave", () => { state.input.firing = false; });
 }
 
@@ -1264,7 +1297,9 @@ function fireCannon(w, originX, originY, angle, damage, speed) {
     life: 1.0,
     dmg: crit ? damage * critMult : damage,
     crit,
+    pulseSeed: Math.random() * Math.PI * 2,
   });
+  splash(w, originX + Math.cos(angle) * 8, originY + Math.sin(angle) * 8, crit ? "#ffd9ff" : "#c98bff", crit ? 4 : 3, 0.62);
 }
 
 function isEnemyEnabledForWorld(w, kind) {
@@ -3141,6 +3176,34 @@ function drawGame() {
   }
 
   for (const b of w.bullets) {
+    if (!b.enemy && !b.helper && PLAYER_BULLET_IMAGE.complete && PLAYER_BULLET_IMAGE.naturalWidth > 0) {
+      const pulse = (Math.sin(w.t * 13.5 + (b.pulseSeed || 0)) + 1) * 0.5;
+      const speed = Math.hypot(b.vx, b.vy) || 1;
+      const nx = b.vx / speed;
+      const ny = b.vy / speed;
+      const trailX = b.x - nx * 6.5;
+      const trailY = b.y - ny * 6.5;
+      const glowRgb = b.crit ? "255,224,249" : "230,146,224";
+
+      ctx.fillStyle = `rgba(${glowRgb},${0.2 + pulse * 0.24})`;
+      ctx.beginPath();
+      ctx.arc(trailX, trailY, b.crit ? 8.8 : 7.2, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = `rgba(${glowRgb},${0.26 + pulse * 0.28})`;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.crit ? 9.5 : 8, 0, Math.PI * 2);
+      ctx.fill();
+
+      const spriteSize = b.crit ? 16 : 14;
+      ctx.save();
+      ctx.translate(b.x, b.y);
+      ctx.rotate(Math.atan2(b.vy, b.vx) + Math.PI * 0.5);
+      ctx.drawImage(PLAYER_BULLET_IMAGE, -spriteSize * 0.5, -spriteSize * 0.5, spriteSize, spriteSize);
+      ctx.restore();
+      continue;
+    }
+
     ctx.fillStyle = b.voidMissile
       ? "#a678ff"
       : b.laserShot
