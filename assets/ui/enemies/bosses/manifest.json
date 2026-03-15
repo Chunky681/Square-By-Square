@@ -1,0 +1,114 @@
+[
+  {
+    "name": "boss_top_left",
+    "file": "ui\\enemies\\bosses\\boss_top_left.png",
+    "grid_row": 0,
+    "grid_col": 0,
+    "cell_rect": {
+      "x0": 0,
+      "y0": 0,
+      "x1": 768,
+      "y1": 512
+    },
+    "crop_rect_in_cell": {
+      "x0": 83,
+      "y0": 18,
+      "x1": 681,
+      "y1": 479
+    },
+    "crop_rect_in_source": {
+      "x0": 83,
+      "y0": 18,
+      "x1": 681,
+      "y1": 479
+    },
+    "size": {
+      "width": 598,
+      "height": 461
+    }
+  },
+  {
+    "name": "boss_top_right",
+    "file": "ui\\enemies\\bosses\\boss_top_right.png",
+    "grid_row": 0,
+    "grid_col": 1,
+    "cell_rect": {
+      "x0": 768,
+      "y0": 0,
+      "x1": 1536,
+      "y1": 512
+    },
+    "crop_rect_in_cell": {
+      "x0": 35,
+      "y0": 19,
+      "x1": 673,
+      "y1": 454
+    },
+    "crop_rect_in_source": {
+      "x0": 803,
+      "y0": 19,
+      "x1": 1441,
+      "y1": 454
+    },
+    "size": {
+      "width": 638,
+      "height": 435
+    }
+  },
+  {
+    "name": "boss_bottom_left",
+    "file": "ui\\enemies\\bosses\\boss_bottom_left.png",
+    "grid_row": 1,
+    "grid_col": 0,
+    "cell_rect": {
+      "x0": 0,
+      "y0": 512,
+      "x1": 768,
+      "y1": 1024
+    },
+    "crop_rect_in_cell": {
+      "x0": 47,
+      "y0": 36,
+      "x1": 718,
+      "y1": 453
+    },
+    "crop_rect_in_source": {
+      "x0": 47,
+      "y0": 548,
+      "x1": 718,
+      "y1": 965
+    },
+    "size": {
+      "width": 671,
+      "height": 417
+    }
+  },
+  {
+    "name": "boss_bottom_right",
+    "file": "ui\\enemies\\bosses\\boss_bottom_right.png",
+    "grid_row": 1,
+    "grid_col": 1,
+    "cell_rect": {
+      "x0": 768,
+      "y0": 512,
+      "x1": 1536,
+      "y1": 1024
+    },
+    "crop_rect_in_cell": {
+      "x0": 46,
+      "y0": 10,
+      "x1": 702,
+      "y1": 465
+    },
+    "crop_rect_in_source": {
+      "x0": 814,
+      "y0": 522,
+      "x1": 1470,
+      "y1": 977
+    },
+    "size": {
+      "width": 656,
+      "height": 455
+    }
+  }
+]

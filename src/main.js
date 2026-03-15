@@ -164,6 +164,27 @@ const SPECIAL_CURRENCY_BY_KILL = {
   rocket: "azure",
 };
 
+const BOSS_BOTTOM_LEFT_MINION_BY_TYPE = {
+  void: "boss_bottom_left_minion_void",
+  azure: "boss_bottom_left_minion_azure",
+  amber: "boss_bottom_left_minion_amber",
+};
+
+const BOSS_BOTTOM_LEFT_SHIELD_TYPES = ["void", "azure", "amber"];
+const BOSS_BOTTOM_LEFT_SHIELD_COLORS = {
+  void: "186,144,255",
+  azure: "120,220,255",
+  amber: "255,207,120",
+};
+
+const BOSS_BOTTOM_LEFT_SHIELD_LAYOUT = {
+  void: { offsetX: -290, offsetY: -65, angle: Math.atan2(-65, -290) },
+  azure: { offsetX: 175, offsetY: 221, angle: Math.atan2(221, 175) },
+  amber: { offsetX: 136, offsetY: -215, angle: Math.atan2(-215, 136) },
+};
+const BOSS_BOTTOM_LEFT_SHIELD_HALF_ARC = Math.PI * 0.36;
+const BOSS_BOTTOM_LEFT_SHIELD_SCALE = 0.28;
+
 const screens = {
   id: document.getElementById("id-screen"),
   menu: document.getElementById("menu-screen"),
@@ -237,10 +258,19 @@ const ENEMY_SKIN_CONFIG = {
   mini_boss_miner: { src: "./assets/ui/enemies/sheet/cell_r0_c1.png", scale: 2.85, spin: -0.18, pulseRate: 2.0, pulseAmp: 0.045, bobRate: 2.0, bobAmp: 0.58, glowRgb: "255,176,92", glowRate: 5.9 },
   mega_cannon_boss: { src: "./assets/ui/enemies/sheet/cell_r2_c4.png", scale: 3.0, spin: 0.12, pulseRate: 1.8, pulseAmp: 0.035, bobRate: 1.8, bobAmp: 0.42, glowRgb: "255,176,118", glowRate: 5.2 },
   siphon_overlord: { src: "./assets/ui/enemies/sheet/cell_r3_c2.png", scale: 3.2, spin: 0.06, pulseRate: 1.9, pulseAmp: 0.03, bobRate: 1.7, bobAmp: 0.35, glowRgb: "174,124,255", glowRate: 5.3 },
+  boss_bottom_left: { src: "./assets/ui/enemies/bosses/boss_bottom_left.png", scale: 3.7, pulseRate: 1.2, pulseAmp: 0.02, bobRate: 1.5, bobAmp: 0.25, glowRgb: "255,174,110", glowRate: 4.4, aspect: 1.61 },
+  boss_bottom_left_minion_void: { src: "./assets/ui/enemies/minions/minion_void.png", scale: 2.45, pulseRate: 2.4, pulseAmp: 0.05, bobRate: 3.1, bobAmp: 0.55, glowRgb: "205,136,255", glowRate: 8.3, aspect: 1.21 },
+  boss_bottom_left_minion_azure: { src: "./assets/ui/enemies/minions/minion_azure.png", scale: 2.45, pulseRate: 2.35, pulseAmp: 0.05, bobRate: 3.05, bobAmp: 0.52, glowRgb: "128,212,255", glowRate: 8.0, aspect: 1.12 },
+  boss_bottom_left_minion_amber: { src: "./assets/ui/enemies/minions/minion_amber.png", scale: 2.4, pulseRate: 2.3, pulseAmp: 0.05, bobRate: 3.0, bobAmp: 0.5, glowRgb: "255,196,118", glowRate: 7.7, aspect: 1.26 },
 };
 const ENEMY_SPRITES = Object.fromEntries(
   Object.entries(ENEMY_SKIN_CONFIG).map(([kind, cfg]) => [kind, { ...cfg, img: loadImage(cfg.src) }]),
 );
+const BOSS_BOTTOM_LEFT_SHIELD_IMAGES = {
+  void: loadImage("./assets/ui/enemies/shields/shield_void.png"),
+  azure: loadImage("./assets/ui/enemies/shields/shield_azure.png"),
+  amber: loadImage("./assets/ui/enemies/shields/shield_amber.png"),
+};
 
 const state = {
   player: null,
@@ -871,6 +901,7 @@ function makeWorld(profile, difficulty) {
     drops: [],
     mines: [],
     enemyMines: [],
+    bossBursts: [],
     rockets: [],
     helper: null,
     player: {
@@ -966,6 +997,7 @@ function stepGame(dt) {
   stepRockets(w, dt);
   stepMines(w, dt);
   stepEnemyMines(w, dt);
+  stepBossBursts(w, dt);
   stepHelper(w, dt);
   stepEnemies(w, dt);
   resolveCombat(w);
@@ -1103,6 +1135,11 @@ function applyWarpBurstDamage(w, x, y, moduleLevel) {
     const falloff = 1 - d / radius;
     const raw = baseDamage * (0.35 + falloff * 0.65);
 
+    if (applyTypedShieldBlock(w, e, x, y, "void")) {
+      e.lastHitKind = "warp";
+      continue;
+    }
+
     if (e.kind === "mega_cannon_boss" && e.shieldT > 0) {
       e.hp = Math.min(e.maxHp || e.hp, e.hp + raw * 0.45);
       splash(w, e.x, e.y, "#8effa8", 6, 0.9);
@@ -1162,7 +1199,7 @@ function useAzureAbility(w) {
     const turn = 3.2 + module.level * 0.07;
     const damage = 56 + module.level * 3.2;
     const speed = 280;
-    w.rockets.push({ x: p.x, y: p.y, vx: Math.cos(p.angle) * speed, vy: Math.sin(p.angle) * speed, life: 4.2, dmg: damage, turn });
+    w.rockets.push({ x: p.x, y: p.y, vx: Math.cos(p.angle) * speed, vy: Math.sin(p.angle) * speed, life: 4.2, dmg: damage, turn, affinity: "azure" });
     p.azureCd = Math.max(5.2 - module.level * 0.06, 1.0) * (1 - Math.min(0.35, (stacks - 1) * 0.08));
     audio.play("rocketLaunch");
     return;
@@ -1192,7 +1229,7 @@ function useAmberAbility(w) {
   if (module.type === "mine") {
     const radius = 46 + module.level * 1.7;
     const damage = 44 + module.level * 3.4;
-    w.mines.push({ x: p.x, y: p.y, r: radius, dmg: damage, life: 18, armed: 0.35 });
+    w.mines.push({ x: p.x, y: p.y, r: radius, dmg: damage, life: 18, armed: 0.35, affinity: "amber" });
     p.amberCd = Math.max(4.6 - module.level * 0.05, 0.9) * (1 - Math.min(0.35, (stacks - 1) * 0.08));
     audio.play("minePlace");
   }
@@ -1222,7 +1259,7 @@ function isEnemyEnabledForWorld(w, kind) {
 }
 
 function isMiniBossKind(kind) {
-  return kind === "mini_boss" || kind === "mini_boss_miner" || kind === "mega_cannon_boss" || kind === "siphon_overlord";
+  return kind === "mini_boss" || kind === "mini_boss_miner" || kind === "mega_cannon_boss" || kind === "siphon_overlord" || isBossBottomLeft(kind);
 }
 
 function placeEnemyMine(w, x, y, opts = {}) {
@@ -1261,8 +1298,9 @@ function shortestAngleDelta(fromAngle, toAngle) {
 function getEnemyTurnRate(kind) {
   if (kind === "dart" || kind === "shardling") return 12.5;
   if (kind === "berserker" || kind === "phantom") return 10.5;
+  if (isBossBottomLeftMinion(kind)) return 9.4;
   if (kind === "siphon_overlord") return 4.8;
-  if (kind === "mini_boss" || kind === "mini_boss_miner" || kind === "mega_cannon_boss") return 5.8;
+  if (kind === "mini_boss" || kind === "mini_boss_miner" || kind === "mega_cannon_boss" || isBossBottomLeft(kind)) return 5.8;
   return 8.8;
 }
 
@@ -1299,6 +1337,221 @@ function registerSiphonOverlordHit(w, e, dealt) {
     splash(w, e.x, e.y, "#9cc8ff", 20, 2.1);
     audio.play("mineBlast");
   }
+}
+
+function isBossBottomLeft(kind) {
+  return kind === "boss_bottom_left";
+}
+
+function isBossBottomLeftMinion(kind) {
+  return kind === "boss_bottom_left_minion_void" || kind === "boss_bottom_left_minion_azure" || kind === "boss_bottom_left_minion_amber";
+}
+
+function findBossBottomLeftMinion(w, boss, shieldType) {
+  const kind = BOSS_BOTTOM_LEFT_MINION_BY_TYPE[shieldType];
+  if (!kind) return null;
+  for (const enemy of w.enemies) {
+    if (enemy.kind === kind && enemy.owner === boss && enemy.hp > 0) return enemy;
+  }
+  return null;
+}
+
+function getBossBottomLeftShieldAtImpact(e, hitX, hitY) {
+  if (!isBossBottomLeft(e.kind)) return null;
+  const shieldState = e.shieldActive || {};
+  const impact = Math.atan2(hitY - e.y, hitX - e.x);
+  let bestType = null;
+  let bestDelta = Number.POSITIVE_INFINITY;
+  const spin = e.shieldSpin || 0;
+
+  for (const type of BOSS_BOTTOM_LEFT_SHIELD_TYPES) {
+    if (!shieldState[type]) continue;
+    const base = BOSS_BOTTOM_LEFT_SHIELD_LAYOUT[type];
+    if (!base) continue;
+    const center = base.angle + spin;
+    const delta = Math.abs(shortestAngleDelta(center, impact));
+    if (delta <= BOSS_BOTTOM_LEFT_SHIELD_HALF_ARC && delta < bestDelta) {
+      bestDelta = delta;
+      bestType = type;
+    }
+  }
+  return bestType;
+}
+
+function applyTypedShieldBlock(w, e, hitX, hitY, affinity) {
+  if (isBossBottomLeftMinion(e.kind)) {
+    if (!e.typedShieldUp) return false;
+    if (affinity === e.shieldType) {
+      e.typedShieldUp = false;
+      e.shieldBreakFlash = 0.3;
+      splash(w, e.x, e.y, affinity === "void" ? "#c79aff" : affinity === "azure" ? "#99d9ff" : "#ffd68a", 10, 1.5);
+    } else {
+      splash(w, e.x, e.y, "#c7d0df", 6, 0.9);
+    }
+    return true;
+  }
+
+  if (!isBossBottomLeft(e.kind)) return false;
+  const blockedType = getBossBottomLeftShieldAtImpact(e, hitX, hitY);
+  if (!blockedType) return false;
+
+  if (affinity === blockedType) {
+    e.shieldActive[blockedType] = false;
+    e.shieldBreakFlash[blockedType] = 0.32;
+    const aliveMinion = findBossBottomLeftMinion(w, e, blockedType);
+    e.shieldRestoreCd[blockedType] = aliveMinion ? 4.0 : Number.POSITIVE_INFINITY;
+    splash(
+      w,
+      e.x + Math.cos(Math.atan2(hitY - e.y, hitX - e.x)) * (e.r + 18),
+      e.y + Math.sin(Math.atan2(hitY - e.y, hitX - e.x)) * (e.r + 18),
+      blockedType === "void" ? "#bc8fff" : blockedType === "azure" ? "#89d3ff" : "#ffd084",
+      11,
+      1.4,
+    );
+  } else {
+    splash(w, hitX, hitY, "#d9e7ff", 7, 0.9);
+  }
+  return true;
+}
+
+function queueBossBottomLeftBurst(w, boss, x, y, opts = {}) {
+  const delay = opts.delay ?? 1.0;
+  const radius = opts.radius ?? 34;
+  const damage = opts.damage ?? 26;
+  const color = opts.color ?? "255,176,114";
+  w.bossBursts.push({
+    owner: boss,
+    x: clamp(x, 30, canvas.width - 30),
+    y: clamp(y, 30, canvas.height - 30),
+    r: radius,
+    t: delay,
+    total: Math.max(0.01, delay),
+    dmg: damage,
+    color,
+    fired: false,
+    linger: 0.16,
+  });
+}
+
+function spawnBossBottomLeftPattern(w, e, phase) {
+  const p = w.player;
+  const baseDelay = phase === 1 ? 1.05 : phase === 2 ? 0.9 : 0.76;
+  const damage = 16 + phase * 3 + w.threat * 0.38;
+  const choice = Math.floor(Math.random() * 5);
+
+  if (choice === 0) {
+    const count = 7 + phase * 2;
+    const ring = 82 + phase * 16;
+    for (let i = 0; i < count; i += 1) {
+      const a = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.14;
+      queueBossBottomLeftBurst(w, e, p.x + Math.cos(a) * ring, p.y + Math.sin(a) * ring, {
+        delay: baseDelay + Math.random() * 0.14,
+        radius: 22 + phase * 2,
+        damage,
+        color: "255,190,118",
+      });
+    }
+    return;
+  }
+
+  if (choice === 1) {
+    const aim = Math.atan2(p.y - e.y, p.x - e.x);
+    const normal = aim + Math.PI * 0.5;
+    for (let line = -1; line <= 1; line += 1) {
+      for (let i = 1; i <= 4 + phase; i += 1) {
+        const dist = 70 + i * 72;
+        const lateral = line * (32 + phase * 10);
+        const px = e.x + Math.cos(aim) * dist + Math.cos(normal) * lateral;
+        const py = e.y + Math.sin(aim) * dist + Math.sin(normal) * lateral;
+        queueBossBottomLeftBurst(w, e, px, py, {
+          delay: baseDelay + i * 0.06,
+          radius: 18 + phase * 2,
+          damage,
+          color: "255,160,128",
+        });
+      }
+    }
+    return;
+  }
+
+  if (choice === 2) {
+    const count = 9 + phase * 3;
+    const baseA = Math.random() * Math.PI * 2;
+    for (let i = 0; i < count; i += 1) {
+      const t = i / Math.max(1, count - 1);
+      const spiralA = baseA + t * Math.PI * (2.1 + phase * 0.45);
+      const dist = 44 + t * (220 + phase * 40);
+      queueBossBottomLeftBurst(w, e, e.x + Math.cos(spiralA) * dist, e.y + Math.sin(spiralA) * dist, {
+        delay: baseDelay + t * 0.22,
+        radius: 16 + phase * 1.6,
+        damage,
+        color: "220,146,255",
+      });
+    }
+    return;
+  }
+
+  if (choice === 3) {
+    const spacing = 64;
+    for (let ix = -2; ix <= 2; ix += 1) {
+      for (let iy = -1; iy <= 1; iy += 1) {
+        if ((ix + iy) % 2 === 0) continue;
+        queueBossBottomLeftBurst(w, e, p.x + ix * spacing, p.y + iy * spacing, {
+          delay: baseDelay + (Math.abs(ix) + Math.abs(iy)) * 0.05,
+          radius: 19 + phase * 2,
+          damage,
+          color: "130,218,255",
+        });
+      }
+    }
+    return;
+  }
+
+  const dirA = Math.atan2(p.vy, p.vx);
+  const fallbackA = Math.atan2(p.y - e.y, p.x - e.x);
+  const trailA = Math.hypot(p.vx, p.vy) > 30 ? dirA : fallbackA;
+  for (let i = 0; i < 8 + phase * 2; i += 1) {
+    const d = 32 + i * 52;
+    const side = (Math.random() - 0.5) * (30 + phase * 11);
+    const nx = Math.cos(trailA + Math.PI * 0.5) * side;
+    const ny = Math.sin(trailA + Math.PI * 0.5) * side;
+    queueBossBottomLeftBurst(w, e, p.x + Math.cos(trailA) * d + nx, p.y + Math.sin(trailA) * d + ny, {
+      delay: baseDelay + i * 0.04,
+      radius: 15 + phase * 1.8,
+      damage,
+      color: "255,202,130",
+    });
+  }
+}
+
+function stepBossBursts(w, dt) {
+  const p = w.player;
+  const kept = [];
+  for (const burst of w.bossBursts) {
+    if (!burst.fired && burst.owner && burst.owner.hp <= 0) continue;
+
+    if (!burst.fired) {
+      burst.t -= dt;
+      if (burst.t <= 0) {
+        burst.fired = true;
+        burst.linger = 0.18;
+        if (p.dashIFrames <= 0 && Math.hypot(p.x - burst.x, p.y - burst.y) <= burst.r + 10) {
+          const dmg = Math.abs(burst.dmg) * w.scale.enemyDamage * (1 - Math.min(0.62, p.armor));
+          p.hp -= dmg;
+          p.hitFlash = 0.14;
+          audio.play("playerHit");
+        }
+        splash(w, burst.x, burst.y, "#ffad7e", 14 + burst.r * 0.18, 1.7);
+      }
+    } else {
+      burst.linger -= dt;
+    }
+
+    if ((!burst.fired && burst.t > 0) || (burst.fired && burst.linger > 0)) {
+      kept.push(burst);
+    }
+  }
+  w.bossBursts = kept;
 }
 
 function spawnEnemyByKind(w, kind, x, y) {
@@ -1479,6 +1732,54 @@ function spawnEnemyByKind(w, kind, x, y) {
     return;
   }
 
+  if (kind === "boss_bottom_left") {
+    const hp = (2460 + w.threat * 156) * hpScale;
+    const boss = {
+      kind,
+      x,
+      y,
+      hp,
+      maxHp: hp,
+      speed: (76 + w.threat * 0.86) * spdScale,
+      r: 43,
+      orbit: Math.random() * 6.28,
+      guard: 0.38,
+      phase: 1,
+      shieldSpin: Math.random() * Math.PI * 2,
+      shieldActive: { void: true, azure: true, amber: true },
+      shieldRestoreCd: { void: 0, azure: 0, amber: 0 },
+      shieldBreakFlash: { void: 0, azure: 0, amber: 0 },
+      minionOrbit: Math.random() * Math.PI * 2,
+      patternCd: 2.6,
+      patternPulse: 0,
+    };
+    w.enemies.push(boss);
+
+    const minionHp = (188 + w.threat * 14) * hpScale;
+    const orbitRadius = boss.r + 84;
+    for (let i = 0; i < BOSS_BOTTOM_LEFT_SHIELD_TYPES.length; i += 1) {
+      const shieldType = BOSS_BOTTOM_LEFT_SHIELD_TYPES[i];
+      const minionKind = BOSS_BOTTOM_LEFT_MINION_BY_TYPE[shieldType];
+      if (!minionKind) continue;
+      w.enemies.push({
+        kind: minionKind,
+        x: x + Math.cos((i / 3) * Math.PI * 2) * orbitRadius,
+        y: y + Math.sin((i / 3) * Math.PI * 2) * orbitRadius,
+        hp: minionHp,
+        maxHp: minionHp,
+        speed: 0,
+        r: 16,
+        guard: 0.08,
+        owner: boss,
+        shieldType,
+        typedShieldUp: true,
+        shieldBreakFlash: 0,
+        orbitOffset: (i / 3) * Math.PI * 2,
+      });
+    }
+    return;
+  }
+
   if (kind === "shardling") {
     w.enemies.push({
       kind,
@@ -1585,6 +1886,10 @@ function stepMines(w, dt) {
       const d = Math.hypot(e.x - m.x, e.y - m.y);
       if (d <= m.r) {
         markEnemyHit(e);
+        if (applyTypedShieldBlock(w, e, m.x, m.y, m.affinity || "amber")) {
+          e.lastHitKind = "mine";
+          continue;
+        }
         const falloff = 1 - d / m.r;
         const dealt = m.dmg * (0.35 + falloff * 0.65);
         if (e.kind === "mega_cannon_boss" && e.shieldT > 0) {
@@ -1684,7 +1989,7 @@ function stepHelper(w, dt) {
     }
 
     const a = Math.atan2(nearest.y - h.y, nearest.x - h.x);
-    w.bullets.push({ x: h.x, y: h.y, vx: Math.cos(a) * 700, vy: Math.sin(a) * 700, life: 1.0, dmg: h.dmg, helper: true });
+    w.bullets.push({ x: h.x, y: h.y, vx: Math.cos(a) * 700, vy: Math.sin(a) * 700, life: 1.0, dmg: h.dmg, helper: true, affinity: "azure" });
     h.fireCd = 1 / h.fireRate;
     audio.play("helperShot");
   }
@@ -2151,6 +2456,69 @@ function stepEnemies(w, dt) {
         splash(w, e.x, e.y, "#ffb275", 14, 1.8);
         audio.play("mineBlast");
       }
+    } else if (isBossBottomLeft(e.kind)) {
+      const hpPct = e.hp / Math.max(1, e.maxHp || e.hp);
+      const phase = hpPct > 0.66 ? 1 : hpPct > 0.33 ? 2 : 3;
+      e.phase = phase;
+
+      e.orbit += dt * (1.2 + phase * 0.18);
+      const side = Math.sin(e.orbit) * 0.32;
+      const preferred = phase === 1 ? 335 : phase === 2 ? 292 : 255;
+      const dir = d > preferred ? 1 : d < preferred - 70 ? -0.24 : 0.05;
+      e.x += ((dx / d) + (-dy / d) * side) * e.speed * dir * dt;
+      e.y += ((dy / d) + (dx / d) * side) * e.speed * dir * dt;
+      e.minionOrbit = (e.minionOrbit || 0) + dt * (1.05 + phase * 0.2);
+      e.shieldSpin = (e.shieldSpin || 0) + dt * (0.7 + phase * 0.1);
+      e.patternPulse = Math.max(0, (e.patternPulse || 0) - dt);
+
+      let activeShields = 0;
+      for (const type of BOSS_BOTTOM_LEFT_SHIELD_TYPES) {
+        e.shieldBreakFlash[type] = Math.max(0, (e.shieldBreakFlash[type] || 0) - dt);
+        if (e.shieldActive[type]) activeShields += 1;
+        const supportMinion = findBossBottomLeftMinion(w, e, type);
+        if (!supportMinion) {
+          e.shieldRestoreCd[type] = Number.POSITIVE_INFINITY;
+          continue;
+        }
+        if (e.shieldActive[type]) {
+          e.shieldRestoreCd[type] = 0;
+          continue;
+        }
+        e.shieldRestoreCd[type] = Math.max(0, (e.shieldRestoreCd[type] || (3.4 - phase * 0.3)) - dt);
+        if (e.shieldRestoreCd[type] <= 0) {
+          e.shieldActive[type] = true;
+          e.shieldRestoreCd[type] = 0;
+          splash(w, e.x, e.y, type === "void" ? "#bc8fff" : type === "azure" ? "#85d3ff" : "#ffd487", 10, 1.2);
+          activeShields += 1;
+        }
+      }
+
+      e.guard = 0.2 + activeShields * 0.1;
+
+      e.patternCd = Math.max(0, (e.patternCd || 2.8) - dt);
+      if (e.patternCd <= 0) {
+        spawnBossBottomLeftPattern(w, e, phase);
+        e.patternPulse = 0.42;
+        e.patternCd = phase === 1 ? 3.35 : phase === 2 ? 2.75 : 2.2;
+        splash(w, e.x, e.y, "#ffbf85", 12, 1.25);
+        audio.play("enemyShot");
+      }
+    } else if (isBossBottomLeftMinion(e.kind)) {
+      const boss = e.owner;
+      if (!boss || boss.hp <= 0) {
+        e.hp = 0;
+        e.despawn = true;
+        continue;
+      }
+
+      e.shieldBreakFlash = Math.max(0, (e.shieldBreakFlash || 0) - dt);
+      const orbitR = boss.r + 84 + Math.sin(w.t * 2.4 + e.orbitOffset * 2.2) * 7;
+      const a = (boss.minionOrbit || 0) + e.orbitOffset;
+      const tx = boss.x + Math.cos(a) * orbitR;
+      const ty = boss.y + Math.sin(a) * orbitR;
+      e.x += (tx - e.x) * Math.min(1, dt * 7.4);
+      e.y += (ty - e.y) * Math.min(1, dt * 7.4);
+      e.guard = e.typedShieldUp ? 0.46 : 0.09;
     } else if (e.kind === "splitter") {
       e.zig += dt * 4.8;
       const side = Math.sin(e.zig) * 0.24;
@@ -2178,6 +2546,8 @@ function stepEnemies(w, dt) {
 }
 
 function getEnemyContactBase(kind) {
+  if (isBossBottomLeft(kind)) return 74;
+  if (isBossBottomLeftMinion(kind)) return 22;
   if (kind === "siphon_overlord") return 78;
   if (kind === "mega_cannon_boss") return 66;
   if (kind === "mini_boss_miner") return 50;
@@ -2193,6 +2563,8 @@ function getEnemyContactBase(kind) {
 }
 
 function getEnemyEssenceBase(kind) {
+  if (isBossBottomLeft(kind)) return 118;
+  if (isBossBottomLeftMinion(kind)) return 24;
   if (kind === "siphon_overlord") return 132;
   if (kind === "mega_cannon_boss") return 88;
   if (kind === "mini_boss_miner") return 42;
@@ -2218,6 +2590,11 @@ function resolveCombat(w) {
         if (e.hp <= 0) continue;
         if (Math.hypot(b.x - e.x, b.y - e.y) <= e.r + 4) {
           markEnemyHit(e);
+          const affinity = b.affinity || (b.helper ? "azure" : null);
+          if (applyTypedShieldBlock(w, e, b.x, b.y, affinity)) {
+            b.life = 0;
+            break;
+          }
           if (e.kind === "mega_cannon_boss" && e.shieldT > 0) {
             const heal = Math.max(4, b.dmg * 0.6);
             e.hp = Math.min(e.maxHp || e.hp, e.hp + heal);
@@ -2299,6 +2676,10 @@ function resolveCombat(w) {
       const d = Math.hypot(e.x - r.x, e.y - r.y);
       if (d <= 95) {
         markEnemyHit(e);
+        if (applyTypedShieldBlock(w, e, r.x, r.y, r.affinity || "azure")) {
+          e.lastHitKind = "rocket";
+          continue;
+        }
         if (e.kind === "mega_cannon_boss" && e.shieldT > 0) {
           const heal = Math.max(5, r.dmg * 0.48);
           e.hp = Math.min(e.maxHp || e.hp, e.hp + heal);
@@ -2327,6 +2708,10 @@ function resolveCombat(w) {
   for (const e of w.enemies) {
     if (e.hp > 0) {
       alive.push(e);
+      continue;
+    }
+
+    if (e.despawn) {
       continue;
     }
 
@@ -2382,6 +2767,26 @@ function resolveCombat(w) {
       w.drops.push({ x: e.x - 14, y: e.y - 2, t: 3.4, kind: "void", amount: Math.max(6, Math.floor(essence * 0.34)), color: DROP_COLORS.void });
       w.drops.push({ x: e.x + 14, y: e.y + 4, t: 3.4, kind: "azure", amount: Math.max(5, Math.floor(essence * 0.24)), color: DROP_COLORS.azure });
       splash(w, e.x, e.y, "#c7a0ff", 54, 4.3);
+    }
+    if (isBossBottomLeft(e.kind)) {
+      const bonusOrb = Math.max(20, Math.floor(essence * 1.05));
+      w.drops.push({ x: e.x, y: e.y, t: 3.6, kind: "essence", amount: bonusOrb, color: DROP_COLORS.essence });
+      w.drops.push({ x: e.x - 16, y: e.y + 5, t: 3.6, kind: "void", amount: Math.max(6, Math.floor(essence * 0.28)), color: DROP_COLORS.void });
+      w.drops.push({ x: e.x + 14, y: e.y + 7, t: 3.6, kind: "azure", amount: Math.max(6, Math.floor(essence * 0.27)), color: DROP_COLORS.azure });
+      w.drops.push({ x: e.x + 4, y: e.y - 12, t: 3.6, kind: "amber", amount: Math.max(6, Math.floor(essence * 0.27)), color: DROP_COLORS.amber });
+      splash(w, e.x, e.y, "#ffbf84", 56, 4.4);
+      w.bossBursts = w.bossBursts.filter((burst) => burst.owner !== e);
+      for (const minion of w.enemies) {
+        if (isBossBottomLeftMinion(minion.kind) && minion.owner === e) {
+          minion.hp = 0;
+          minion.despawn = true;
+        }
+      }
+    }
+    if (isBossBottomLeftMinion(e.kind)) {
+      const rewardKind = e.shieldType === "void" ? "void" : e.shieldType === "azure" ? "azure" : "amber";
+      w.drops.push({ x: e.x, y: e.y, t: 2.3, kind: rewardKind, amount: Math.max(1, Math.floor(essence * 0.2)), color: DROP_COLORS[rewardKind] });
+      splash(w, e.x, e.y, rewardKind === "void" ? "#ba93ff" : rewardKind === "azure" ? "#88d5ff" : "#ffd184", 18, 2.0);
     }
 
     w.runEssence += essence;
@@ -2491,6 +2896,24 @@ function getEnemyTelegraphState(e, worldTime) {
       setTelegraph(0.65, "138,255,180");
     }
   }
+  if (isBossBottomLeft(e.kind)) {
+    if ((e.patternPulse || 0) > 0.01) {
+      const p = clamp((e.patternPulse || 0) / 0.42, 0, 1);
+      setTelegraph(0.52 + p * 0.42, "255,188,118");
+    }
+    for (const type of BOSS_BOTTOM_LEFT_SHIELD_TYPES) {
+      if (!e.shieldActive?.[type]) {
+        const cd = e.shieldRestoreCd?.[type];
+        if (Number.isFinite(cd) && cd < 1.2) {
+          const p = 1 - clamp(cd / 1.2, 0, 1);
+          setTelegraph(0.38 + p * 0.36, BOSS_BOTTOM_LEFT_SHIELD_COLORS[type]);
+        }
+      }
+    }
+  }
+  if (isBossBottomLeftMinion(e.kind) && e.typedShieldUp) {
+    setTelegraph(0.34 + (Math.sin(worldTime * 5.4 + (e.orbitOffset || 0) * 5) + 1) * 0.14, BOSS_BOTTOM_LEFT_SHIELD_COLORS[e.shieldType] || "220,220,220");
+  }
 
   const clampedIntensity = clamp(intensity, 0, 1);
   const pulse = (Math.sin(worldTime * (10 + clampedIntensity * 10) + e.r * 0.37 + (e.orbit || e.zig || 0)) + 1) * 0.5;
@@ -2507,6 +2930,12 @@ function drawEnemySprite(e, worldTime, telegraph) {
   const pulse = 1 + Math.sin(worldTime * (skin.pulseRate || 2.8) + seed) * (skin.pulseAmp || 0.04);
   const bob = Math.sin(worldTime * (skin.bobRate || 2.4) + seed * 1.3) * (skin.bobAmp || 0.45) * (e.r / 20);
   const size = e.r * (skin.scale || 2.25) * pulse * (1 + telegraphIntensity * 0.08 + (telegraph?.pulse || 0) * telegraphIntensity * 0.04);
+  let drawW = size;
+  let drawH = size;
+  if (Number.isFinite(skin.aspect) && skin.aspect > 0) {
+    if (skin.aspect >= 1) drawW = size * skin.aspect;
+    else drawH = size / skin.aspect;
+  }
   const shake = Math.sin(worldTime * (12 + telegraphIntensity * 18) + seed * 2.1) * telegraphIntensity * 0.08;
   const rot = (e.facing || 0) + (skin.facingOffset || 0) + shake;
 
@@ -2518,7 +2947,7 @@ function drawEnemySprite(e, worldTime, telegraph) {
     ctx.shadowColor = `rgba(${telegraph?.color || skin.glowRgb || "255,160,110"},${0.24 + telegraphIntensity * 0.4})`;
     ctx.shadowBlur = 7 + telegraphIntensity * 14;
   }
-  ctx.drawImage(skin.img, -size * 0.5, -size * 0.5, size, size);
+  ctx.drawImage(skin.img, -drawW * 0.5, -drawH * 0.5, drawW, drawH);
   ctx.restore();
 
   const glowPulse = (Math.sin(worldTime * (skin.glowRate || 6.5) + seed) + 1) * 0.5;
@@ -2539,6 +2968,101 @@ function drawEnemySprite(e, worldTime, telegraph) {
   return true;
 }
 
+function drawBossBottomLeftShields(e, worldTime) {
+  if (!isBossBottomLeft(e.kind)) return;
+  const spin = e.shieldSpin || 0;
+
+  for (const type of BOSS_BOTTOM_LEFT_SHIELD_TYPES) {
+    const img = BOSS_BOTTOM_LEFT_SHIELD_IMAGES[type];
+    const layout = BOSS_BOTTOM_LEFT_SHIELD_LAYOUT[type];
+    if (!img || !layout || !img.complete || img.naturalWidth <= 0 || img.naturalHeight <= 0) continue;
+
+    const active = !!(e.shieldActive && e.shieldActive[type]);
+    if (!active) continue;
+
+    const pul = (Math.sin(worldTime * 5.1 + spin * 0.8 + layout.angle) + 1) * 0.5;
+    const glow = (e.shieldBreakFlash?.[type] || 0) / 0.32;
+    const scale = BOSS_BOTTOM_LEFT_SHIELD_SCALE * (1 + pul * 0.05 + glow * 0.12);
+    const offset = rotateVector(layout.offsetX * scale, layout.offsetY * scale, spin);
+    const drawW = img.naturalWidth * scale;
+    const drawH = img.naturalHeight * scale;
+
+    ctx.save();
+    ctx.translate(e.x + offset.x, e.y + offset.y);
+    ctx.rotate(spin);
+    ctx.globalAlpha = 0.72 + pul * 0.2 + glow * 0.16;
+    ctx.drawImage(img, -drawW * 0.5, -drawH * 0.5, drawW, drawH);
+    ctx.restore();
+
+    ctx.strokeStyle = `rgba(${BOSS_BOTTOM_LEFT_SHIELD_COLORS[type]},${0.3 + pul * 0.26 + glow * 0.2})`;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(
+      e.x + Math.cos(layout.angle + spin) * (e.r + 14),
+      e.y + Math.sin(layout.angle + spin) * (e.r + 14),
+      11 + pul * 3,
+      0,
+      Math.PI * 2,
+    );
+    ctx.stroke();
+    ctx.lineWidth = 1;
+  }
+}
+
+function drawBossBottomLeftMinionShield(e, worldTime) {
+  if (!isBossBottomLeftMinion(e.kind) || !e.typedShieldUp) return;
+  const type = e.shieldType;
+  const img = BOSS_BOTTOM_LEFT_SHIELD_IMAGES[type];
+  if (!img || !img.complete || img.naturalWidth <= 0 || img.naturalHeight <= 0) return;
+
+  const pulse = (Math.sin(worldTime * 7.2 + (e.orbitOffset || 0) * 4) + 1) * 0.5;
+  const scale = 0.062 + pulse * 0.006;
+  const drawW = img.naturalWidth * scale;
+  const drawH = img.naturalHeight * scale;
+  const spin = worldTime * 1.5 + (e.orbitOffset || 0) * 0.6;
+
+  ctx.save();
+  ctx.translate(e.x, e.y);
+  ctx.rotate(spin);
+  ctx.globalAlpha = 0.66 + pulse * 0.18;
+  ctx.drawImage(img, -drawW * 0.5, -drawH * 0.5, drawW, drawH);
+  ctx.restore();
+
+  ctx.strokeStyle = `rgba(${BOSS_BOTTOM_LEFT_SHIELD_COLORS[type]},${0.34 + pulse * 0.26})`;
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.arc(e.x, e.y, e.r + 7 + pulse * 2.5, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.lineWidth = 1;
+}
+
+function drawBossBursts(w) {
+  for (const burst of w.bossBursts) {
+    if (!burst.fired) {
+      const t = clamp(1 - burst.t / Math.max(0.01, burst.total), 0, 1);
+      const pulse = (Math.sin(w.t * (8 + t * 6) + burst.x * 0.01 + burst.y * 0.02) + 1) * 0.5;
+      const alpha = 0.18 + t * 0.46 + pulse * 0.12;
+      const radius = burst.r + pulse * (3 + t * 2);
+      ctx.fillStyle = `rgba(${burst.color || "255,182,120"},${0.08 + t * 0.16})`;
+      ctx.beginPath();
+      ctx.arc(burst.x, burst.y, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = `rgba(${burst.color || "255,182,120"},${alpha})`;
+      ctx.lineWidth = 1.6 + t * 1.1;
+      ctx.beginPath();
+      ctx.arc(burst.x, burst.y, radius + 2, 0, Math.PI * 2);
+      ctx.stroke();
+    } else {
+      const p = clamp((burst.linger || 0) / 0.18, 0, 1);
+      ctx.fillStyle = `rgba(255,167,122,${0.24 + p * 0.36})`;
+      ctx.beginPath();
+      ctx.arc(burst.x, burst.y, burst.r * (0.72 + (1 - p) * 0.34), 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.lineWidth = 1;
+}
+
 function drawGame() {
   const w = state.world;
   if (!w) return;
@@ -2550,6 +3074,7 @@ function drawGame() {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   drawGrid();
+  drawBossBursts(w);
   const p = w.player;
 
   for (const m of w.mines) {
@@ -2648,6 +3173,14 @@ function drawGame() {
           ? "#ffcb84"
         : e.kind === "siphon_overlord"
           ? "#b48cff"
+        : e.kind === "boss_bottom_left"
+          ? "#ffbf89"
+        : e.kind === "boss_bottom_left_minion_void"
+          ? "#be8cff"
+        : e.kind === "boss_bottom_left_minion_azure"
+          ? "#89d5ff"
+        : e.kind === "boss_bottom_left_minion_amber"
+          ? "#ffd07e"
         : e.kind === "tank"
         ? "#ffcc74"
         : e.kind === "phantom"
@@ -2681,6 +3214,13 @@ function drawGame() {
       ctx.lineWidth = 1;
     }
 
+    if (isBossBottomLeft(e.kind)) {
+      drawBossBottomLeftShields(e, w.t);
+    }
+    if (isBossBottomLeftMinion(e.kind)) {
+      drawBossBottomLeftMinionShield(e, w.t);
+    }
+
     if (telegraph.intensity > 0.05) {
       const outer = e.r + 7 + telegraph.pulse * (3 + telegraph.intensity * 5);
       const burstSpin = w.t * (1.8 + telegraph.intensity * 2.4);
@@ -2706,7 +3246,7 @@ function drawGame() {
     if (e.showHp) {
       const hpPct = clamp(e.hp / Math.max(1, e.maxHp || e.hp), 0, 1);
       const barW = Math.max(24, e.r * 2.2);
-      const barH = e.kind === "mini_boss" || e.kind === "mini_boss_miner" || e.kind === "mega_cannon_boss" || e.kind === "siphon_overlord" ? 6 : 4;
+      const barH = isMiniBossKind(e.kind) ? 6 : (isBossBottomLeftMinion(e.kind) ? 5 : 4);
       const barX = e.x - barW * 0.5;
       const barY = e.y - e.r - 15;
 
@@ -2727,7 +3267,7 @@ function drawGame() {
       }
     }
 
-    if (e.kind === "mini_boss" || e.kind === "mini_boss_miner" || e.kind === "mega_cannon_boss" || e.kind === "siphon_overlord") {
+    if (isMiniBossKind(e.kind)) {
       const guard = Math.max(0, Math.min(0.85, e.guard || 0));
       const phase = e.phase || 1;
 
@@ -2867,6 +3407,17 @@ function drawGame() {
             ctx.stroke();
           }
           ctx.lineWidth = 1;
+        }
+      }
+
+      if (isBossBottomLeft(e.kind)) {
+        if ((e.patternPulse || 0) > 0.01) {
+          const p = clamp((e.patternPulse || 0) / 0.42, 0, 1);
+          ctx.strokeStyle = `rgba(255,196,128,${0.26 + p * 0.36})`;
+          ctx.lineWidth = 2.1;
+          ctx.beginPath();
+          ctx.arc(e.x, e.y, e.r + 20 + p * 6, 0, Math.PI * 2);
+          ctx.stroke();
         }
       }
 

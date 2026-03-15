@@ -1,0 +1,68 @@
+[
+  {
+    "name": "shield_void",
+    "file": "ui\\enemies\\shields\\shield_void.png",
+    "bbox_source": {
+      "x0": 276,
+      "y0": 90,
+      "x1": 680,
+      "y1": 803
+    },
+    "angle_range": {
+      "start_deg": 136.0,
+      "end_deg": -112.0
+    },
+    "hue_range": {
+      "h0": 130,
+      "h1": 170
+    },
+    "size": {
+      "width": 404,
+      "height": 713
+    }
+  },
+  {
+    "name": "shield_amber",
+    "file": "ui\\enemies\\shields\\shield_amber.png",
+    "bbox_source": {
+      "x0": 608,
+      "y0": 105,
+      "x1": 1199,
+      "y1": 490
+    },
+    "angle_range": {
+      "start_deg": -112.0,
+      "end_deg": -8.0
+    },
+    "hue_range": {
+      "h0": 15,
+      "h1": 45
+    },
+    "size": {
+      "width": 591,
+      "height": 385
+    }
+  },
+  {
+    "name": "shield_azure",
+    "file": "ui\\enemies\\shields\\shield_azure.png",
+    "bbox_source": {
+      "x0": 646,
+      "y0": 517,
+      "x1": 1239,
+      "y1": 948
+    },
+    "angle_range": {
+      "start_deg": -8.0,
+      "end_deg": 136.0
+    },
+    "hue_range": {
+      "h0": 85,
+      "h1": 115
+    },
+    "size": {
+      "width": 593,
+      "height": 431
+    }
+  }
+]

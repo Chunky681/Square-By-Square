@@ -1,0 +1,44 @@
+[
+  {
+    "name": "minion_void",
+    "file": "ui\\enemies\\minions\\minion_void.png",
+    "bbox_source": {
+      "x0": 35,
+      "y0": 274,
+      "x1": 503,
+      "y1": 660
+    },
+    "size": {
+      "width": 468,
+      "height": 386
+    }
+  },
+  {
+    "name": "minion_azure",
+    "file": "ui\\enemies\\minions\\minion_azure.png",
+    "bbox_source": {
+      "x0": 522,
+      "y0": 296,
+      "x1": 1009,
+      "y1": 729
+    },
+    "size": {
+      "width": 487,
+      "height": 433
+    }
+  },
+  {
+    "name": "minion_amber",
+    "file": "ui\\enemies\\minions\\minion_amber.png",
+    "bbox_source": {
+      "x0": 1026,
+      "y0": 297,
+      "x1": 1495,
+      "y1": 670
+    },
+    "size": {
+      "width": 469,
+      "height": 373
+    }
+  }
+]
