@@ -97,7 +97,37 @@
         <canvas id="game-canvas"></canvas>
         <div class="hud top-left">
           <div id="hud-timer">1:00</div>
-          <div id="hud-health">HP 100</div>
+          <div id="hud-health" class="hud-health">
+            <div class="hud-health-head">
+              <span>Hull</span>
+              <strong id="hud-health-text">100/100</strong>
+            </div>
+            <div class="hud-health-track">
+              <div id="hud-health-fill" class="hud-health-fill"></div>
+            </div>
+          </div>
+          <div id="hud-cooldowns" class="hud-cooldowns">
+            <div class="hud-cd void-chip" id="hud-cd-void">
+              <span class="hud-cd-name">Void</span>
+              <div class="hud-cd-track"><div id="hud-cd-void-fill" class="hud-cd-fill"></div></div>
+              <strong id="hud-cd-void-text">Ready</strong>
+            </div>
+            <div class="hud-cd azure-chip" id="hud-cd-azure">
+              <span class="hud-cd-name">Azure</span>
+              <div class="hud-cd-track"><div id="hud-cd-azure-fill" class="hud-cd-fill"></div></div>
+              <strong id="hud-cd-azure-text">Ready</strong>
+            </div>
+            <div class="hud-cd amber-chip" id="hud-cd-amber">
+              <span class="hud-cd-name">Amber</span>
+              <div class="hud-cd-track"><div id="hud-cd-amber-fill" class="hud-cd-fill"></div></div>
+              <strong id="hud-cd-amber-text">Ready</strong>
+            </div>
+            <div class="hud-cd essence-chip" id="hud-cd-cannon">
+              <span class="hud-cd-name">Cannon</span>
+              <div class="hud-cd-track"><div id="hud-cd-cannon-fill" class="hud-cd-fill"></div></div>
+              <strong id="hud-cd-cannon-text">Ready</strong>
+            </div>
+          </div>
           <div id="hud-run-essence" class="hud-currency essence-chip">
             <img class="currency-icon" src="./assets/ui/currency/essence.png" alt="" />
             <span>Run Essence</span>
@@ -135,7 +165,7 @@
           </div>
           <div id="test-spawn-list" class="test-spawn-list"></div>
         </aside>
-        <div class="hud bottom-left">WASD move | Mouse aim | LMB cannon | Space Void | C Azure | E Amber</div>
+        <div class="hud bottom-left">WASD move | Mouse aim | LMB cannon | Space Void (move dir) | RMB Void (cursor) | C Azure | E Amber</div>
       </section>
 
       <section id="result-screen" class="screen card">

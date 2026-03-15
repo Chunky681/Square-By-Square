@@ -175,6 +175,11 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   box-shadow: inset 0 0 0 1px rgba(255, 194, 110, 0.24);
 }
 
+.slot-node.slot-infusor {
+  border-color: #64a7e8;
+  box-shadow: inset 0 0 0 1px rgba(141, 209, 255, 0.26);
+}
+
 .slot-node.slot-void.active {
   border-color: #c8b2ff;
   box-shadow: 0 0 0 2px rgba(200, 178, 255, 0.3), 0 0 20px rgba(170, 125, 255, 0.25);
@@ -188,6 +193,11 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .slot-node.slot-amber.active {
   border-color: #ffe0aa;
   box-shadow: 0 0 0 2px rgba(255, 224, 170, 0.3), 0 0 20px rgba(255, 179, 83, 0.25);
+}
+
+.slot-node.slot-infusor.active {
+  border-color: #d3f0ff;
+  box-shadow: 0 0 0 2px rgba(170, 228, 255, 0.32), 0 0 20px rgba(113, 186, 255, 0.28);
 }
 
 .arena-xp {
@@ -318,19 +328,48 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   }
 }
 
-.game-screen { display: none; }
-.game-screen.active { display: block; }
-#game-canvas {
+.game-screen {
+  display: none;
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
+  background: #0a131b;
+  overflow: hidden;
+}
+.game-screen.active { display: block; }
+#game-canvas {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: auto;
+  height: auto;
+  z-index: 1;
   display: block;
   background: #0e1720;
   cursor: crosshair;
 }
-.hud { position: absolute; z-index: 5; background: rgba(9, 15, 22, 0.72); border: 1px solid rgba(125, 211, 252, 0.35); border-radius: 8px; padding: 0.45rem 0.6rem; backdrop-filter: blur(4px); }
+.hud { position: absolute; z-index: 20; background: rgba(9, 15, 22, 0.72); border: 1px solid rgba(125, 211, 252, 0.35); border-radius: 8px; padding: 0.45rem 0.6rem; backdrop-filter: blur(4px); }
 .top-left { top: 0.65rem; left: 0.65rem; }
 .top-right { top: 0.65rem; right: 0.65rem; text-align: right; }
 .bottom-left { left: 0.65rem; bottom: 0.65rem; font-size: 0.84rem; color: #abd0eb; }
+.hud-health { margin-top: 0.25rem; border: 1px solid rgba(96, 126, 154, 0.78); border-radius: 8px; background: rgba(8, 13, 20, 0.62); padding: 0.32rem 0.42rem; }
+.hud-health-head { display: flex; align-items: center; justify-content: space-between; gap: 0.55rem; font-size: 0.74rem; color: #cde8ff; letter-spacing: 0.03em; }
+.hud-health-head strong { font-size: 0.76rem; color: #e8f5ff; }
+.hud-health-track { position: relative; width: 170px; height: 10px; margin-top: 0.22rem; border: 1px solid rgba(61, 83, 105, 0.9); border-radius: 999px; background: rgba(17, 26, 38, 0.96); overflow: hidden; }
+.hud-health-fill { position: absolute; inset: 0 auto 0 0; width: 100%; border-radius: inherit; background: linear-gradient(90deg, #ff7f7f 0%, #ffbf75 48%, #8ff59d 100%); box-shadow: 0 0 10px rgba(143, 245, 157, 0.25); transition: width 80ms linear; }
+.hud-cooldowns { margin-top: 0.28rem; display: grid; gap: 0.25rem; }
+.hud-cd { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 0.35rem; border-radius: 999px; border: 1px solid rgba(82, 111, 137, 0.84); background: rgba(8, 13, 20, 0.66); padding: 0.18rem 0.38rem; font-size: 0.7rem; }
+.hud-cd-name { min-width: 2.8rem; color: #d7ecff; font-weight: 700; letter-spacing: 0.03em; }
+.hud-cd-track { position: relative; height: 7px; border-radius: 999px; border: 1px solid rgba(60, 87, 110, 0.9); background: rgba(19, 29, 41, 0.9); overflow: hidden; }
+.hud-cd-fill { position: absolute; inset: 0 auto 0 0; width: 100%; border-radius: inherit; background: linear-gradient(90deg, #6fd2ff 0%, #9ef4ff 100%); transition: width 80ms linear; }
+.hud-cd strong { font-size: 0.67rem; letter-spacing: 0.02em; color: #cbe4f7; min-width: 5.4rem; text-align: right; }
+.hud-cd.ready .hud-cd-fill { background: linear-gradient(90deg, #87f2a4 0%, #bfffcf 100%); }
+.hud-cd.ready strong { color: #b8ffca; }
+.hud-cd.cooldown strong { color: #ffd9a0; }
+.hud-cd.unavailable .hud-cd-fill { background: linear-gradient(90deg, #4f6477 0%, #6f879b 100%); }
+.hud-cd.unavailable strong { color: #99b3c7; }
 .hud-currency { display: flex; align-items: center; gap: 0.35rem; margin-top: 0.2rem; border-radius: 999px; border: 1px solid rgba(80, 108, 133, 0.8); padding: 0.22rem 0.45rem; background: rgba(6, 11, 18, 0.5); }
 .hud-currency .currency-icon { width: 0.92rem; height: 0.92rem; }
 .hud-currency strong { margin-left: 0.2rem; }
@@ -341,7 +380,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   width: min(240px, 36vw);
   max-height: min(72vh, 620px);
   padding: 0.5rem;
-  z-index: 6;
+  z-index: 24;
   border: 1px solid rgba(125, 211, 252, 0.42);
   border-radius: 10px;
   background: rgba(8, 15, 24, 0.84);

@@ -3,6 +3,8 @@ import { clonePlayer, getOrCreatePlayer, savePlayer } from "./storage.js";
 import { ENEMY_CONFIG, pickEnemyKindForDifficulty } from "./enemyConfig.js";
 
 const RUN_DURATION = 60;
+const ARENA_WIDTH = 1600;
+const ARENA_HEIGHT = 900;
 const MAX_UPGRADE_LEVEL = 50;
 const SHIP_MOUNT_RADIUS = 16;
 
@@ -10,7 +12,7 @@ const MAX_VISIBLE_SLOTS = 18;
 
 const SLOT_LAYOUT = [
   { key: 0, name: "Front", x: 50, y: 14 },
-  { key: 1, name: "Front-R", x: 62, y: 18 },
+  { key: 1, name: "Front-R", x: 62, y: 18, affinity: "infusor" },
   { key: 2, name: "Right-Up", x: 74, y: 30 },
   { key: 3, name: "Right", x: 80, y: 45 },
   { key: 4, name: "Right-Low", x: 76, y: 62 },
@@ -20,19 +22,25 @@ const SLOT_LAYOUT = [
   { key: 8, name: "Left-Low", x: 24, y: 62 },
   { key: 9, name: "Left", x: 20, y: 45 },
   { key: 10, name: "Left-Up", x: 26, y: 30 },
-  { key: 11, name: "Front-L", x: 38, y: 18 },
-  { key: 12, name: "Nose-R", x: 58, y: 12 },
-  { key: 13, name: "Nose-L", x: 42, y: 12 },
+  { key: 11, name: "Front-L", x: 38, y: 18, affinity: "infusor" },
+  { key: 12, name: "Nose-R", x: 58, y: 12, affinity: "infusor" },
+  { key: 13, name: "Nose-L", x: 42, y: 12, affinity: "infusor" },
   { key: 14, name: "Core", x: 50, y: 50 },
   { key: 15, name: "Void", x: 41, y: 42, affinity: "void" },
   { key: 16, name: "Azure", x: 59, y: 42, affinity: "azure" },
   { key: 17, name: "Amber", x: 50, y: 62, affinity: "amber" },
 ];
 
+const FRONT_WEAPON_SLOT_KEY = 0;
+const INFUSOR_SLOT_KEYS = new Set([1, 11, 12, 13]);
+const WEAPON_TYPES = new Set(["cannon", "burst"]);
+const INFUSOR_TYPES = new Set(["azure_infusor", "void_infusor", "amber_infusor", "quantum_bound"]);
+
 const SPECIAL_AFFINITY_BY_TYPE = {
   warp: "void",
   helper: "azure",
   rocket: "azure",
+  aegis: "azure",
   mine: "amber",
 };
 
@@ -44,11 +52,11 @@ const ITEM_CATALOG = {
     buyBase: 80,
     buyScale: 1.35,
     upgradeBase: 34,
-    fireRate: 4.8,
+    fireRate: 2.6,
     damage: 12,
     spread: 0,
     projectiles: 1,
-    speed: 760,
+    speed: 560,
     color: "#7dd3fc",
     desc: "Directional weapon hardpoint.",
   },
@@ -63,7 +71,7 @@ const ITEM_CATALOG = {
     damage: 8,
     spread: 0.18,
     projectiles: 3,
-    speed: 730,
+    speed: 540,
     color: "#ffd37d",
     desc: "Three-shot directional burst.",
   },
@@ -106,6 +114,52 @@ const ITEM_CATALOG = {
     upgradeBase: 64,
     color: "#9ec9ff",
     desc: "C key deploy helper drone.",
+  },
+  aegis: {
+    name: "Aegis Matrix",
+    kind: "ability",
+    trigger: "azure",
+    buyBase: 210,
+    buyScale: 1.5,
+    upgradeBase: 68,
+    color: "#8ff2ff",
+    desc: "C key absorb shield that releases stored-energy rockets.",
+  },
+  azure_infusor: {
+    name: "Azure Infusor",
+    kind: "support",
+    buyBase: 145,
+    buyScale: 1.36,
+    upgradeBase: 48,
+    color: "#8ddfff",
+    desc: "Adds a chance for Front gun shots to become Azure energy.",
+  },
+  void_infusor: {
+    name: "Void Infusor",
+    kind: "support",
+    buyBase: 150,
+    buyScale: 1.37,
+    upgradeBase: 49,
+    color: "#c09bff",
+    desc: "Adds a chance for Front gun shots to become Void energy.",
+  },
+  amber_infusor: {
+    name: "Amber Infusor",
+    kind: "support",
+    buyBase: 145,
+    buyScale: 1.36,
+    upgradeBase: 48,
+    color: "#ffd08a",
+    desc: "Adds a chance for Front gun shots to become Amber energy.",
+  },
+  quantum_bound: {
+    name: "Quantum Bound",
+    kind: "support",
+    buyBase: 180,
+    buyScale: 1.4,
+    upgradeBase: 56,
+    color: "#a2c6ff",
+    desc: "Adds slight Front gun heat-seeking guidance; stronger with level.",
   },
   plating: {
     name: "Hull Plating",
@@ -223,6 +277,20 @@ const ui = {
   resultRetry: document.getElementById("result-retry-btn"),
   timer: document.getElementById("hud-timer"),
   health: document.getElementById("hud-health"),
+  healthText: document.getElementById("hud-health-text"),
+  healthFill: document.getElementById("hud-health-fill"),
+  cdVoid: document.getElementById("hud-cd-void"),
+  cdVoidFill: document.getElementById("hud-cd-void-fill"),
+  cdVoidText: document.getElementById("hud-cd-void-text"),
+  cdAzure: document.getElementById("hud-cd-azure"),
+  cdAzureFill: document.getElementById("hud-cd-azure-fill"),
+  cdAzureText: document.getElementById("hud-cd-azure-text"),
+  cdAmber: document.getElementById("hud-cd-amber"),
+  cdAmberFill: document.getElementById("hud-cd-amber-fill"),
+  cdAmberText: document.getElementById("hud-cd-amber-text"),
+  cdCannon: document.getElementById("hud-cd-cannon"),
+  cdCannonFill: document.getElementById("hud-cd-cannon-fill"),
+  cdCannonText: document.getElementById("hud-cd-cannon-text"),
   runEssence: document.getElementById("hud-run-essence"),
   runEssenceValue: document.getElementById("hud-run-essence-value"),
   runVoid: document.getElementById("hud-run-void"),
@@ -271,7 +339,8 @@ const BOSS_BOTTOM_LEFT_SHIELD_IMAGES = {
   azure: loadImage("./assets/ui/enemies/shields/shield_azure.png"),
   amber: loadImage("./assets/ui/enemies/shields/shield_amber.png"),
 };
-const PLAYER_BULLET_IMAGE = loadImage("./assets/ui/pixel-aet/polished/player_bullet.png");
+const PLAYER_ROCKET_SHEET = loadImage("./assets/ui/pixel-aet/polished/player_rocket.png");
+const PLAYER_ROCKET_FRAME_SIZE = 16;
 
 const state = {
   player: null,
@@ -279,7 +348,7 @@ const state = {
   mode: "id",
   selectedDifficulty: 1,
   testDifficulty: 1,
-  input: { up: false, down: false, left: false, right: false, firing: false, void: false, azure: false, amber: false },
+  input: { up: false, down: false, left: false, right: false, firing: false, void: false, voidCursor: false, azure: false, amber: false },
   mouse: { x: 0, y: 0 },
   world: null,
   raf: 0,
@@ -374,6 +443,7 @@ function bindInput() {
     state.input.right = false;
     state.input.firing = false;
     state.input.void = false;
+    state.input.voidCursor = false;
     state.input.azure = false;
     state.input.amber = false;
   };
@@ -422,8 +492,14 @@ function bindInput() {
     state.mouse.y = ((e.clientY - r.top) / Math.max(1, r.height)) * canvas.height;
   });
   canvas.addEventListener("pointerdown", (e) => {
+    const r = canvas.getBoundingClientRect();
+    state.mouse.x = ((e.clientX - r.left) / Math.max(1, r.width)) * canvas.width;
+    state.mouse.y = ((e.clientY - r.top) / Math.max(1, r.height)) * canvas.height;
     if (e.button !== 0) {
-      if (state.mode === "game") e.preventDefault();
+      if (state.mode === "game") {
+        if (e.button === 2) state.input.voidCursor = true;
+        e.preventDefault();
+      }
       return;
     }
     audio.unlock();
@@ -580,14 +656,21 @@ function spawnEnemyFromTestPanel(kind, count = 1) {
 }
 
 function resize() {
-  const dpr = Math.max(1, window.devicePixelRatio || 1);
-  canvas.width = Math.floor(window.innerWidth * dpr);
-  canvas.height = Math.floor(window.innerHeight * dpr);
+  canvas.width = ARENA_WIDTH;
+  canvas.height = ARENA_HEIGHT;
+
+  const scale = Math.min(window.innerWidth / ARENA_WIDTH, window.innerHeight / ARENA_HEIGHT);
+  const drawW = Math.max(1, Math.floor(ARENA_WIDTH * scale));
+  const drawH = Math.max(1, Math.floor(ARENA_HEIGHT * scale));
+
+  canvas.style.width = `${drawW}px`;
+  canvas.style.height = `${drawH}px`;
 }
 
 function setScreen(name) {
   state.mode = name;
   Object.entries(screens).forEach(([key, el]) => el.classList.toggle("active", key === name));
+  if (name === "game") resize();
   updateTestSpawnPanelVisibility();
 }
 
@@ -642,6 +725,12 @@ function getSlotLabel(slot) {
 }
 
 function isItemAllowedInSlot(type, slotKey) {
+  const isWeapon = WEAPON_TYPES.has(type);
+  const isInfusor = INFUSOR_TYPES.has(type);
+  if (slotKey === FRONT_WEAPON_SLOT_KEY) return isWeapon;
+  if (INFUSOR_SLOT_KEYS.has(slotKey)) return isInfusor;
+  if (isWeapon || isInfusor) return false;
+
   const slotAffinity = getSlotAffinity(slotKey);
   const itemAffinity = SPECIAL_AFFINITY_BY_TYPE[type] || null;
   if (slotAffinity) return itemAffinity === slotAffinity;
@@ -654,10 +743,13 @@ function getAllowedItemTypesForSlot(slotKey) {
 }
 
 function getSlotActionHint(slot) {
+  if (slot.key === FRONT_WEAPON_SLOT_KEY) return "Front slot: weapon-only (Cannon or Burst Cannon).";
+  if (INFUSOR_SLOT_KEYS.has(slot.key)) return "Infusor slot: only Infusor modules can be installed.";
+  if (slot.affinity === "infusor") return "Infusor slot: only Infusor modules can be installed.";
   if (slot.affinity === "void") return "Void slot: only Void abilities can be installed.";
   if (slot.affinity === "azure") return "Azure slot: only Azure abilities can be installed.";
   if (slot.affinity === "amber") return "Amber slot: only Amber abilities can be installed.";
-  return "Core/weapon slots cannot hold Void, Azure, or Amber abilities.";
+  return "Core/support slots cannot hold weapons, infusors, or Void/Azure/Amber abilities.";
 }
 
 function renderLoadoutPanel() {
@@ -880,6 +972,11 @@ function shortItemLabel(type) {
   if (type === "mine") return "MN";
   if (type === "rocket") return "RK";
   if (type === "helper") return "HP";
+  if (type === "aegis") return "AG";
+  if (type === "azure_infusor") return "AI";
+  if (type === "void_infusor") return "VI";
+  if (type === "amber_infusor") return "MI";
+  if (type === "quantum_bound") return "QB";
   if (type === "plating") return "PL";
   if (type === "regen") return "RG";
   if (type === "thruster") return "TH";
@@ -971,6 +1068,12 @@ function makeWorld(profile, difficulty) {
       hitFlash: 0,
       angle: 0,
       dashIFrames: 0,
+      aegisT: 0,
+      aegisDuration: 0,
+      aegisStoredDamage: 0,
+      aegisStoreCap: 0,
+      aegisLevel: 0,
+      aegisFlash: 0,
     },
   };
 }
@@ -1017,6 +1120,11 @@ function stepGame(dt) {
   p.angle = Math.atan2(state.mouse.y - p.y, state.mouse.x - p.x);
   clampPlayer(p);
 
+  if (state.input.voidCursor) {
+    useVoidAbility(w, "cursor");
+    state.input.voidCursor = false;
+  }
+
   if (state.input.void) {
     useVoidAbility(w);
     state.input.void = false;
@@ -1050,6 +1158,7 @@ function stepGame(dt) {
   stepHelper(w, dt);
   stepEnemies(w, dt);
   resolveCombat(w);
+  stepAegisShield(w, dt);
   collectDrops(w, dt);
   stepParticles(w, dt);
 
@@ -1117,9 +1226,43 @@ function getMountTransform(player, slotKey) {
   };
 }
 
+function getFrontInfusorModules() {
+  return getSlottedItems().filter((item) => INFUSOR_TYPES.has(item.type) && INFUSOR_SLOT_KEYS.has(item.slot));
+}
+
+function getInfusorProcChance(level) {
+  return clamp(0.07 + Math.max(0, level || 0) * 0.0075, 0, 0.58);
+}
+
+function rollFrontShotAffinity(infusors) {
+  const triggered = [];
+  for (const item of infusors) {
+    const chance = getInfusorProcChance(item.level);
+    if (item.type === "azure_infusor" && Math.random() < chance) triggered.push("azure");
+    if (item.type === "void_infusor" && Math.random() < chance) triggered.push("void");
+    if (item.type === "amber_infusor" && Math.random() < chance) triggered.push("amber");
+  }
+  if (!triggered.length) return null;
+  return triggered[Math.floor(Math.random() * triggered.length)] || null;
+}
+
+function getQuantumBoundStats(infusors) {
+  const power = infusors
+    .filter((item) => item.type === "quantum_bound")
+    .reduce((sum, item) => sum + item.level + 1, 0);
+  if (power <= 0) return null;
+  return {
+    seekTurn: 0.2 + power * 0.055,
+    seekRange: 150 + power * 8,
+    seekLead: 0.025 + power * 0.0016,
+  };
+}
+
 function fireSlottedWeapons(w) {
   const p = w.player;
   const slotted = getSlottedItems();
+  const infusors = getFrontInfusorModules();
+  const quantumStats = getQuantumBoundStats(infusors);
 
   for (const item of slotted) {
     const cfg = ITEM_CATALOG[item.type];
@@ -1140,7 +1283,15 @@ function fireSlottedWeapons(w) {
     for (let i = 0; i < shotCount; i += 1) {
       const t = shotCount === 1 ? 0 : i / (shotCount - 1) - 0.5;
       const a = mount.aim + t * spread;
-      fireCannon(w, mount.x, mount.y, a, damage, cfg.speed || 760);
+      const shotMods = item.slot === FRONT_WEAPON_SLOT_KEY
+        ? {
+            affinity: rollFrontShotAffinity(infusors),
+            seekTurn: quantumStats?.seekTurn || 0,
+            seekRange: quantumStats?.seekRange || 0,
+            seekLead: quantumStats?.seekLead || 0,
+          }
+        : null;
+      fireCannon(w, mount.x, mount.y, a, damage, cfg.speed || 760, shotMods);
     }
 
     audio.play("shoot");
@@ -1161,6 +1312,169 @@ function pickAbility(triggerType) {
 
 function countSlottedByType(type) {
   return getSlottedItems().filter((item) => item.type === type).length;
+}
+
+function getAbilityStackScale(stacks) {
+  return 1 - Math.min(0.35, Math.max(0, stacks - 1) * 0.08);
+}
+
+function getAegisDuration(level) {
+  const lv = clamp(level || 0, 0, MAX_UPGRADE_LEVEL - 1);
+  const t = lv / Math.max(1, MAX_UPGRADE_LEVEL - 1);
+  return 1.5 + t * 1.5;
+}
+
+function getAegisStoreCap(level) {
+  return 160 + Math.max(0, level || 0) * 9;
+}
+
+function getAegisCooldown(level, stacks) {
+  return Math.max(9.8 - (level || 0) * 0.085, 5.2) * getAbilityStackScale(stacks);
+}
+
+function isPlayerInvulnerable(player) {
+  return (player.dashIFrames || 0) > 0 || (player.aegisT || 0) > 0;
+}
+
+function applyPlayerDamage(w, damage, opts = {}) {
+  const p = w.player;
+  const hit = Math.max(0, damage || 0);
+  if (hit <= 0) return false;
+
+  if ((p.aegisT || 0) > 0) {
+    p.aegisStoredDamage = Math.min(p.aegisStoreCap || Number.POSITIVE_INFINITY, (p.aegisStoredDamage || 0) + hit);
+    p.aegisFlash = Math.max(p.aegisFlash || 0, 0.2);
+    if (opts.absorbSplash !== false) {
+      splash(w, p.x, p.y, "#8fdfff", 4, 0.7);
+    }
+    return false;
+  }
+  if ((p.dashIFrames || 0) > 0) return false;
+
+  p.hp -= hit;
+  p.hitFlash = Math.max(p.hitFlash || 0, opts.hitFlash || 0.12);
+  if (opts.splashColor) {
+    splash(w, p.x, p.y, opts.splashColor, opts.splashCount || 8, opts.splashForce || 1.2);
+  }
+  if (opts.playSound) audio.play("playerHit");
+  return true;
+}
+
+function getAegisRocketCount(storedDamage, level) {
+  const stored = Math.max(0, storedDamage || 0);
+  const lv = Math.max(0, level || 0);
+  return clamp(Math.floor(2 + lv * 0.08 + stored / 22), 2, 24);
+}
+
+function releaseAegisEnergyRockets(w) {
+  const p = w.player;
+  const stored = Math.max(0, p.aegisStoredDamage || 0);
+  const level = Math.max(0, p.aegisLevel || 0);
+  if (stored <= 0.01) {
+    splash(w, p.x, p.y, "#8acff8", 8, 1.0);
+    return;
+  }
+
+  const rocketCount = getAegisRocketCount(stored, level);
+  const basePerRocket = 16 + level * 1.15;
+  const bonusTotal = stored * (0.85 + level * 0.005);
+  const totalDamage = rocketCount * basePerRocket + bonusTotal;
+  const rocketDamage = totalDamage / rocketCount;
+  const turn = 5.4 + level * 0.04;
+
+  for (let i = 0; i < rocketCount; i += 1) {
+    const a = (i / rocketCount) * Math.PI * 2 + Math.random() * 0.18;
+    const speed = 250 + Math.random() * 50;
+    w.rockets.push({
+      x: p.x,
+      y: p.y,
+      vx: Math.cos(a) * speed,
+      vy: Math.sin(a) * speed,
+      life: 3.6,
+      dmg: rocketDamage,
+      turn,
+      affinity: "azure",
+      energy: true,
+    });
+  }
+
+  splash(w, p.x, p.y, "#9af4ff", 20 + Math.floor(rocketCount * 0.5), 2.3);
+  audio.play("rocketLaunch");
+}
+
+function stepAegisShield(w, dt) {
+  const p = w.player;
+  p.aegisFlash = Math.max(0, (p.aegisFlash || 0) - dt);
+  if ((p.aegisT || 0) <= 0) return;
+  p.aegisT = Math.max(0, p.aegisT - dt);
+  if (p.aegisT > 0) return;
+
+  releaseAegisEnergyRockets(w);
+  p.aegisStoredDamage = 0;
+  p.aegisDuration = 0;
+  p.aegisStoreCap = 0;
+  p.aegisLevel = 0;
+}
+
+function getAbilityCooldownTotal(module, stacks) {
+  if (!module) return 0;
+  const stackScale = getAbilityStackScale(stacks);
+  if (module.type === "warp") return Math.max(6 - module.level * 0.06, 1.1) * stackScale;
+  if (module.type === "rocket") return Math.max(5.2 - module.level * 0.06, 1.0) * stackScale;
+  if (module.type === "helper") return Math.max(8 - module.level * 0.05, 2.0) * stackScale;
+  if (module.type === "aegis") return getAegisCooldown(module.level, stacks);
+  if (module.type === "mine") return Math.max(4.6 - module.level * 0.05, 0.9) * stackScale;
+  return 0;
+}
+
+function getAbilityCooldownSnapshot(triggerType, player) {
+  const module = pickAbility(triggerType);
+  if (!module) return { available: false, remaining: 0, total: 0 };
+  const stacks = countSlottedByType(module.type);
+  const total = getAbilityCooldownTotal(module, stacks);
+  const remaining = triggerType === "void"
+    ? player.voidCd
+    : triggerType === "azure"
+      ? player.azureCd
+      : player.amberCd;
+  return { available: true, remaining: Math.max(0, remaining || 0), total: Math.max(0.001, total || 0.001) };
+}
+
+function getCannonCooldownSnapshot(player) {
+  const weapons = getSlottedItems().filter((item) => ITEM_CATALOG[item.type]?.kind === "weapon");
+  if (!weapons.length) return { available: false, remaining: 0, total: 0 };
+
+  let chosen = null;
+  for (const item of weapons) {
+    const cfg = ITEM_CATALOG[item.type];
+    if (!cfg) continue;
+    const total = 1 / Math.max(0.01, cfg.fireRate * (1 + item.level * 0.03));
+    const remaining = Math.max(0, player.fireCdByItem[String(item.id)] || 0);
+    if (!chosen || remaining < chosen.remaining || (remaining === chosen.remaining && total < chosen.total)) {
+      chosen = { available: true, remaining, total: Math.max(0.001, total) };
+    }
+  }
+
+  return chosen || { available: false, remaining: 0, total: 0 };
+}
+
+function setCooldownHud(panelEl, fillEl, textEl, snapshot) {
+  if (!panelEl || !fillEl || !textEl) return;
+  const status = snapshot?.status || (snapshot?.available ? (snapshot.remaining <= 0.001 ? "ready" : "cooldown") : "unavailable");
+  panelEl.classList.remove("ready", "cooldown", "unavailable");
+  panelEl.classList.add(status);
+
+  if (!snapshot?.available) {
+    fillEl.style.width = "0%";
+    textEl.textContent = "N/A";
+    return;
+  }
+
+  const progress = Number.isFinite(snapshot.fillPct)
+    ? clamp(snapshot.fillPct, 0, 1)
+    : clamp(1 - snapshot.remaining / Math.max(0.001, snapshot.total), 0, 1);
+  fillEl.style.width = `${Math.round(progress * 100)}%`;
+  textEl.textContent = snapshot.text || (snapshot.remaining <= 0.001 ? "Ready" : `${snapshot.remaining.toFixed(1)}s`);
 }
 
 function getInputDirectionVector() {
@@ -1209,7 +1523,7 @@ function applyWarpBurstDamage(w, x, y, moduleLevel) {
   splash(w, x, y, "#8edbff", 22, 2.7);
 }
 
-function useVoidAbility(w) {
+function useVoidAbility(w, mode = "movement") {
   const p = w.player;
   if (p.voidCd > 0) return;
 
@@ -1221,9 +1535,21 @@ function useVoidAbility(w) {
   if (module.type === "warp") {
     const sourceX = p.x;
     const sourceY = p.y;
-    const dir = getInputDirectionVector();
-    if (!dir) return;
-    const distance = 150 + module.level * 4.2;
+    let dir = null;
+    let distance = 150 + module.level * 4.2;
+
+    if (mode === "cursor") {
+      const dx = state.mouse.x - p.x;
+      const dy = state.mouse.y - p.y;
+      const distToCursor = Math.hypot(dx, dy);
+      if (distToCursor <= 0.001) return;
+      dir = { x: dx / distToCursor, y: dy / distToCursor };
+      distance = Math.min(distance, distToCursor);
+    } else {
+      dir = getInputDirectionVector();
+      if (!dir) return;
+    }
+
     p.x += dir.x * distance;
     p.y += dir.y * distance;
     clampPlayer(p);
@@ -1263,6 +1589,20 @@ function useAzureAbility(w) {
     w.helper = { x: p.x + 34, y: p.y, hp, maxHp: hp, life, fireCd: 0, fireRate, dmg, orbit: 0 };
     p.azureCd = Math.max(8 - module.level * 0.05, 2.0) * (1 - Math.min(0.35, (stacks - 1) * 0.08));
     audio.play("helperSpawn");
+    return;
+  }
+
+  if (module.type === "aegis") {
+    const duration = getAegisDuration(module.level);
+    p.aegisT = duration;
+    p.aegisDuration = duration;
+    p.aegisStoredDamage = 0;
+    p.aegisStoreCap = getAegisStoreCap(module.level);
+    p.aegisLevel = module.level;
+    p.aegisFlash = 0.22;
+    p.azureCd = getAegisCooldown(module.level, stacks);
+    splash(w, p.x, p.y, "#8fe9ff", 12, 1.3);
+    audio.play("helperSpawn");
   }
 }
 
@@ -1284,11 +1624,26 @@ function useAmberAbility(w) {
   }
 }
 
-function fireCannon(w, originX, originY, angle, damage, speed) {
-  const shotSpeed = speed ?? 780;
+function getAffinityGlowRgb(affinity) {
+  if (affinity === "void") return "210,166,255";
+  if (affinity === "amber") return "255,212,134";
+  if (affinity === "azure") return "154,224,255";
+  return "154,224,255";
+}
+
+function getAffinityColorHex(affinity) {
+  if (affinity === "void") return "#c99eff";
+  if (affinity === "amber") return "#ffd08d";
+  if (affinity === "azure") return "#8ee8ff";
+  return "#7dd3fc";
+}
+
+function fireCannon(w, originX, originY, angle, damage, speed, mods = null) {
+  const shotSpeed = speed ?? 620;
   const critChance = 0.06;
   const critMult = 1.45;
   const crit = Math.random() < critChance;
+  const shotAffinity = mods?.affinity || null;
   w.bullets.push({
     x: originX,
     y: originY,
@@ -1297,9 +1652,14 @@ function fireCannon(w, originX, originY, angle, damage, speed) {
     life: 1.0,
     dmg: crit ? damage * critMult : damage,
     crit,
+    affinity: shotAffinity,
+    seekTurn: mods?.seekTurn || 0,
+    seekRange: mods?.seekRange || 0,
+    seekLead: mods?.seekLead || 0,
     pulseSeed: Math.random() * Math.PI * 2,
   });
-  splash(w, originX + Math.cos(angle) * 8, originY + Math.sin(angle) * 8, crit ? "#ffd9ff" : "#c98bff", crit ? 4 : 3, 0.62);
+  const splashColor = shotAffinity ? getAffinityColorHex(shotAffinity) : (crit ? "#ffd9ff" : "#c98bff");
+  splash(w, originX + Math.cos(angle) * 8, originY + Math.sin(angle) * 8, splashColor, crit ? 4 : 3, 0.62);
 }
 
 function isEnemyEnabledForWorld(w, kind) {
@@ -1586,11 +1946,9 @@ function stepBossBursts(w, dt) {
       if (burst.t <= 0) {
         burst.fired = true;
         burst.linger = 0.18;
-        if (p.dashIFrames <= 0 && Math.hypot(p.x - burst.x, p.y - burst.y) <= burst.r + 10) {
+        if (Math.hypot(p.x - burst.x, p.y - burst.y) <= burst.r + 10) {
           const dmg = Math.abs(burst.dmg) * w.scale.enemyDamage * (1 - Math.min(0.62, p.armor));
-          p.hp -= dmg;
-          p.hitFlash = 0.14;
-          audio.play("playerHit");
+          applyPlayerDamage(w, dmg, { hitFlash: 0.14, playSound: true, absorbSplash: false });
         }
         splash(w, burst.x, burst.y, "#ffad7e", 14 + burst.r * 0.18, 1.7);
       }
@@ -1882,6 +2240,31 @@ function stepBullets(w, dt) {
       const speed = Math.hypot(b.vx, b.vy) || 1;
       b.vx = Math.cos(next) * speed;
       b.vy = Math.sin(next) * speed;
+    } else if (!b.enemy && (b.seekTurn || 0) > 0 && w.enemies.length > 0) {
+      let target = null;
+      let best = b.seekRange || 0;
+      for (const e of w.enemies) {
+        if (e.hp <= 0) continue;
+        const dist = Math.hypot(e.x - b.x, e.y - b.y);
+        if (dist < best) {
+          best = dist;
+          target = e;
+        }
+      }
+      if (target) {
+        const lead = (b.seekLead || 0) * 40;
+        const tx = target.x + (target.vx || 0) * lead;
+        const ty = target.y + (target.vy || 0) * lead;
+        const desired = Math.atan2(ty - b.y, tx - b.x);
+        const current = Math.atan2(b.vy, b.vx);
+        let delta = desired - current;
+        while (delta > Math.PI) delta -= Math.PI * 2;
+        while (delta < -Math.PI) delta += Math.PI * 2;
+        const next = current + clamp(delta, -(b.seekTurn || 0) * dt, (b.seekTurn || 0) * dt);
+        const speed = Math.hypot(b.vx, b.vy) || 1;
+        b.vx = Math.cos(next) * speed;
+        b.vy = Math.sin(next) * speed;
+      }
     }
 
     b.x += b.vx * dt;
@@ -1981,16 +2364,12 @@ function stepEnemyMines(w, dt) {
       continue;
     }
 
-    const applyExplosionToPlayer = p.dashIFrames <= 0;
-    if (applyExplosionToPlayer) {
-      const d = Math.hypot(p.x - m.x, p.y - m.y);
-      if (d <= m.r) {
-        const falloff = 1 - d / m.r;
-        const raw = m.dmg * (0.32 + falloff * 0.68) * w.scale.enemyDamage;
-        const damage = raw * (1 - Math.min(0.62, p.armor));
-        p.hp -= damage;
-        p.hitFlash = 0.14;
-      }
+    const d = Math.hypot(p.x - m.x, p.y - m.y);
+    if (d <= m.r) {
+      const falloff = 1 - d / m.r;
+      const raw = m.dmg * (0.32 + falloff * 0.68) * w.scale.enemyDamage;
+      const damage = raw * (1 - Math.min(0.62, p.armor));
+      applyPlayerDamage(w, damage, { hitFlash: 0.14, absorbSplash: false });
     }
 
     if (w.helper) {
@@ -2133,12 +2512,8 @@ function stepEnemies(w, dt) {
       if (d < 230 && e.drainCd <= 0) {
         const rawDmg = (5 + w.threat * 0.22) * w.scale.enemyDamage;
         const applied = rawDmg * (1 - Math.min(0.62, p.armor));
-        if (p.dashIFrames <= 0) {
-          p.hp -= applied;
-          p.hitFlash = 0.12;
-          splash(w, p.x, p.y, "#ff8df0", 8, 1.15);
-          audio.play("enemyShot");
-        }
+        applyPlayerDamage(w, applied, { hitFlash: 0.12, splashColor: "#ff8df0", splashCount: 8, splashForce: 1.15, absorbSplash: false });
+        if (!isPlayerInvulnerable(p)) audio.play("enemyShot");
         if (e.maxHp) {
           e.hp = Math.min(e.maxHp, e.hp + applied * 0.42);
           splash(w, e.x, e.y, "#b58cff", 6, 1.0);
@@ -2676,17 +3051,17 @@ function resolveCombat(w) {
           break;
         }
       }
-    } else if (Math.hypot(b.x - p.x, b.y - p.y) <= (b.megaShot ? 22 : b.voidMissile ? 17 : b.laserShot ? 16 : 15) && p.dashIFrames <= 0) {
-      const dmg = Math.abs(b.dmg) * w.scale.enemyDamage * (1 - Math.min(0.62, p.armor));
-      p.hp -= dmg;
-      p.hitFlash = 0.14;
-      b.life = 0;
-      splash(w, p.x, p.y, b.voidMissile ? "#bf8fff" : b.laserShot ? "#ff9ae9" : b.megaShot ? "#ffb87f" : "#ff8b8b", b.megaShot ? 18 : b.voidMissile ? 13 : b.laserShot ? 12 : 10, b.megaShot ? 2.9 : 2.2);
-      if (b.siphonSource && b.siphonRatio > 0) {
-        healEnemy(b.siphonSource, dmg * b.siphonRatio);
-        splash(w, b.siphonSource.x, b.siphonSource.y, "#9af2ba", 6, 0.9);
+    } else if (Math.hypot(b.x - p.x, b.y - p.y) <= (b.megaShot ? 22 : b.voidMissile ? 17 : b.laserShot ? 16 : 15)) {
+      if ((p.aegisT || 0) > 0 || p.dashIFrames <= 0) {
+        const dmg = Math.abs(b.dmg) * w.scale.enemyDamage * (1 - Math.min(0.62, p.armor));
+        const hitLanded = applyPlayerDamage(w, dmg, { hitFlash: 0.14, playSound: true, absorbSplash: false });
+        b.life = 0;
+        splash(w, p.x, p.y, b.voidMissile ? "#bf8fff" : b.laserShot ? "#ff9ae9" : b.megaShot ? "#ffb87f" : "#ff8b8b", b.megaShot ? 18 : b.voidMissile ? 13 : b.laserShot ? 12 : 10, b.megaShot ? 2.9 : 2.2);
+        if (hitLanded && b.siphonSource && b.siphonRatio > 0) {
+          healEnemy(b.siphonSource, dmg * b.siphonRatio);
+          splash(w, b.siphonSource.x, b.siphonSource.y, "#9af2ba", 6, 0.9);
+        }
       }
-      audio.play("playerHit");
     }
 
     if (b.enemy && w.helper && Math.hypot(b.x - w.helper.x, b.y - w.helper.y) <= (b.megaShot ? 18 : b.voidMissile ? 14 : b.laserShot ? 13 : 12)) {
@@ -2696,12 +3071,11 @@ function resolveCombat(w) {
   }
 
   for (const e of w.enemies) {
-    if (Math.hypot(e.x - p.x, e.y - p.y) <= e.r + 13 && p.dashIFrames <= 0) {
+    if (Math.hypot(e.x - p.x, e.y - p.y) <= e.r + 13 && ((p.aegisT || 0) > 0 || p.dashIFrames <= 0)) {
       const baseContact = getEnemyContactBase(e.kind);
       const dmg = baseContact * 0.016 * w.scale.enemyDamage * (1 - Math.min(0.62, p.armor));
-      p.hp -= dmg;
-      p.hitFlash = 0.1;
-      if (isSiphonOverlord(e.kind)) {
+      const hitLanded = applyPlayerDamage(w, dmg, { hitFlash: 0.1, absorbSplash: false });
+      if (hitLanded && isSiphonOverlord(e.kind)) {
         healEnemy(e, dmg * 0.68);
         splash(w, e.x, e.y, "#8be0b0", 5, 0.9);
       }
@@ -3162,10 +3536,17 @@ function drawGame() {
   ctx.lineWidth = 1;
 
   for (const r of w.rockets) {
-    ctx.fillStyle = "#ffd78a";
+    ctx.fillStyle = r.energy ? "#9df7ff" : "#ffd78a";
     ctx.beginPath();
     ctx.arc(r.x, r.y, 5.2, 0, Math.PI * 2);
     ctx.fill();
+    if (r.energy) {
+      ctx.strokeStyle = "rgba(164,246,255,0.7)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(r.x, r.y, 8.2, 0, Math.PI * 2);
+      ctx.stroke();
+    }
   }
 
   for (const d of w.drops) {
@@ -3176,47 +3557,57 @@ function drawGame() {
   }
 
   for (const b of w.bullets) {
-    if (!b.enemy && !b.helper && PLAYER_BULLET_IMAGE.complete && PLAYER_BULLET_IMAGE.naturalWidth > 0) {
+    if (!b.enemy && !b.helper && PLAYER_ROCKET_SHEET.complete && PLAYER_ROCKET_SHEET.naturalWidth > 0 && PLAYER_ROCKET_SHEET.naturalHeight > 0) {
       const pulse = (Math.sin(w.t * 13.5 + (b.pulseSeed || 0)) + 1) * 0.5;
       const speed = Math.hypot(b.vx, b.vy) || 1;
       const nx = b.vx / speed;
       const ny = b.vy / speed;
       const trailX = b.x - nx * 6.5;
       const trailY = b.y - ny * 6.5;
-      const glowRgb = b.crit ? "255,224,249" : "230,146,224";
+      const glowRgb = b.affinity ? getAffinityGlowRgb(b.affinity) : (b.crit ? "255,236,196" : getAffinityGlowRgb(null));
 
-      ctx.fillStyle = `rgba(${glowRgb},${0.2 + pulse * 0.24})`;
+      ctx.fillStyle = `rgba(${glowRgb},${0.08 + pulse * 0.12})`;
       ctx.beginPath();
-      ctx.arc(trailX, trailY, b.crit ? 8.8 : 7.2, 0, Math.PI * 2);
+      ctx.arc(trailX, trailY, b.crit ? 7.2 : 5.8, 0, Math.PI * 2);
       ctx.fill();
 
-      ctx.fillStyle = `rgba(${glowRgb},${0.26 + pulse * 0.28})`;
+      ctx.fillStyle = `rgba(${glowRgb},${0.11 + pulse * 0.15})`;
       ctx.beginPath();
-      ctx.arc(b.x, b.y, b.crit ? 9.5 : 8, 0, Math.PI * 2);
+      ctx.arc(b.x, b.y, b.crit ? 7.8 : 6.3, 0, Math.PI * 2);
       ctx.fill();
 
-      const spriteSize = b.crit ? 16 : 14;
+      const frameCount = Math.max(1, Math.floor(PLAYER_ROCKET_SHEET.naturalWidth / PLAYER_ROCKET_FRAME_SIZE));
+      const frame = Math.floor((w.t * 24 + (b.pulseSeed || 0) * 5) % frameCount);
+      const spriteSize = b.crit ? 18 : 16;
       ctx.save();
       ctx.translate(b.x, b.y);
       ctx.rotate(Math.atan2(b.vy, b.vx) + Math.PI * 0.5);
-      ctx.drawImage(PLAYER_BULLET_IMAGE, -spriteSize * 0.5, -spriteSize * 0.5, spriteSize, spriteSize);
+      ctx.drawImage(
+        PLAYER_ROCKET_SHEET,
+        frame * PLAYER_ROCKET_FRAME_SIZE,
+        0,
+        PLAYER_ROCKET_FRAME_SIZE,
+        PLAYER_ROCKET_FRAME_SIZE,
+        -spriteSize * 0.5,
+        -spriteSize * 0.5,
+        spriteSize,
+        spriteSize,
+      );
       ctx.restore();
       continue;
     }
 
-    ctx.fillStyle = b.voidMissile
-      ? "#a678ff"
-      : b.laserShot
-        ? "#ffb9f8"
-        : b.megaShot
-          ? "#ffc58f"
-          : b.enemy
-            ? "#ff8b8b"
-            : b.crit
-              ? "#fff3a8"
-              : b.helper
-                ? "#9ec9ff"
-                : "#7dd3fc";
+    let bulletColor = "#7dd3fc";
+    if (b.voidMissile) bulletColor = "#a678ff";
+    else if (b.laserShot) bulletColor = "#ffb9f8";
+    else if (b.megaShot) bulletColor = "#ffc58f";
+    else if (b.enemy) bulletColor = "#ff8b8b";
+    else if (b.affinity === "void") bulletColor = "#c99eff";
+    else if (b.affinity === "amber") bulletColor = "#ffd08d";
+    else if (b.affinity === "azure") bulletColor = "#8ee8ff";
+    else if (b.crit) bulletColor = "#fff3a8";
+    else if (b.helper) bulletColor = "#9ec9ff";
+    ctx.fillStyle = bulletColor;
     ctx.beginPath();
     ctx.arc(b.x, b.y, b.megaShot ? 6.5 : b.voidMissile ? 4.8 : b.laserShot ? 4.4 : b.enemy ? 3.5 : 3, 0, Math.PI * 2);
     ctx.fill();
@@ -3551,6 +3942,68 @@ function drawGame() {
   ctx.fillRect(8, -3, 12, 6);
   ctx.restore();
 
+  if ((p.aegisT || 0) > 0) {
+    const shieldPct = clamp(p.aegisT / Math.max(0.001, p.aegisDuration || 1), 0, 1);
+    const predictedRockets = getAegisRocketCount(p.aegisStoredDamage || 0, p.aegisLevel || 0);
+    const flash = clamp((p.aegisFlash || 0) / 0.2, 0, 1);
+
+    // Primary blue shield aura while Aegis is active.
+    const pulse = (Math.sin(w.t * 8.4) + 1) * 0.5;
+    ctx.fillStyle = `rgba(96,192,255,${0.1 + pulse * 0.07 + flash * 0.1})`;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 19.5 + pulse * 1.8, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = `rgba(132,220,255,${0.5 + pulse * 0.24 + flash * 0.2})`;
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 21.5 + pulse * 1.8, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // One sparkle marker per rocket that would be released right now.
+    for (let i = 0; i < predictedRockets; i += 1) {
+      const baseA = (i / predictedRockets) * Math.PI * 2 + w.t * (0.8 + (i % 3) * 0.22);
+      const orbit = 29 + Math.sin(w.t * 2.2 + i * 0.37) * 2.5;
+      const sx = p.x + Math.cos(baseA) * orbit;
+      const sy = p.y + Math.sin(baseA) * orbit;
+      const twinkle = (Math.sin(w.t * 11 + i * 1.9) + 1) * 0.5;
+      const sparkleR = 1.2 + twinkle * 1.2;
+
+      ctx.fillStyle = `rgba(178,244,255,${0.36 + twinkle * 0.44})`;
+      ctx.beginPath();
+      ctx.arc(sx, sy, sparkleR, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = `rgba(130,218,255,${0.24 + twinkle * 0.34})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(sx - 2.1, sy);
+      ctx.lineTo(sx + 2.1, sy);
+      ctx.moveTo(sx, sy - 2.1);
+      ctx.lineTo(sx, sy + 2.1);
+      ctx.stroke();
+    }
+
+    // Shield duration bar above player head (blue only, no numeric timer).
+    const barW = 52;
+    const barH = 6;
+    const barX = p.x - barW * 0.5;
+    const barY = p.y - 38;
+    ctx.fillStyle = "rgba(12,24,38,0.82)";
+    ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
+    ctx.fillStyle = "rgba(50,86,120,0.8)";
+    ctx.fillRect(barX, barY, barW, barH);
+    ctx.fillStyle = "rgba(108,213,255,0.94)";
+    ctx.fillRect(barX, barY, barW * shieldPct, barH);
+
+    if (flash > 0.02) {
+      ctx.fillStyle = `rgba(165,240,255,${0.14 + flash * 0.25})`;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 8 + flash * 6.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
   if (p.dashIFrames > 0) {
     ctx.strokeStyle = "rgba(125,211,252,0.9)";
     ctx.beginPath();
@@ -3651,7 +4104,24 @@ function clampPlayer(p) {
 function updateHud(w) {
   const p = w.player;
   ui.timer.textContent = w.isTestMode ? "TEST \u221e" : formatTime(w.timer);
-  ui.health.textContent = `HP ${Math.max(0, Math.floor(p.hp))}/${Math.floor(p.maxHp)}`;
+  const hpNow = Math.max(0, Math.floor(p.hp));
+  const hpMax = Math.max(1, Math.floor(p.maxHp));
+  const hpPct = clamp(p.hp / Math.max(1, p.maxHp), 0, 1);
+  if (ui.healthText) ui.healthText.textContent = `${hpNow}/${hpMax}`;
+  else ui.health.textContent = `HP ${hpNow}/${hpMax}`;
+  if (ui.healthFill) ui.healthFill.style.width = `${Math.round(hpPct * 100)}%`;
+
+  setCooldownHud(ui.cdVoid, ui.cdVoidFill, ui.cdVoidText, getAbilityCooldownSnapshot("void", p));
+  const azureSnapshot = getAbilityCooldownSnapshot("azure", p);
+  if ((p.aegisT || 0) > 0) {
+    azureSnapshot.status = "cooldown";
+    azureSnapshot.fillPct = clamp((p.aegisT || 0) / Math.max(0.001, p.aegisDuration || 1), 0, 1);
+    azureSnapshot.text = "Active";
+  }
+  setCooldownHud(ui.cdAzure, ui.cdAzureFill, ui.cdAzureText, azureSnapshot);
+  setCooldownHud(ui.cdAmber, ui.cdAmberFill, ui.cdAmberText, getAbilityCooldownSnapshot("amber", p));
+  setCooldownHud(ui.cdCannon, ui.cdCannonFill, ui.cdCannonText, getCannonCooldownSnapshot(p));
+
   if (ui.runEssenceValue) ui.runEssenceValue.textContent = String(Math.floor(w.runEssence));
   else ui.runEssence.textContent = `Run Essence ${Math.floor(w.runEssence)}`;
   if (ui.runVoidValue) ui.runVoidValue.textContent = String(Math.floor(w.runVoid));
