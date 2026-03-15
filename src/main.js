@@ -474,12 +474,26 @@ function buildTestSpawnButtons() {
   ui.testSpawnList.innerHTML = "";
 
   for (const kind of Object.keys(ENEMY_CONFIG)) {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "test-spawn-btn";
-    btn.textContent = formatEnemyName(kind);
-    btn.addEventListener("click", () => spawnEnemyFromTestPanel(kind));
-    ui.testSpawnList.appendChild(btn);
+    const row = document.createElement("div");
+    row.className = "test-spawn-row";
+
+    const name = document.createElement("div");
+    name.className = "test-spawn-name";
+    name.textContent = formatEnemyName(kind);
+    row.appendChild(name);
+
+    const actions = document.createElement("div");
+    actions.className = "test-spawn-actions";
+    for (const amount of [1, 10, 100]) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "test-spawn-btn";
+      btn.textContent = `${amount}x`;
+      btn.addEventListener("click", () => spawnEnemyFromTestPanel(kind, amount));
+      actions.appendChild(btn);
+    }
+    row.appendChild(actions);
+    ui.testSpawnList.appendChild(row);
   }
 }
 
@@ -515,19 +529,21 @@ function updateTestSpawnPanelVisibility() {
   }
 }
 
-function spawnEnemyFromTestPanel(kind) {
+function spawnEnemyFromTestPanel(kind, count = 1) {
   const w = state.world;
   if (!w || !w.isTestMode || state.mode !== "game") return;
 
-  const edge = Math.floor(Math.random() * 4);
-  let x = 0;
-  let y = 0;
-  if (edge === 0) { x = -24; y = Math.random() * canvas.height; }
-  if (edge === 1) { x = canvas.width + 24; y = Math.random() * canvas.height; }
-  if (edge === 2) { x = Math.random() * canvas.width; y = -24; }
-  if (edge === 3) { x = Math.random() * canvas.width; y = canvas.height + 24; }
-
-  spawnEnemyByKind(w, kind, x, y);
+  const amount = clamp(Math.floor(Number(count) || 1), 1, 200);
+  for (let i = 0; i < amount; i += 1) {
+    const edge = Math.floor(Math.random() * 4);
+    let x = 0;
+    let y = 0;
+    if (edge === 0) { x = -24; y = Math.random() * canvas.height; }
+    if (edge === 1) { x = canvas.width + 24; y = Math.random() * canvas.height; }
+    if (edge === 2) { x = Math.random() * canvas.width; y = -24; }
+    if (edge === 3) { x = Math.random() * canvas.width; y = canvas.height + 24; }
+    spawnEnemyByKind(w, kind, x, y);
+  }
 }
 
 function resize() {
