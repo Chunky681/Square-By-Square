@@ -1973,8 +1973,35 @@ function queueBossBottomLeftBurst(w, boss, x, y, opts = {}) {
   });
 }
 
-function spawnBossBottomLeftPattern(w, e, phase) {
-  const p = w.player;
+function getSummonedAggroTarget(w, fromX, fromY) {
+  const fallback = w.player;
+  let target = fallback;
+  let best = Math.hypot((fallback?.x || 0) - fromX, (fallback?.y || 0) - fromY);
+  if (!Array.isArray(w.allies) || w.allies.length === 0) return target;
+
+  for (const ally of w.allies) {
+    if (!ally || ally.hp <= 0) continue;
+    const d = Math.hypot((ally.x || 0) - fromX, (ally.y || 0) - fromY);
+    if (d < best) {
+      best = d;
+      target = ally;
+    }
+  }
+  return target;
+}
+
+function getTargetVelocity(target) {
+  const vx = Number.isFinite(target?.vx) ? target.vx : 0;
+  const vy = Number.isFinite(target?.vy) ? target.vy : 0;
+  return { vx, vy };
+}
+
+function spawnBossBottomLeftPattern(w, e, phase, target = null) {
+  const focus = target && Number.isFinite(target.x) && Number.isFinite(target.y) ? target : w.player;
+  const fx = focus.x;
+  const fy = focus.y;
+  const fvx = Number.isFinite(focus.vx) ? focus.vx : 0;
+  const fvy = Number.isFinite(focus.vy) ? focus.vy : 0;
   const baseDelay = phase === 1 ? 0.92 : phase === 2 ? 0.74 : 0.58;
   const damage = 22 + phase * 4 + w.threat * 0.52;
   const choice = Math.floor(Math.random() * 7);
@@ -1984,7 +2011,7 @@ function spawnBossBottomLeftPattern(w, e, phase) {
     const ring = 76 + phase * 18;
     for (let i = 0; i < count; i += 1) {
       const a = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.08;
-      queueBossBottomLeftBurst(w, e, p.x + Math.cos(a) * ring, p.y + Math.sin(a) * ring, {
+      queueBossBottomLeftBurst(w, e, fx + Math.cos(a) * ring, fy + Math.sin(a) * ring, {
         delay: baseDelay + Math.random() * 0.12,
         radius: 24 + phase * 2,
         damage,
@@ -1996,7 +2023,7 @@ function spawnBossBottomLeftPattern(w, e, phase) {
       const innerRing = ring * 0.58;
       for (let i = 0; i < innerCount; i += 1) {
         const a = (i / innerCount) * Math.PI * 2 + 0.2;
-        queueBossBottomLeftBurst(w, e, p.x + Math.cos(a) * innerRing, p.y + Math.sin(a) * innerRing, {
+        queueBossBottomLeftBurst(w, e, fx + Math.cos(a) * innerRing, fy + Math.sin(a) * innerRing, {
           delay: baseDelay + 0.22 + Math.random() * 0.08,
           radius: 19 + phase * 1.7,
           damage: damage * 0.9,
@@ -2008,7 +2035,7 @@ function spawnBossBottomLeftPattern(w, e, phase) {
   }
 
   if (choice === 1) {
-    const aim = Math.atan2(p.y - e.y, p.x - e.x);
+    const aim = Math.atan2(fy - e.y, fx - e.x);
     const normal = aim + Math.PI * 0.5;
     const laneCount = phase === 1 ? 3 : 5;
     const laneHalf = Math.floor(laneCount * 0.5);
@@ -2060,7 +2087,7 @@ function spawnBossBottomLeftPattern(w, e, phase) {
     for (let ix = -3; ix <= 3; ix += 1) {
       for (let iy = -2; iy <= 2; iy += 1) {
         if ((ix + iy) % 2 === 0 && Math.abs(ix) + Math.abs(iy) > 0) continue;
-        queueBossBottomLeftBurst(w, e, p.x + ix * spacing, p.y + iy * spacing, {
+        queueBossBottomLeftBurst(w, e, fx + ix * spacing, fy + iy * spacing, {
           delay: baseDelay + (Math.abs(ix) + Math.abs(iy)) * 0.038,
           radius: 20 + phase * 2,
           damage,
@@ -2071,16 +2098,16 @@ function spawnBossBottomLeftPattern(w, e, phase) {
     return;
   }
 
-  const dirA = Math.atan2(p.vy, p.vx);
-  const fallbackA = Math.atan2(p.y - e.y, p.x - e.x);
-  const trailA = Math.hypot(p.vx, p.vy) > 30 ? dirA : fallbackA;
+  const dirA = Math.atan2(fvy, fvx);
+  const fallbackA = Math.atan2(fy - e.y, fx - e.x);
+  const trailA = Math.hypot(fvx, fvy) > 30 ? dirA : fallbackA;
   if (choice === 4) {
     for (let i = 0; i < 10 + phase * 3; i += 1) {
       const d = 26 + i * (44 + phase * 4);
       const side = (Math.random() - 0.5) * (38 + phase * 14);
       const nx = Math.cos(trailA + Math.PI * 0.5) * side;
       const ny = Math.sin(trailA + Math.PI * 0.5) * side;
-      queueBossBottomLeftBurst(w, e, p.x + Math.cos(trailA) * d + nx, p.y + Math.sin(trailA) * d + ny, {
+      queueBossBottomLeftBurst(w, e, fx + Math.cos(trailA) * d + nx, fy + Math.sin(trailA) * d + ny, {
         delay: baseDelay + i * 0.032,
         radius: 16 + phase * 1.9,
         damage,
@@ -2097,7 +2124,7 @@ function spawnBossBottomLeftPattern(w, e, phase) {
     const countB = 8 + phase * 3;
     for (let i = 0; i < countA; i += 1) {
       const a = (i / countA) * Math.PI * 2;
-      queueBossBottomLeftBurst(w, e, p.x + Math.cos(a) * ringA, p.y + Math.sin(a) * ringA, {
+      queueBossBottomLeftBurst(w, e, fx + Math.cos(a) * ringA, fy + Math.sin(a) * ringA, {
         delay: baseDelay + 0.02 + (i % 3) * 0.01,
         radius: 18 + phase * 2,
         damage: damage * 0.9,
@@ -2106,14 +2133,14 @@ function spawnBossBottomLeftPattern(w, e, phase) {
     }
     for (let i = 0; i < countB; i += 1) {
       const a = (i / countB) * Math.PI * 2 + 0.2;
-      queueBossBottomLeftBurst(w, e, p.x + Math.cos(a) * ringB, p.y + Math.sin(a) * ringB, {
+      queueBossBottomLeftBurst(w, e, fx + Math.cos(a) * ringB, fy + Math.sin(a) * ringB, {
         delay: baseDelay + 0.26 + (i % 2) * 0.015,
         radius: 19 + phase * 2.1,
         damage,
         color: "255,132,120",
       });
     }
-    queueBossBottomLeftBurst(w, e, p.x, p.y, {
+    queueBossBottomLeftBurst(w, e, fx, fy, {
       delay: baseDelay + 0.48,
       radius: 24 + phase * 2.2,
       damage: damage * 1.1,
@@ -2153,9 +2180,19 @@ function stepBossBursts(w, dt) {
       if (burst.t <= 0) {
         burst.fired = true;
         burst.linger = 0.18;
+        const rawDamage = Math.abs(burst.dmg) * w.scale.enemyDamage;
         if (Math.hypot(p.x - burst.x, p.y - burst.y) <= burst.r + 10) {
-          const dmg = Math.abs(burst.dmg) * w.scale.enemyDamage * (1 - Math.min(0.62, p.armor));
+          const dmg = rawDamage * (1 - Math.min(0.62, p.armor));
           applyPlayerDamage(w, dmg, { hitFlash: 0.14, playSound: true, absorbSplash: false });
+        }
+        if (Array.isArray(w.allies) && w.allies.length > 0) {
+          for (const ally of w.allies) {
+            if (!ally || ally.hp <= 0) continue;
+            const hitR = burst.r + Math.max(7, (ally.r || 10) * 0.75);
+            if (Math.hypot(ally.x - burst.x, ally.y - burst.y) > hitR) continue;
+            ally.hp -= rawDamage * 0.88;
+            ally.hitFlash = Math.max(ally.hitFlash || 0, 0.13);
+          }
         }
         splash(w, burst.x, burst.y, "#ffad7e", 14 + burst.r * 0.18, 1.7);
       }
@@ -2441,10 +2478,11 @@ function stepBullets(w, dt) {
     b.px = b.x;
     b.py = b.y;
     if (b.enemy && (b.megaShot || b.voidMissile) && !b.smartAim) {
-      const p = w.player;
+      const target = getSummonedAggroTarget(w, b.x, b.y);
+      const velocity = getTargetVelocity(target);
       const lead = b.voidMissile ? (b.targetLead ?? 0.15) : (b.targetLead ?? 0.22);
-      const tx = p.x + p.vx * lead;
-      const ty = p.y + p.vy * lead;
+      const tx = target.x + velocity.vx * lead;
+      const ty = target.y + velocity.vy * lead;
       const desired = Math.atan2(ty - b.y, tx - b.x);
       const current = Math.atan2(b.vy, b.vx);
       let delta = desired - current;
@@ -2613,7 +2651,12 @@ function stepEnemyMines(w, dt) {
 }
 
 function getHelperSummonTier(moduleLevel) {
-  return clamp(Math.floor(moduleLevel || 0) + 1, 1, 5);
+  const level = clamp(Math.floor(moduleLevel || 0), 0, MAX_UPGRADE_LEVEL);
+  if (level >= 40) return 5;
+  if (level >= 28) return 4;
+  if (level >= 16) return 3;
+  if (level >= 8) return 2;
+  return 1;
 }
 
 function getHelperSummonComposition(moduleLevel) {
@@ -2659,13 +2702,13 @@ function getSummonedAllyTemplate(kind) {
   if (kind === "mini_boss") {
     return {
       r: 20,
-      hp: 300,
+      hp: 220,
       hpPerLevel: 36,
       speed: 116,
       speedPerLevel: 2.6,
       preferredRange: 220,
       fireRange: 560,
-      fireRate: 0.95,
+      fireRate: 0.72,
       fireRatePerLevel: 0.012,
       dmg: 17,
       dmgPerLevel: 2.0,
@@ -2681,13 +2724,13 @@ function getSummonedAllyTemplate(kind) {
   if (kind === "brute") {
     return {
       r: 15,
-      hp: 170,
+      hp: 130,
       hpPerLevel: 22,
       speed: 136,
       speedPerLevel: 2.0,
       preferredRange: 175,
       fireRange: 430,
-      fireRate: 1.1,
+      fireRate: 0.84,
       fireRatePerLevel: 0.015,
       dmg: 13.5,
       dmgPerLevel: 1.65,
@@ -2703,13 +2746,13 @@ function getSummonedAllyTemplate(kind) {
   if (kind === "dart") {
     return {
       r: 10,
-      hp: 96,
+      hp: 74,
       hpPerLevel: 12,
       speed: 208,
       speedPerLevel: 3.5,
       preferredRange: 250,
       fireRange: 590,
-      fireRate: 2.05,
+      fireRate: 1.55,
       fireRatePerLevel: 0.024,
       dmg: 8,
       dmgPerLevel: 1.05,
@@ -2724,13 +2767,13 @@ function getSummonedAllyTemplate(kind) {
   }
   return {
     r: 12,
-    hp: 122,
+    hp: 92,
     hpPerLevel: 15,
     speed: 184,
     speedPerLevel: 2.8,
     preferredRange: 150,
     fireRange: 430,
-    fireRate: 1.65,
+    fireRate: 1.24,
     fireRatePerLevel: 0.02,
     dmg: 9.4,
     dmgPerLevel: 1.2,
@@ -2748,6 +2791,8 @@ function createSummonedAlly(kind, x, y, moduleLevel) {
   const power = Math.max(1, Math.floor(moduleLevel || 0) + 1);
   const tier = getHelperSummonTier(moduleLevel);
   const cfg = getSummonedAllyTemplate(kind);
+  const fireRate = cfg.fireRate * (1 + cfg.fireRatePerLevel * power);
+  const fireCdSeed = Math.min(0.45, 1 / Math.max(0.22, fireRate));
   const life = 14 + power * 0.45 + tier * 1.2 + (kind === "mini_boss" ? 4.5 : 0);
   return {
     ally: true,
@@ -2760,7 +2805,7 @@ function createSummonedAlly(kind, x, y, moduleLevel) {
     speed: cfg.speed + cfg.speedPerLevel * power,
     preferredRange: cfg.preferredRange,
     fireRange: cfg.fireRange + tier * 12,
-    fireRate: cfg.fireRate * (1 + cfg.fireRatePerLevel * power),
+    fireRate,
     dmg: cfg.dmg + cfg.dmgPerLevel * power,
     bulletSpeed: cfg.bulletSpeed + power * 4.5,
     bulletLife: cfg.bulletLife + tier * 0.04,
@@ -2769,9 +2814,20 @@ function createSummonedAlly(kind, x, y, moduleLevel) {
     strafe: cfg.strafe,
     orbitRate: cfg.orbitRate,
     turnRate: cfg.turnRate,
-    fireCd: Math.random() * 0.4,
+    fireCd: Math.random() * fireCdSeed,
+    cd: Math.random() * fireCdSeed,
+    volleyCd: 0.55 + Math.random() * 0.32,
+    dashCd: 2.4 + Math.random() * 0.8,
+    dashT: 0,
+    dashVx: 0,
+    dashVy: 0,
+    windup: 0,
     orbit: Math.random() * Math.PI * 2,
     facing: Math.random() * Math.PI * 2,
+    phase: 1,
+    guard: 0,
+    vx: 0,
+    vy: 0,
     hitFlash: 0,
     life,
   };
@@ -2807,12 +2863,38 @@ function stepHelper(w, dt) {
 
   const p = w.player;
   const alive = [];
+  const invDt = 1 / Math.max(0.001, dt);
+
+  const shootAllyBullet = (ally, angle, opts = {}) => {
+    const speed = opts.speed ?? ally.bulletSpeed ?? 650;
+    const life = opts.life ?? ally.bulletLife ?? 1.1;
+    const dmgScale = opts.dmgScale ?? 1;
+    w.bullets.push({
+      x: ally.x + Math.cos(angle) * (ally.r + 4),
+      y: ally.y + Math.sin(angle) * (ally.r + 4),
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life,
+      dmg: ally.dmg * dmgScale,
+      helper: true,
+      ally: true,
+      affinity: "azure",
+    });
+  };
 
   for (const ally of w.allies) {
+    const prevX = ally.x;
+    const prevY = ally.y;
+
     ally.life -= dt;
     ally.fireCd = Math.max(0, (ally.fireCd || 0) - dt);
+    ally.cd = Math.max(0, (ally.cd || 0) - dt);
+    ally.volleyCd = Math.max(0, (ally.volleyCd || 0) - dt);
+    ally.dashCd = Math.max(0, (ally.dashCd || 0) - dt);
     ally.hitFlash = Math.max(0, (ally.hitFlash || 0) - dt);
-    ally.orbit = (ally.orbit || 0) + dt * (ally.orbitRate || 2.4);
+    if (ally.kind !== "mini_boss") {
+      ally.orbit = (ally.orbit || 0) + dt * (ally.orbitRate || 2.4);
+    }
 
     if (ally.life <= 0 || ally.hp <= 0) {
       splash(w, ally.x, ally.y, "#9ef3ff", 8 + Math.max(0, ally.r - 8) * 0.6, 1.9);
@@ -2834,57 +2916,124 @@ function stepHelper(w, dt) {
       const dx = target.x - ally.x;
       const dy = target.y - ally.y;
       const d = Math.max(1, Math.hypot(dx, dy));
-      const side = Math.sin(ally.orbit || 0) * (ally.strafe || 0);
-      const preferred = ally.preferredRange || 180;
-      const bias = d > preferred ? 1 : d < preferred * 0.62 ? -0.55 : 0.12;
-      ally.x += ((dx / d) + (-dy / d) * side) * ally.speed * bias * dt;
-      ally.y += ((dy / d) + (dx / d) * side) * ally.speed * bias * dt;
-
       const desired = Math.atan2(dy, dx);
+      const targetSpeed = (target.speed || 0) * (target.dashT > 0 ? 2.2 : 1);
+      const tvx = Number.isFinite(target.vx) ? target.vx : Math.cos(target.facing || desired) * targetSpeed;
+      const tvy = Number.isFinite(target.vy) ? target.vy : Math.sin(target.facing || desired) * targetSpeed;
+      const hpPct = ally.hp / Math.max(1, ally.maxHp || ally.hp);
+      const phase = hpPct > 0.66 ? 1 : hpPct > 0.33 ? 2 : 3;
+      ally.phase = phase;
+
+      const turnRate = ally.kind === "mini_boss" ? (2.4 + phase * 0.35) : (ally.turnRate || 8);
       const delta = shortestAngleDelta(ally.facing || desired, desired);
-      ally.facing = (ally.facing || desired) + clamp(delta, -(ally.turnRate || 8) * dt, (ally.turnRate || 8) * dt);
+      ally.facing = (ally.facing || desired) + clamp(delta, -turnRate * dt, turnRate * dt);
 
-      if (ally.fireCd <= 0 && d <= (ally.fireRange || 420)) {
-        const targetSpeed = (target.speed || 0) * (target.dashT > 0 ? 2.2 : 1);
-        const tvx = Math.cos(target.facing || 0) * targetSpeed;
-        const tvy = Math.sin(target.facing || 0) * targetSpeed;
-        const shotCount = Math.max(1, Math.floor(ally.shots || 1));
-        const spread = ally.spread || 0;
-        const baseAim = getPredictiveAimAngle(ally.x, ally.y, target.x, target.y, tvx, tvy, ally.bulletSpeed || 650, {
-          leadBias: 0.9,
-          maxLead: 1.0,
-        });
+      if (ally.kind === "dart") {
+        const preferred = 250;
+        const dir = d > preferred ? 1 : -0.75;
+        ally.x += (dx / d) * ally.speed * dir * dt;
+        ally.y += (dy / d) * ally.speed * dir * dt;
 
-        for (let i = 0; i < shotCount; i += 1) {
-          const t = shotCount === 1 ? 0 : i / (shotCount - 1) - 0.5;
-          const a = baseAim + t * spread;
-          w.bullets.push({
-            x: ally.x + Math.cos(a) * (ally.r + 4),
-            y: ally.y + Math.sin(a) * (ally.r + 4),
-            vx: Math.cos(a) * (ally.bulletSpeed || 650),
-            vy: Math.sin(a) * (ally.bulletSpeed || 650),
-            life: ally.bulletLife || 1.1,
-            dmg: ally.dmg,
-            helper: true,
-            ally: true,
-            affinity: "azure",
+        if (ally.cd <= 0 && d < (ally.fireRange || 560)) {
+          const aim = getPredictiveAimAngle(ally.x, ally.y, target.x, target.y, tvx, tvy, ally.bulletSpeed || 700, {
+            leadBias: 0.9,
+            maxLead: 1.1,
           });
+          shootAllyBullet(ally, aim, { speed: (ally.bulletSpeed || 700) * 0.96, life: ally.bulletLife || 1.2, dmgScale: 1.0 });
+          ally.cd = Math.max(0.22, 1 / Math.max(0.28, ally.fireRate || 1));
+          if (Math.random() < 0.22) audio.play("helperShot");
         }
+      } else if (ally.kind === "mini_boss") {
+        if ((ally.dashT || 0) > 0) {
+          ally.x += ally.dashVx * dt;
+          ally.y += ally.dashVy * dt;
+          ally.dashT = Math.max(0, (ally.dashT || 0) - dt);
+          ally.guard = 0.45;
 
-        ally.fireCd = 1 / Math.max(0.2, ally.fireRate || 1);
-        if (Math.random() < 0.22) audio.play("helperShot");
+          if (ally.dashT <= 0) {
+            const burstShots = phase >= 3 ? 14 : 10;
+            const burstSpeed = Math.max(260, (ally.bulletSpeed || 640) * 0.48 + phase * 18);
+            for (let i = 0; i < burstShots; i += 1) {
+              const a = (i / burstShots) * Math.PI * 2;
+              shootAllyBullet(ally, a, { speed: burstSpeed, life: 2.0, dmgScale: 0.5 + phase * 0.08 });
+            }
+            splash(w, ally.x, ally.y, "#9feaff", 14, 1.6);
+            audio.play("helperShot");
+          }
+        } else if ((ally.windup || 0) > 0) {
+          ally.windup = Math.max(0, (ally.windup || 0) - dt);
+          ally.guard = 0.72;
+          if (ally.windup <= 0) {
+            const leadX = target.x + tvx * 0.2;
+            const leadY = target.y + tvy * 0.2;
+            const ldx = leadX - ally.x;
+            const ldy = leadY - ally.y;
+            const ld = Math.hypot(ldx, ldy) || 1;
+            const dashSpeed = ally.speed * (phase >= 3 ? 3.15 : 2.9);
+            ally.dashVx = (ldx / ld) * dashSpeed;
+            ally.dashVy = (ldy / ld) * dashSpeed;
+            ally.dashT = phase >= 3 ? 0.34 : 0.3;
+            splash(w, ally.x, ally.y, "#a7f0ff", 9, 1.2);
+          }
+        } else {
+          ally.orbit += dt * (2.2 + phase * 0.32);
+          const side = Math.sin(ally.orbit || 0) * 0.58;
+          const preferred = 240 - phase * 18;
+          const dir = d > preferred ? 1 : d < preferred - 60 ? -0.45 : 0.06;
+          ally.x += ((dx / d) + (-dy / d) * side) * ally.speed * dir * dt;
+          ally.y += ((dy / d) + (dx / d) * side) * ally.speed * dir * dt;
+          ally.guard = phase >= 3 ? 0.28 : 0.2;
+
+          if (ally.volleyCd <= 0 && d < (ally.fireRange || 540)) {
+            const shots = phase === 1 ? 5 : phase === 2 ? 7 : 9;
+            const spread = phase === 1 ? 0.72 : 0.95;
+            const speed = Math.max(280, (ally.bulletSpeed || 640) * 0.62 + phase * 14);
+            const aim = getPredictiveAimAngle(ally.x, ally.y, target.x, target.y, tvx, tvy, speed, {
+              leadBias: 0.82 + phase * 0.04,
+              maxLead: 1.05,
+            });
+            for (let i = 0; i < shots; i += 1) {
+              const t = shots <= 1 ? 0.5 : i / (shots - 1);
+              const a = aim + (t - 0.5) * spread;
+              shootAllyBullet(ally, a, { speed, life: 2.2, dmgScale: 0.56 + phase * 0.08 });
+            }
+            const baseCd = phase === 1 ? 1.95 : phase === 2 ? 1.5 : 1.1;
+            ally.volleyCd = Math.max(0.4, baseCd / Math.max(0.7, ally.fireRate || 1));
+            if (Math.random() < 0.24) audio.play("helperShot");
+          }
+
+          if (ally.dashCd <= 0 && d < 470) {
+            ally.windup = phase === 1 ? 0.44 : 0.34;
+            const baseDashCd = phase === 1 ? 5.2 : phase === 2 ? 4.3 : 3.6;
+            ally.dashCd = Math.max(1.2, baseDashCd / Math.max(0.75, ally.fireRate || 1));
+          }
+        }
+      } else {
+        ally.x += (dx / d) * ally.speed * dt;
+        ally.y += (dy / d) * ally.speed * dt;
       }
     } else {
+      ally.guard = 0;
+      ally.windup = 0;
+      ally.dashT = 0;
       const holdA = (ally.orbit || 0) + (ally.r * 0.11);
       const holdR = 46 + (ally.r || 12) * 1.4;
       const tx = p.x + Math.cos(holdA) * holdR;
       const ty = p.y + Math.sin(holdA) * holdR;
-      ally.x += (tx - ally.x) * Math.min(1, dt * 5.8);
-      ally.y += (ty - ally.y) * Math.min(1, dt * 5.8);
+      const rdx = tx - ally.x;
+      const rdy = ty - ally.y;
+      const rd = Math.hypot(rdx, rdy);
+      if (rd > 0.001) {
+        const step = Math.min(rd, ally.speed * dt);
+        ally.x += (rdx / rd) * step;
+        ally.y += (rdy / rd) * step;
+      }
     }
 
     ally.x = clamp(ally.x, 18, canvas.width - 18);
     ally.y = clamp(ally.y, 18, canvas.height - 18);
+    ally.vx = (ally.x - prevX) * invDt;
+    ally.vy = (ally.y - prevY) * invDt;
     alive.push(ally);
   }
 
@@ -2898,8 +3047,11 @@ function stepEnemies(w, dt) {
     e.weakSpotFlash = Math.max(0, (e.weakSpotFlash || 0) - dt);
     e.allyDrainPulse = Math.max(0, (e.allyDrainPulse || 0) - dt);
 
-    const dx = p.x - e.x;
-    const dy = p.y - e.y;
+    const target = getSummonedAggroTarget(w, e.x, e.y);
+    const targetVelocity = getTargetVelocity(target);
+    const targetIsPlayer = target === p;
+    const dx = target.x - e.x;
+    const dy = target.y - e.y;
     const d = Math.hypot(dx, dy) || 1;
     const desiredFacing = Math.atan2(dy, dx);
     if (!Number.isFinite(e.facing)) e.facing = desiredFacing;
@@ -2932,8 +3084,8 @@ function stepEnemies(w, dt) {
       if (e.windup > 0) {
         e.windup -= dt;
         if (e.windup <= 0) {
-          const leadX = p.x + p.vx * 0.16;
-          const leadY = p.y + p.vy * 0.16;
+          const leadX = target.x + targetVelocity.vx * 0.16;
+          const leadY = target.y + targetVelocity.vy * 0.16;
           const ldx = leadX - e.x;
           const ldy = leadY - e.y;
           const ld = Math.hypot(ldx, ldy) || 1;
@@ -2972,9 +3124,18 @@ function stepEnemies(w, dt) {
       e.drainCd = Math.max(0, (e.drainCd || 0) - dt);
       if (d < 230 && e.drainCd <= 0) {
         const rawDmg = (5 + w.threat * 0.22) * w.scale.enemyDamage;
-        const applied = rawDmg * (1 - Math.min(0.62, p.armor));
-        applyPlayerDamage(w, applied, { hitFlash: 0.12, splashColor: "#ff8df0", splashCount: 8, splashForce: 1.15, absorbSplash: false });
-        if (!isPlayerInvulnerable(p)) audio.play("enemyShot");
+        let applied = 0;
+        if (targetIsPlayer) {
+          applied = rawDmg * (1 - Math.min(0.62, p.armor));
+          applyPlayerDamage(w, applied, { hitFlash: 0.12, splashColor: "#ff8df0", splashCount: 8, splashForce: 1.15, absorbSplash: false });
+          if (!isPlayerInvulnerable(p)) audio.play("enemyShot");
+        } else {
+          applied = rawDmg * 0.9;
+          target.hp -= applied;
+          target.hitFlash = Math.max(target.hitFlash || 0, 0.12);
+          splash(w, target.x, target.y, "#8fdfff", 6, 0.9);
+          audio.play("enemyShot");
+        }
         if (e.maxHp) {
           e.hp = Math.min(e.maxHp, e.hp + applied * 0.42);
           splash(w, e.x, e.y, "#b58cff", 6, 1.0);
@@ -3017,8 +3178,8 @@ function stepEnemies(w, dt) {
         e.windup -= dt;
         e.guard = 0.72;
         if (e.windup <= 0) {
-          const leadX = p.x + p.vx * 0.2;
-          const leadY = p.y + p.vy * 0.2;
+          const leadX = target.x + targetVelocity.vx * 0.2;
+          const leadY = target.y + targetVelocity.vy * 0.2;
           const ldx = leadX - e.x;
           const ldy = leadY - e.y;
           const ld = Math.hypot(ldx, ldy) || 1;
@@ -3146,7 +3307,7 @@ function stepEnemies(w, dt) {
       if (e.detonateCd <= 0 && w.enemyMines.length > 0) {
         let detonated = 0;
         for (const m of w.enemyMines) {
-          const md = Math.hypot(p.x - m.x, p.y - m.y);
+          const md = Math.hypot(target.x - m.x, target.y - m.y);
           if (md < 260 || phase >= 3) {
             m.armed = Math.min(m.armed, 0.02);
             detonated += 1;
@@ -3384,7 +3545,7 @@ function stepEnemies(w, dt) {
 
       e.patternCd = Math.max(0, (e.patternCd || 2.4) - dt);
       if (e.patternCd <= 0) {
-        spawnBossBottomLeftPattern(w, e, phase);
+        spawnBossBottomLeftPattern(w, e, phase, target);
         e.patternPulse = Math.max(e.patternPulse || 0, 0.5);
         e.patternCd = phase === 1 ? 2.55 : phase === 2 ? 2.0 : 1.55;
         splash(w, e.x, e.y, "#ffbf85", 12, 1.25);
@@ -3442,7 +3603,7 @@ function stepEnemies(w, dt) {
             color: "255,170,124",
           });
         }
-        queueBossBottomLeftBurst(w, e, p.x, p.y, {
+        queueBossBottomLeftBurst(w, e, target.x, target.y, {
           delay: 0.34,
           radius: 26 + phase * 2.2,
           damage: 22 + phase * 5 + w.threat * 0.5,
@@ -3472,10 +3633,10 @@ function stepEnemies(w, dt) {
       const minionPhase = boss.phase || 1;
       e.shotCd = Math.max(0, (e.shotCd || (minionPhase === 1 ? 1.9 : minionPhase === 2 ? 1.4 : 1.0)) - dt);
       if (e.shotCd <= 0) {
-        const aim = Math.atan2(p.y - e.y, p.x - e.x);
+        const aim = Math.atan2(target.y - e.y, target.x - e.x);
         if (e.shieldType === "void") {
           const speed = 230 + minionPhase * 24;
-          const leadAim = getPredictiveAimAngle(e.x, e.y, p.x, p.y, p.vx, p.vy, speed, {
+          const leadAim = getPredictiveAimAngle(e.x, e.y, target.x, target.y, targetVelocity.vx, targetVelocity.vy, speed, {
             leadBias: 0.92 + minionPhase * 0.06,
             maxLead: 1.15,
           });
@@ -3508,7 +3669,7 @@ function stepEnemies(w, dt) {
           }
         } else {
           const speed = 265 + minionPhase * 20;
-          const leadAim = getPredictiveAimAngle(e.x, e.y, p.x, p.y, p.vx, p.vy, speed, {
+          const leadAim = getPredictiveAimAngle(e.x, e.y, target.x, target.y, targetVelocity.vx, targetVelocity.vy, speed, {
             leadBias: 0.8 + minionPhase * 0.05,
             maxLead: 0.95,
           });
@@ -3650,29 +3811,36 @@ function resolveCombat(w) {
         else audio.play("hit");
         break;
       }
-    } else if (Math.hypot(b.x - p.x, b.y - p.y) <= (b.megaShot ? 22 : b.voidMissile ? 17 : b.laserShot ? 16 : 15)) {
-      if ((p.aegisT || 0) > 0 || p.dashIFrames <= 0) {
-        const dmg = Math.abs(b.dmg) * w.scale.enemyDamage * (1 - Math.min(0.62, p.armor));
-        const hitLanded = applyPlayerDamage(w, dmg, { hitFlash: 0.14, playSound: true, absorbSplash: false });
-        b.life = 0;
-        splash(w, p.x, p.y, b.voidMissile ? "#bf8fff" : b.laserShot ? "#ff9ae9" : b.megaShot ? "#ffb87f" : "#ff8b8b", b.megaShot ? 18 : b.voidMissile ? 13 : b.laserShot ? 12 : 10, b.megaShot ? 2.9 : 2.2);
-        if (hitLanded && b.siphonSource && b.siphonRatio > 0) {
-          healEnemy(b.siphonSource, dmg * b.siphonRatio);
-          splash(w, b.siphonSource.x, b.siphonSource.y, "#9af2ba", 6, 0.9);
+    } else if (b.enemy) {
+      if (Array.isArray(w.allies) && w.allies.length > 0) {
+        const hitR = b.megaShot ? 18 : b.voidMissile ? 14 : b.laserShot ? 13 : 12;
+        for (const ally of w.allies) {
+          if (ally.hp <= 0) continue;
+          if (Math.hypot(b.x - ally.x, b.y - ally.y) > hitR + (ally.r || 10) * 0.45) continue;
+          const dmg = Math.abs(b.dmg) * 0.9;
+          ally.hp -= dmg;
+          ally.hitFlash = Math.max(ally.hitFlash || 0, 0.14);
+          b.life = 0;
+          splash(w, ally.x, ally.y, "#8fdfff", 6, 0.85);
+          if (b.siphonSource && b.siphonRatio > 0) {
+            healEnemy(b.siphonSource, dmg * b.siphonRatio);
+            splash(w, b.siphonSource.x, b.siphonSource.y, "#9af2ba", 6, 0.9);
+          }
+          break;
         }
       }
-    }
 
-    if (b.enemy && b.life > 0 && Array.isArray(w.allies) && w.allies.length > 0) {
-      const hitR = b.megaShot ? 18 : b.voidMissile ? 14 : b.laserShot ? 13 : 12;
-      for (const ally of w.allies) {
-        if (ally.hp <= 0) continue;
-        if (Math.hypot(b.x - ally.x, b.y - ally.y) > hitR + (ally.r || 10) * 0.45) continue;
-        ally.hp -= Math.abs(b.dmg) * 0.9;
-        ally.hitFlash = Math.max(ally.hitFlash || 0, 0.14);
-        b.life = 0;
-        splash(w, ally.x, ally.y, "#8fdfff", 6, 0.85);
-        break;
+      if (b.life > 0 && Math.hypot(b.x - p.x, b.y - p.y) <= (b.megaShot ? 22 : b.voidMissile ? 17 : b.laserShot ? 16 : 15)) {
+        if ((p.aegisT || 0) > 0 || p.dashIFrames <= 0) {
+          const dmg = Math.abs(b.dmg) * w.scale.enemyDamage * (1 - Math.min(0.62, p.armor));
+          const hitLanded = applyPlayerDamage(w, dmg, { hitFlash: 0.14, playSound: true, absorbSplash: false });
+          b.life = 0;
+          splash(w, p.x, p.y, b.voidMissile ? "#bf8fff" : b.laserShot ? "#ff9ae9" : b.megaShot ? "#ffb87f" : "#ff8b8b", b.megaShot ? 18 : b.voidMissile ? 13 : b.laserShot ? 12 : 10, b.megaShot ? 2.9 : 2.2);
+          if (hitLanded && b.siphonSource && b.siphonRatio > 0) {
+            healEnemy(b.siphonSource, dmg * b.siphonRatio);
+            splash(w, b.siphonSource.x, b.siphonSource.y, "#9af2ba", 6, 0.9);
+          }
+        }
       }
     }
   }
