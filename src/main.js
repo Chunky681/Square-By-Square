@@ -106,14 +106,14 @@ const ITEM_CATALOG = {
     desc: "C key tracking rocket.",
   },
   helper: {
-    name: "Helper Bay",
+    name: "Summon Bay",
     kind: "ability",
     trigger: "azure",
     buyBase: 190,
     buyScale: 1.48,
     upgradeBase: 64,
     color: "#9ec9ff",
-    desc: "C key deploy helper drone.",
+    desc: "C key summons allied combat units that scale with level.",
   },
   aegis: {
     name: "Aegis Matrix",
@@ -1051,6 +1051,7 @@ function makeWorld(profile, difficulty) {
     enemyMines: [],
     bossBursts: [],
     rockets: [],
+    allies: [],
     helper: null,
     player: {
       x: canvas.width * 0.5,
@@ -1613,13 +1614,10 @@ function useAzureAbility(w) {
   }
 
   if (module.type === "helper") {
-    const hp = 70 + module.level * 6;
-    const life = 16 + module.level * 0.28;
-    const fireRate = 1.3 * (1 + module.level * 0.02);
-    const dmg = 11 + module.level * 1.6;
-
-    w.helper = { x: p.x + 34, y: p.y, hp, maxHp: hp, life, fireCd: 0, fireRate, dmg, orbit: 0 };
+    const summoned = summonHelperAllies(w, module.level);
+    if (summoned <= 0) return;
     p.azureCd = Math.max(8 - module.level * 0.05, 2.0) * (1 - Math.min(0.35, (stacks - 1) * 0.08));
+    splash(w, p.x, p.y, "#92e9ff", 12 + summoned, 1.5);
     audio.play("helperSpawn");
     return;
   }
@@ -2591,11 +2589,13 @@ function stepEnemyMines(w, dt) {
       applyPlayerDamage(w, damage, { hitFlash: 0.14, absorbSplash: false });
     }
 
-    if (w.helper) {
-      const hd = Math.hypot(w.helper.x - m.x, w.helper.y - m.y);
-      if (hd <= m.r) {
+    if (Array.isArray(w.allies) && w.allies.length > 0) {
+      for (const ally of w.allies) {
+        const hd = Math.hypot(ally.x - m.x, ally.y - m.y);
+        if (hd > m.r) continue;
         const hfalloff = 1 - hd / m.r;
-        w.helper.hp -= m.dmg * (0.28 + hfalloff * 0.52) * 0.48;
+        ally.hp -= m.dmg * (0.28 + hfalloff * 0.52) * 0.48;
+        ally.hitFlash = Math.max(ally.hitFlash || 0, 0.12);
       }
     }
 
@@ -2612,41 +2612,283 @@ function stepEnemyMines(w, dt) {
   w.enemyMines = kept;
 }
 
-function stepHelper(w, dt) {
-  if (!w.helper) return;
-  const h = w.helper;
+function getHelperSummonTier(moduleLevel) {
+  return clamp(Math.floor(moduleLevel || 0) + 1, 1, 5);
+}
+
+function getHelperSummonComposition(moduleLevel) {
+  const tier = getHelperSummonTier(moduleLevel);
+  if (tier >= 5) {
+    return [
+      { kind: "mini_boss", count: 3 },
+      { kind: "chaser", count: 4 },
+      { kind: "dart", count: 3 },
+      { kind: "brute", count: 2 },
+    ];
+  }
+  if (tier === 4) {
+    return [
+      { kind: "mini_boss", count: 2 },
+      { kind: "chaser", count: 3 },
+      { kind: "dart", count: 3 },
+      { kind: "brute", count: 1 },
+    ];
+  }
+  if (tier === 3) {
+    return [
+      { kind: "mini_boss", count: 1 },
+      { kind: "chaser", count: 3 },
+      { kind: "dart", count: 2 },
+      { kind: "brute", count: 1 },
+    ];
+  }
+  if (tier === 2) {
+    return [
+      { kind: "chaser", count: 2 },
+      { kind: "dart", count: 2 },
+      { kind: "brute", count: 1 },
+    ];
+  }
+  return [
+    { kind: "chaser", count: 1 },
+    { kind: "dart", count: 1 },
+  ];
+}
+
+function getSummonedAllyTemplate(kind) {
+  if (kind === "mini_boss") {
+    return {
+      r: 20,
+      hp: 300,
+      hpPerLevel: 36,
+      speed: 116,
+      speedPerLevel: 2.6,
+      preferredRange: 220,
+      fireRange: 560,
+      fireRate: 0.95,
+      fireRatePerLevel: 0.012,
+      dmg: 17,
+      dmgPerLevel: 2.0,
+      bulletSpeed: 640,
+      bulletLife: 1.35,
+      shots: 3,
+      spread: 0.22,
+      strafe: 0.38,
+      orbitRate: 1.6,
+      turnRate: 7.4,
+    };
+  }
+  if (kind === "brute") {
+    return {
+      r: 15,
+      hp: 170,
+      hpPerLevel: 22,
+      speed: 136,
+      speedPerLevel: 2.0,
+      preferredRange: 175,
+      fireRange: 430,
+      fireRate: 1.1,
+      fireRatePerLevel: 0.015,
+      dmg: 13.5,
+      dmgPerLevel: 1.65,
+      bulletSpeed: 575,
+      bulletLife: 1.2,
+      shots: 1,
+      spread: 0,
+      strafe: 0.2,
+      orbitRate: 1.7,
+      turnRate: 8.2,
+    };
+  }
+  if (kind === "dart") {
+    return {
+      r: 10,
+      hp: 96,
+      hpPerLevel: 12,
+      speed: 208,
+      speedPerLevel: 3.5,
+      preferredRange: 250,
+      fireRange: 590,
+      fireRate: 2.05,
+      fireRatePerLevel: 0.024,
+      dmg: 8,
+      dmgPerLevel: 1.05,
+      bulletSpeed: 760,
+      bulletLife: 1.18,
+      shots: 1,
+      spread: 0,
+      strafe: 0.5,
+      orbitRate: 3.8,
+      turnRate: 11.8,
+    };
+  }
+  return {
+    r: 12,
+    hp: 122,
+    hpPerLevel: 15,
+    speed: 184,
+    speedPerLevel: 2.8,
+    preferredRange: 150,
+    fireRange: 430,
+    fireRate: 1.65,
+    fireRatePerLevel: 0.02,
+    dmg: 9.4,
+    dmgPerLevel: 1.2,
+    bulletSpeed: 670,
+    bulletLife: 1.12,
+    shots: 1,
+    spread: 0,
+    strafe: 0.28,
+    orbitRate: 2.8,
+    turnRate: 9.8,
+  };
+}
+
+function createSummonedAlly(kind, x, y, moduleLevel) {
+  const power = Math.max(1, Math.floor(moduleLevel || 0) + 1);
+  const tier = getHelperSummonTier(moduleLevel);
+  const cfg = getSummonedAllyTemplate(kind);
+  const life = 14 + power * 0.45 + tier * 1.2 + (kind === "mini_boss" ? 4.5 : 0);
+  return {
+    ally: true,
+    kind,
+    x,
+    y,
+    r: cfg.r,
+    hp: cfg.hp + cfg.hpPerLevel * power,
+    maxHp: cfg.hp + cfg.hpPerLevel * power,
+    speed: cfg.speed + cfg.speedPerLevel * power,
+    preferredRange: cfg.preferredRange,
+    fireRange: cfg.fireRange + tier * 12,
+    fireRate: cfg.fireRate * (1 + cfg.fireRatePerLevel * power),
+    dmg: cfg.dmg + cfg.dmgPerLevel * power,
+    bulletSpeed: cfg.bulletSpeed + power * 4.5,
+    bulletLife: cfg.bulletLife + tier * 0.04,
+    shots: cfg.shots,
+    spread: cfg.spread,
+    strafe: cfg.strafe,
+    orbitRate: cfg.orbitRate,
+    turnRate: cfg.turnRate,
+    fireCd: Math.random() * 0.4,
+    orbit: Math.random() * Math.PI * 2,
+    facing: Math.random() * Math.PI * 2,
+    hitFlash: 0,
+    life,
+  };
+}
+
+function summonHelperAllies(w, moduleLevel) {
+  const composition = getHelperSummonComposition(moduleLevel);
   const p = w.player;
+  const total = composition.reduce((sum, entry) => sum + entry.count, 0);
+  if (total <= 0) return 0;
 
-  h.life -= dt;
-  h.fireCd = Math.max(0, h.fireCd - dt);
-  h.orbit += dt * 3;
+  const summoned = [];
+  let idx = 0;
+  for (const entry of composition) {
+    for (let i = 0; i < entry.count; i += 1) {
+      const t = idx / total;
+      const a = t * Math.PI * 2 + Math.random() * 0.28;
+      const radius = 38 + (idx % 5) * 10 + Math.random() * 8;
+      const sx = p.x + Math.cos(a) * radius;
+      const sy = p.y + Math.sin(a) * radius;
+      summoned.push(createSummonedAlly(entry.kind, sx, sy, moduleLevel));
+      idx += 1;
+    }
+  }
 
-  const targetX = p.x + Math.cos(h.orbit) * 52;
-  const targetY = p.y + Math.sin(h.orbit) * 52;
-  h.x += (targetX - h.x) * 6.5 * dt;
-  h.y += (targetY - h.y) * 6.5 * dt;
+  w.allies = summoned;
+  w.helper = null;
+  return summoned.length;
+}
 
-  if (h.fireCd <= 0 && w.enemies.length > 0) {
-    let nearest = w.enemies[0];
-    let best = Math.hypot(nearest.x - h.x, nearest.y - h.y);
-    for (const e of w.enemies) {
-      const d = Math.hypot(e.x - h.x, e.y - h.y);
+function stepHelper(w, dt) {
+  if (!Array.isArray(w.allies) || w.allies.length === 0) return;
+
+  const p = w.player;
+  const alive = [];
+
+  for (const ally of w.allies) {
+    ally.life -= dt;
+    ally.fireCd = Math.max(0, (ally.fireCd || 0) - dt);
+    ally.hitFlash = Math.max(0, (ally.hitFlash || 0) - dt);
+    ally.orbit = (ally.orbit || 0) + dt * (ally.orbitRate || 2.4);
+
+    if (ally.life <= 0 || ally.hp <= 0) {
+      splash(w, ally.x, ally.y, "#9ef3ff", 8 + Math.max(0, ally.r - 8) * 0.6, 1.9);
+      continue;
+    }
+
+    let target = null;
+    let best = Number.POSITIVE_INFINITY;
+    for (const enemy of w.enemies) {
+      if (enemy.hp <= 0) continue;
+      const d = Math.hypot(enemy.x - ally.x, enemy.y - ally.y);
       if (d < best) {
         best = d;
-        nearest = e;
+        target = enemy;
       }
     }
 
-    const a = Math.atan2(nearest.y - h.y, nearest.x - h.x);
-    w.bullets.push({ x: h.x, y: h.y, vx: Math.cos(a) * 700, vy: Math.sin(a) * 700, life: 1.0, dmg: h.dmg, helper: true, affinity: "azure" });
-    h.fireCd = 1 / h.fireRate;
-    audio.play("helperShot");
+    if (target) {
+      const dx = target.x - ally.x;
+      const dy = target.y - ally.y;
+      const d = Math.max(1, Math.hypot(dx, dy));
+      const side = Math.sin(ally.orbit || 0) * (ally.strafe || 0);
+      const preferred = ally.preferredRange || 180;
+      const bias = d > preferred ? 1 : d < preferred * 0.62 ? -0.55 : 0.12;
+      ally.x += ((dx / d) + (-dy / d) * side) * ally.speed * bias * dt;
+      ally.y += ((dy / d) + (dx / d) * side) * ally.speed * bias * dt;
+
+      const desired = Math.atan2(dy, dx);
+      const delta = shortestAngleDelta(ally.facing || desired, desired);
+      ally.facing = (ally.facing || desired) + clamp(delta, -(ally.turnRate || 8) * dt, (ally.turnRate || 8) * dt);
+
+      if (ally.fireCd <= 0 && d <= (ally.fireRange || 420)) {
+        const targetSpeed = (target.speed || 0) * (target.dashT > 0 ? 2.2 : 1);
+        const tvx = Math.cos(target.facing || 0) * targetSpeed;
+        const tvy = Math.sin(target.facing || 0) * targetSpeed;
+        const shotCount = Math.max(1, Math.floor(ally.shots || 1));
+        const spread = ally.spread || 0;
+        const baseAim = getPredictiveAimAngle(ally.x, ally.y, target.x, target.y, tvx, tvy, ally.bulletSpeed || 650, {
+          leadBias: 0.9,
+          maxLead: 1.0,
+        });
+
+        for (let i = 0; i < shotCount; i += 1) {
+          const t = shotCount === 1 ? 0 : i / (shotCount - 1) - 0.5;
+          const a = baseAim + t * spread;
+          w.bullets.push({
+            x: ally.x + Math.cos(a) * (ally.r + 4),
+            y: ally.y + Math.sin(a) * (ally.r + 4),
+            vx: Math.cos(a) * (ally.bulletSpeed || 650),
+            vy: Math.sin(a) * (ally.bulletSpeed || 650),
+            life: ally.bulletLife || 1.1,
+            dmg: ally.dmg,
+            helper: true,
+            ally: true,
+            affinity: "azure",
+          });
+        }
+
+        ally.fireCd = 1 / Math.max(0.2, ally.fireRate || 1);
+        if (Math.random() < 0.22) audio.play("helperShot");
+      }
+    } else {
+      const holdA = (ally.orbit || 0) + (ally.r * 0.11);
+      const holdR = 46 + (ally.r || 12) * 1.4;
+      const tx = p.x + Math.cos(holdA) * holdR;
+      const ty = p.y + Math.sin(holdA) * holdR;
+      ally.x += (tx - ally.x) * Math.min(1, dt * 5.8);
+      ally.y += (ty - ally.y) * Math.min(1, dt * 5.8);
+    }
+
+    ally.x = clamp(ally.x, 18, canvas.width - 18);
+    ally.y = clamp(ally.y, 18, canvas.height - 18);
+    alive.push(ally);
   }
 
-  if (h.life <= 0 || h.hp <= 0) {
-    splash(w, h.x, h.y, "#9ec9ff", 10, 2.3);
-    w.helper = null;
-  }
+  w.allies = alive;
 }
 function stepEnemies(w, dt) {
   const p = w.player;
@@ -3421,9 +3663,17 @@ function resolveCombat(w) {
       }
     }
 
-    if (b.enemy && w.helper && Math.hypot(b.x - w.helper.x, b.y - w.helper.y) <= (b.megaShot ? 18 : b.voidMissile ? 14 : b.laserShot ? 13 : 12)) {
-      w.helper.hp -= Math.abs(b.dmg) * 0.9;
-      b.life = 0;
+    if (b.enemy && b.life > 0 && Array.isArray(w.allies) && w.allies.length > 0) {
+      const hitR = b.megaShot ? 18 : b.voidMissile ? 14 : b.laserShot ? 13 : 12;
+      for (const ally of w.allies) {
+        if (ally.hp <= 0) continue;
+        if (Math.hypot(b.x - ally.x, b.y - ally.y) > hitR + (ally.r || 10) * 0.45) continue;
+        ally.hp -= Math.abs(b.dmg) * 0.9;
+        ally.hitFlash = Math.max(ally.hitFlash || 0, 0.14);
+        b.life = 0;
+        splash(w, ally.x, ally.y, "#8fdfff", 6, 0.85);
+        break;
+      }
     }
   }
 
@@ -3438,8 +3688,14 @@ function resolveCombat(w) {
       }
     }
 
-    if (w.helper && Math.hypot(e.x - w.helper.x, e.y - w.helper.y) <= e.r + 12) {
-      w.helper.hp -= 14 * 0.016;
+    if (Array.isArray(w.allies) && w.allies.length > 0) {
+      const baseContact = getEnemyContactBase(e.kind);
+      for (const ally of w.allies) {
+        if (ally.hp <= 0) continue;
+        if (Math.hypot(e.x - ally.x, e.y - ally.y) > e.r + Math.max(8, (ally.r || 10) * 0.9)) continue;
+        ally.hp -= baseContact * 0.013;
+        ally.hitFlash = Math.max(ally.hitFlash || 0, 0.09);
+      }
     }
   }
 
@@ -4300,11 +4556,45 @@ function drawGame() {
     }
   }
 
-  if (w.helper) {
-    ctx.fillStyle = "#b7dcff";
-    ctx.beginPath();
-    ctx.arc(w.helper.x, w.helper.y, 11, 0, Math.PI * 2);
-    ctx.fill();
+  if (Array.isArray(w.allies) && w.allies.length > 0) {
+    for (const ally of w.allies) {
+      if (ally.hp <= 0) continue;
+      const pulse = (Math.sin(w.t * (6.5 + (ally.r || 10) * 0.02) + ally.x * 0.02 + ally.y * 0.01) + 1) * 0.5;
+      const drewSprite = drawEnemySprite(ally, w.t, { intensity: 0.2 + pulse * 0.18, color: "120,255,224", pulse });
+      if (!drewSprite) {
+        ctx.fillStyle = "rgba(146,235,255,0.9)";
+        ctx.beginPath();
+        ctx.arc(ally.x, ally.y, ally.r || 10, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      const ringR = (ally.r || 10) + 8 + pulse * 2.4;
+      ctx.strokeStyle = `rgba(122,255,224,${0.48 + pulse * 0.34})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(ally.x, ally.y, ringR, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.fillStyle = `rgba(179,255,241,${0.6 + pulse * 0.3})`;
+      ctx.beginPath();
+      ctx.moveTo(ally.x, ally.y - ringR - 6);
+      ctx.lineTo(ally.x - 3.6, ally.y - ringR - 1.2);
+      ctx.lineTo(ally.x + 3.6, ally.y - ringR - 1.2);
+      ctx.closePath();
+      ctx.fill();
+
+      const hpPct = clamp(ally.hp / Math.max(1, ally.maxHp || ally.hp), 0, 1);
+      const barW = Math.max(18, (ally.r || 10) * 1.8);
+      const barX = ally.x - barW * 0.5;
+      const barY = ally.y + (ally.r || 10) + 10;
+      ctx.fillStyle = "rgba(12,24,30,0.72)";
+      ctx.fillRect(barX - 1, barY - 1, barW + 2, 5);
+      ctx.fillStyle = "rgba(86,140,162,0.65)";
+      ctx.fillRect(barX, barY, barW, 3);
+      ctx.fillStyle = "#90fff0";
+      ctx.fillRect(barX, barY, barW * hpPct, 3);
+    }
+    ctx.lineWidth = 1;
   }
 
   ctx.save();
