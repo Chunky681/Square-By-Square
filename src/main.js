@@ -190,6 +190,95 @@ const ITEM_CATALOG = {
   },
 };
 
+const MINE_TREE_LIMITS = {
+  size: 10,
+  cooldown: 10,
+  activeLimit: 8,
+  charges: 5,
+  stockpile: 6,
+  chainUnlock: 1,
+  chainRange: 6,
+  chainDamage: 6,
+  chainRecharge: 4,
+  gooUnlock: 1,
+  gooFuse: 6,
+  gooBlast: 6,
+  gooDrive: 5,
+};
+
+const WARP_TREE_LIMITS = {
+  distance: 10,
+  cooldown: 10,
+  burstRadius: 10,
+  burstDamage: 10,
+  comboUnlock: 1,
+  comboWindow: 6,
+  infusionPower: 5,
+  swapPulse: 5,
+};
+
+const MINE_TREE_DEFINITION = [
+  {
+    id: "mine_core",
+    title: "Node 1 - Mine Layer Core",
+    desc: "Foundational mine upgrades for radius, cooldown, active mine cap, repeat detonations, and stored charges.",
+    upgrades: [
+      { key: "size", label: "Mine Size", max: MINE_TREE_LIMITS.size, costBase: 42, costStep: 9, costCurve: 0.74 },
+      { key: "cooldown", label: "Ability Cooldown", max: MINE_TREE_LIMITS.cooldown, costBase: 46, costStep: 10, costCurve: 0.78 },
+      { key: "activeLimit", label: "Max Active Mines", max: MINE_TREE_LIMITS.activeLimit, costBase: 36, costStep: 8, costCurve: 0.7 },
+      { key: "charges", label: "Detonation Charges", max: MINE_TREE_LIMITS.charges, costBase: 58, costStep: 12, costCurve: 0.95 },
+      { key: "stockpile", label: "Stored Charges", max: MINE_TREE_LIMITS.stockpile, costBase: 52, costStep: 11, costCurve: 0.86 },
+    ],
+  },
+  {
+    id: "amber_chain_grid",
+    title: "Node 2 - Amber Chain Grid",
+    desc: "Path A. Mines form Amber links. Enemies that touch a link take damage and break it until recharge.",
+    upgrades: [
+      { key: "chainUnlock", label: "Grid Activation", max: MINE_TREE_LIMITS.chainUnlock, costBase: 108, costStep: 0, costCurve: 0 },
+      { key: "chainRange", label: "Link Range", max: MINE_TREE_LIMITS.chainRange, costBase: 56, costStep: 11, costCurve: 0.88, requires: "chainUnlock" },
+      { key: "chainDamage", label: "Chain Damage", max: MINE_TREE_LIMITS.chainDamage, costBase: 62, costStep: 12, costCurve: 0.92, requires: "chainUnlock" },
+      { key: "chainRecharge", label: "Link Recharge Rate", max: MINE_TREE_LIMITS.chainRecharge, costBase: 68, costStep: 13, costCurve: 0.96, requires: "chainUnlock" },
+    ],
+  },
+  {
+    id: "amber_sticky_goo",
+    title: "Node 3 - Sticky Goo Mines",
+    desc: "Path B. Mines attach goo to enemies. Gooed enemies seek allies, then detonate. Cannot combine with Node 2.",
+    upgrades: [
+      { key: "gooUnlock", label: "Goo Activation", max: MINE_TREE_LIMITS.gooUnlock, costBase: 108, costStep: 0, costCurve: 0 },
+      { key: "gooFuse", label: "Fuse Time", max: MINE_TREE_LIMITS.gooFuse, costBase: 58, costStep: 10, costCurve: 0.84, requires: "gooUnlock" },
+      { key: "gooBlast", label: "Goo Blast Damage", max: MINE_TREE_LIMITS.gooBlast, costBase: 64, costStep: 11, costCurve: 0.9, requires: "gooUnlock" },
+      { key: "gooDrive", label: "Ally Seek Speed", max: MINE_TREE_LIMITS.gooDrive, costBase: 52, costStep: 9, costCurve: 0.78, requires: "gooUnlock" },
+    ],
+  },
+];
+
+const WARP_TREE_DEFINITION = [
+  {
+    id: "warp_core",
+    title: "Node 1 - Warp Core",
+    desc: "Core teleport upgrades for distance, cooldown, burst radius, and burst damage.",
+    upgrades: [
+      { key: "distance", label: "Warp Distance", max: WARP_TREE_LIMITS.distance, costBase: 46, costStep: 10, costCurve: 0.78 },
+      { key: "cooldown", label: "Ability Cooldown", max: WARP_TREE_LIMITS.cooldown, costBase: 48, costStep: 10, costCurve: 0.8 },
+      { key: "burstRadius", label: "Burst Radius", max: WARP_TREE_LIMITS.burstRadius, costBase: 44, costStep: 9, costCurve: 0.74 },
+      { key: "burstDamage", label: "Burst Damage", max: WARP_TREE_LIMITS.burstDamage, costBase: 52, costStep: 11, costCurve: 0.86 },
+    ],
+  },
+  {
+    id: "warp_combo",
+    title: "Node 2 - Void Combo Relay",
+    desc: "On warp-kill, gain a combo window to infuse mines or swap with non-boss enemies.",
+    upgrades: [
+      { key: "comboUnlock", label: "Combo Activation", max: WARP_TREE_LIMITS.comboUnlock, costBase: 118, costStep: 0, costCurve: 0 },
+      { key: "comboWindow", label: "Combo Window", max: WARP_TREE_LIMITS.comboWindow, costBase: 58, costStep: 10, costCurve: 0.82, requires: "comboUnlock" },
+      { key: "infusionPower", label: "Infusion Amplifier", max: WARP_TREE_LIMITS.infusionPower, costBase: 64, costStep: 11, costCurve: 0.88, requires: "comboUnlock" },
+      { key: "swapPulse", label: "Swap Pulse", max: WARP_TREE_LIMITS.swapPulse, costBase: 60, costStep: 10, costCurve: 0.84, requires: "comboUnlock" },
+    ],
+  },
+];
+
 const DIFFICULTY_META = {
   1: "Calm",
   2: "Alert",
@@ -307,6 +396,7 @@ const ui = {
   testSpawnPanel: document.getElementById("test-spawn-panel"),
   testSpawnList: document.getElementById("test-spawn-list"),
   testDifficultySelect: document.getElementById("test-difficulty-select"),
+  testInvincibleToggle: document.getElementById("test-invincible-toggle"),
   testExitBtn: document.getElementById("test-exit-btn"),
 };
 
@@ -350,6 +440,7 @@ const state = {
   mode: "id",
   selectedDifficulty: 1,
   testDifficulty: 1,
+  testInvincible: false,
   input: { up: false, down: false, left: false, right: false, firing: false, void: false, voidCursor: false, azure: false, amber: false },
   mouse: { x: 0, y: 0 },
   world: null,
@@ -406,6 +497,11 @@ function bindUI() {
     ui.testDifficultySelect.addEventListener("change", () => {
       const selected = Number(ui.testDifficultySelect.value) || 1;
       setTestModeDifficulty(selected);
+    });
+  }
+  if (ui.testInvincibleToggle) {
+    ui.testInvincibleToggle.addEventListener("change", () => {
+      setTestModeInvincible(ui.testInvincibleToggle.checked);
     });
   }
   if (ui.testExitBtn) {
@@ -499,7 +595,10 @@ function bindInput() {
     state.mouse.y = ((e.clientY - r.top) / Math.max(1, r.height)) * canvas.height;
     if (e.button !== 0) {
       if (state.mode === "game") {
-        if (e.button === 2) state.input.voidCursor = true;
+        if (e.button === 2) {
+          const handledCombo = tryHandleWarpComboSelection();
+          if (!handledCombo) state.input.voidCursor = true;
+        }
         e.preventDefault();
       }
       return;
@@ -512,6 +611,124 @@ function bindInput() {
   });
   canvas.addEventListener("pointercancel", () => { state.input.firing = false; });
   canvas.addEventListener("pointerleave", () => { state.input.firing = false; });
+}
+
+function isWarpComboEnemyEligible(enemy) {
+  if (!enemy || enemy.hp <= 0) return false;
+  return !isMiniBossKind(enemy.kind);
+}
+
+function getWarpComboMineTarget(w, x, y) {
+  let chosen = null;
+  let best = 26;
+  for (const mine of w.mines) {
+    if (!mine || mine.expired || (mine.chargesLeft || 0) <= 0) continue;
+    const pickR = Math.max(10, (mine.visualRadius || mine.r * 0.22) + 7);
+    const d = Math.hypot(mine.x - x, mine.y - y);
+    if (d <= pickR && d < best) {
+      best = d;
+      chosen = mine;
+    }
+  }
+  return chosen;
+}
+
+function getWarpComboEnemyTarget(w, x, y) {
+  let chosen = null;
+  let best = 28;
+  for (const enemy of w.enemies) {
+    if (!isWarpComboEnemyEligible(enemy)) continue;
+    const pickR = Math.max(12, (enemy.r || 10) + 8);
+    const d = Math.hypot(enemy.x - x, enemy.y - y);
+    if (d <= pickR && d < best) {
+      best = d;
+      chosen = enemy;
+    }
+  }
+  return chosen;
+}
+
+function infuseMineWithVoid(mine, mult = 2) {
+  if (!mine || mine.voidInfused) return false;
+  const amplify = Math.max(1, mult || 2);
+  mine.voidInfused = true;
+  mine.affinity = "void";
+  mine.chargeRateMult = Math.max(1, mine.chargeRateMult || 1, amplify);
+  mine.r = (mine.r || 50) * amplify;
+  mine.dmg = (mine.dmg || 40) * amplify;
+  mine.trigger = (mine.trigger || (mine.r || 50) * 0.45) * amplify;
+  mine.visualRadius = Math.max(7, (mine.visualRadius || (mine.r || 50) * 0.24) * Math.sqrt(amplify));
+  mine.chainRange = (mine.chainRange || 0) * amplify;
+  mine.chainDamageMult = (mine.chainDamageMult || 1) * amplify;
+  mine.chainWidth = (mine.chainWidth || 0) * Math.sqrt(amplify);
+  mine.chainRecharge = Math.max(0.2, (mine.chainRecharge || 2.8) / amplify);
+  mine.rearm = Math.max(0.04, (mine.rearm || 0.75) / amplify);
+  mine.armed = Math.max(0, (mine.armed || 0) / amplify);
+  mine.gooBlastMult = (mine.gooBlastMult || 1) * amplify;
+  mine.gooSeekSpeed = (mine.gooSeekSpeed || 0) * amplify;
+  if (Number.isFinite(mine.gooFuse) && mine.gooFuse > 0) {
+    mine.gooFuse = Math.max(0.35, mine.gooFuse / amplify);
+  }
+  return true;
+}
+
+function tryHandleWarpComboSelection() {
+  const w = state.world;
+  if (!w || state.mode !== "game") return false;
+  const p = w.player;
+  if (!p || (p.warpComboT || 0) <= 0) return false;
+
+  const module = pickAbility("void");
+  if (!module || module.type !== "warp") return false;
+  const stacks = countSlottedByType(module.type);
+  const stats = getWarpAbilityStats(module, stacks);
+  if (!stats.comboEnabled) return false;
+
+  const mx = state.mouse.x;
+  const my = state.mouse.y;
+
+  const mine = getWarpComboMineTarget(w, mx, my);
+  if (mine) {
+    const infused = infuseMineWithVoid(mine, stats.comboInfusionMult);
+    if (infused) {
+      p.warpComboT = 0;
+      p.warpComboDuration = 0;
+      splash(w, mine.x, mine.y, "#b78cff", 10, 1.4);
+      audio.play("warp");
+      return true;
+    }
+  }
+
+  const enemy = getWarpComboEnemyTarget(w, mx, my);
+  if (!enemy) return false;
+
+  const px = p.x;
+  const py = p.y;
+  p.x = clamp(enemy.x, 14, canvas.width - 14);
+  p.y = clamp(enemy.y, 14, canvas.height - 14);
+  enemy.x = clamp(px, enemy.r || 10, canvas.width - (enemy.r || 10));
+  enemy.y = clamp(py, enemy.r || 10, canvas.height - (enemy.r || 10));
+  enemy.hitFlash = Math.max(enemy.hitFlash || 0, 0.2);
+  p.warpComboT = 0;
+  p.warpComboDuration = 0;
+
+  if ((stats.swapPulseScale || 0) > 0) {
+    applyWarpBurstDamage(w, p.x, p.y, stats, {
+      radiusMult: 0.55 + stats.swapPulseScale,
+      damageMult: 0.28 + stats.swapPulseScale,
+      sourceKind: "warp_swap",
+    });
+    applyWarpBurstDamage(w, enemy.x, enemy.y, stats, {
+      radiusMult: 0.55 + stats.swapPulseScale,
+      damageMult: 0.22 + stats.swapPulseScale * 0.85,
+      sourceKind: "warp_swap",
+    });
+  }
+
+  splash(w, p.x, p.y, "#b993ff", 12, 1.5);
+  splash(w, enemy.x, enemy.y, "#b993ff", 12, 1.5);
+  audio.play("warp");
+  return true;
 }
 
 function fillDifficultySelect() {
@@ -621,6 +838,16 @@ function setTestModeDifficulty(difficulty) {
   w.difficultyMode = `test-${d}`;
 }
 
+function setTestModeInvincible(enabled) {
+  const active = !!enabled;
+  state.testInvincible = active;
+  if (ui.testInvincibleToggle) ui.testInvincibleToggle.checked = active;
+  const w = state.world;
+  if (w && w.isTestMode) {
+    w.testPlayerInvincible = active;
+  }
+}
+
 function exitTestModeRun() {
   if (!state.world?.isTestMode) return;
   state.world = null;
@@ -637,6 +864,10 @@ function updateTestSpawnPanelVisibility() {
   ui.testSpawnPanel.classList.toggle("active", show);
   if (show && ui.testDifficultySelect) {
     ui.testDifficultySelect.value = String(state.world?.difficulty || state.testDifficulty || 1);
+  }
+  if (ui.testInvincibleToggle) {
+    const inv = show ? !!state.world?.testPlayerInvincible : !!state.testInvincible;
+    ui.testInvincibleToggle.checked = inv;
   }
 }
 
@@ -754,11 +985,461 @@ function getSlotActionHint(slot) {
   return "Core/support slots cannot hold weapons, infusors, or Void/Azure/Amber abilities.";
 }
 
+function createDefaultMineSkillTree() {
+  return {
+    size: 0,
+    cooldown: 0,
+    activeLimit: 0,
+    charges: 0,
+    stockpile: 0,
+    chainUnlock: 0,
+    chainRange: 0,
+    chainDamage: 0,
+    chainRecharge: 0,
+    gooUnlock: 0,
+    gooFuse: 0,
+    gooBlast: 0,
+    gooDrive: 0,
+  };
+}
+
+function normalizeMineBranchChoice(tree) {
+  if (!tree || typeof tree !== "object") return;
+  const chainScore = (tree.chainUnlock || 0) + (tree.chainRange || 0) + (tree.chainDamage || 0) + (tree.chainRecharge || 0);
+  const gooScore = (tree.gooUnlock || 0) + (tree.gooFuse || 0) + (tree.gooBlast || 0) + (tree.gooDrive || 0);
+  if (tree.chainUnlock > 0 && tree.gooUnlock > 0) {
+    if (gooScore > chainScore) {
+      tree.chainUnlock = 0;
+      tree.chainRange = 0;
+      tree.chainDamage = 0;
+      tree.chainRecharge = 0;
+    } else {
+      tree.gooUnlock = 0;
+      tree.gooFuse = 0;
+      tree.gooBlast = 0;
+      tree.gooDrive = 0;
+    }
+  }
+  if (tree.chainUnlock <= 0) {
+    tree.chainRange = 0;
+    tree.chainDamage = 0;
+    tree.chainRecharge = 0;
+  }
+  if (tree.gooUnlock <= 0) {
+    tree.gooFuse = 0;
+    tree.gooBlast = 0;
+    tree.gooDrive = 0;
+  }
+}
+
+function normalizeMineSkillTree(raw, fallbackLevel = 0) {
+  const tree = createDefaultMineSkillTree();
+  const source = raw && typeof raw === "object" ? raw : null;
+  if (source) {
+    tree.size = clampInt(source.size, 0, MINE_TREE_LIMITS.size);
+    tree.cooldown = clampInt(source.cooldown, 0, MINE_TREE_LIMITS.cooldown);
+    const legacyActiveLimit = Number.isFinite(Number(source.activeLimit)) ? source.activeLimit : source.duration;
+    tree.activeLimit = clampInt(legacyActiveLimit, 0, MINE_TREE_LIMITS.activeLimit);
+    tree.charges = clampInt(source.charges, 0, MINE_TREE_LIMITS.charges);
+    tree.stockpile = clampInt(source.stockpile, 0, MINE_TREE_LIMITS.stockpile);
+    tree.chainUnlock = clampInt(source.chainUnlock, 0, MINE_TREE_LIMITS.chainUnlock);
+    tree.chainRange = clampInt(source.chainRange, 0, MINE_TREE_LIMITS.chainRange);
+    tree.chainDamage = clampInt(source.chainDamage, 0, MINE_TREE_LIMITS.chainDamage);
+    const legacyRecharge = Number.isFinite(Number(source.chainRecharge)) ? source.chainRecharge : source.chainJumps;
+    tree.chainRecharge = clampInt(legacyRecharge, 0, MINE_TREE_LIMITS.chainRecharge);
+    tree.gooUnlock = clampInt(source.gooUnlock, 0, MINE_TREE_LIMITS.gooUnlock);
+    tree.gooFuse = clampInt(source.gooFuse, 0, MINE_TREE_LIMITS.gooFuse);
+    tree.gooBlast = clampInt(source.gooBlast, 0, MINE_TREE_LIMITS.gooBlast);
+    tree.gooDrive = clampInt(source.gooDrive, 0, MINE_TREE_LIMITS.gooDrive);
+  } else {
+    const legacy = clampInt(fallbackLevel, 0, MAX_UPGRADE_LEVEL);
+    tree.size = clampInt(Math.floor(legacy * 0.3), 0, MINE_TREE_LIMITS.size);
+    tree.cooldown = clampInt(Math.floor(legacy * 0.28), 0, MINE_TREE_LIMITS.cooldown);
+    tree.activeLimit = clampInt(Math.floor(legacy * 0.2), 0, MINE_TREE_LIMITS.activeLimit);
+    tree.charges = clampInt(Math.floor(legacy * 0.16), 0, MINE_TREE_LIMITS.charges);
+    tree.stockpile = clampInt(Math.floor(legacy * 0.14), 0, MINE_TREE_LIMITS.stockpile);
+    tree.chainUnlock = legacy >= 8 ? 1 : 0;
+    tree.chainRange = tree.chainUnlock ? clampInt(Math.floor((legacy - 8) * 0.18), 0, MINE_TREE_LIMITS.chainRange) : 0;
+    tree.chainDamage = tree.chainUnlock ? clampInt(Math.floor((legacy - 10) * 0.16), 0, MINE_TREE_LIMITS.chainDamage) : 0;
+    tree.chainRecharge = tree.chainUnlock ? clampInt(Math.floor((legacy - 12) * 0.12), 0, MINE_TREE_LIMITS.chainRecharge) : 0;
+    tree.gooUnlock = 0;
+    tree.gooFuse = 0;
+    tree.gooBlast = 0;
+    tree.gooDrive = 0;
+  }
+  normalizeMineBranchChoice(tree);
+  return tree;
+}
+
+function getMineTreeTotalLevel(tree) {
+  if (!tree) return 0;
+  return [
+    tree.size,
+    tree.cooldown,
+    tree.activeLimit,
+    tree.charges,
+    tree.stockpile,
+    tree.chainUnlock,
+    tree.chainRange,
+    tree.chainDamage,
+    tree.chainRecharge,
+    tree.gooUnlock,
+    tree.gooFuse,
+    tree.gooBlast,
+    tree.gooDrive,
+  ].reduce((sum, value) => sum + clampInt(value, 0, MAX_UPGRADE_LEVEL), 0);
+}
+
+function syncMineItemLevel(item) {
+  if (!item || item.type !== "mine") return;
+  const normalized = normalizeMineSkillTree(item.skillTree, item.level || 0);
+  if (item.skillTree && typeof item.skillTree === "object") {
+    Object.assign(item.skillTree, normalized);
+  } else {
+    item.skillTree = normalized;
+  }
+  item.level = clampInt(getMineTreeTotalLevel(item.skillTree), 0, MAX_UPGRADE_LEVEL);
+}
+
+function ensureMineSkillTree(item) {
+  if (!item || item.type !== "mine") return null;
+  syncMineItemLevel(item);
+  return item.skillTree;
+}
+
+function getMineAbilityStats(module, stacks = 1) {
+  const tree = normalizeMineSkillTree(module?.skillTree, module?.level || 0);
+  const stackScale = getAbilityStackScale(stacks);
+  const radius = 46 + tree.size * 2.8;
+  const damage = 44 + tree.size * 3.4 + tree.charges * 2.2;
+  const charges = 1 + tree.charges;
+  const maxActiveMines = 4 + tree.activeLimit * 2;
+  const chargeCapacity = 1 + tree.stockpile;
+  const cooldown = Math.max(4.6 - tree.cooldown * 0.17, 0.65) * stackScale;
+  const rearm = Math.max(0.36, 0.9 - tree.charges * 0.07);
+  const chainEnabled = tree.chainUnlock > 0 && tree.gooUnlock <= 0;
+  const gooEnabled = tree.gooUnlock > 0 && tree.chainUnlock <= 0;
+  return {
+    radius,
+    visualRadius: Math.max(9, radius * 0.24),
+    triggerRadius: radius * 0.45,
+    damage,
+    charges,
+    maxActiveMines,
+    chargeCapacity,
+    cooldown,
+    rearm,
+    chainEnabled,
+    chainRange: chainEnabled ? 120 + tree.chainRange * 24 : 0,
+    chainDamageMult: chainEnabled ? 1 + tree.chainDamage * 0.11 : 1,
+    chainRecharge: chainEnabled ? Math.max(0.65, 2.8 - tree.chainRecharge * 0.28) : 0,
+    chainWidth: chainEnabled ? 11 + tree.size * 0.35 : 0,
+    gooEnabled,
+    gooFuse: gooEnabled ? Math.max(0.8, 4.2 - tree.gooFuse * 0.42) : 0,
+    gooBlastMult: gooEnabled ? 1 + tree.gooBlast * 0.14 : 1,
+    gooSeekSpeed: gooEnabled ? 96 + tree.gooDrive * 24 : 0,
+    tree,
+  };
+}
+
+function getMineTreeUpgradeDefinition(upgradeKey) {
+  for (const node of MINE_TREE_DEFINITION) {
+    const found = node.upgrades.find((upgrade) => upgrade.key === upgradeKey);
+    if (found) return { node, upgrade: found };
+  }
+  return null;
+}
+
+function calculateMineTreeUpgradeCost(item, upgradeKey) {
+  const found = getMineTreeUpgradeDefinition(upgradeKey);
+  if (!found) return Number.POSITIVE_INFINITY;
+  const { upgrade } = found;
+  if (!item || item.type !== "mine") return Number.POSITIVE_INFINITY;
+  const tree = normalizeMineSkillTree(item.skillTree, item.level || 0);
+  const current = clampInt(tree[upgrade.key], 0, upgrade.max);
+  const owned = countOwnedType(item.type);
+  return Math.floor((upgrade.costBase + current * upgrade.costStep + current * current * upgrade.costCurve) * (1 + (owned - 1) * 0.2));
+}
+
+function createDefaultWarpSkillTree() {
+  return {
+    distance: 0,
+    cooldown: 0,
+    burstRadius: 0,
+    burstDamage: 0,
+    comboUnlock: 0,
+    comboWindow: 0,
+    infusionPower: 0,
+    swapPulse: 0,
+  };
+}
+
+function normalizeWarpSkillTree(raw, fallbackLevel = 0) {
+  const tree = createDefaultWarpSkillTree();
+  const source = raw && typeof raw === "object" ? raw : null;
+  if (source) {
+    tree.distance = clampInt(source.distance, 0, WARP_TREE_LIMITS.distance);
+    tree.cooldown = clampInt(source.cooldown, 0, WARP_TREE_LIMITS.cooldown);
+    tree.burstRadius = clampInt(source.burstRadius, 0, WARP_TREE_LIMITS.burstRadius);
+    tree.burstDamage = clampInt(source.burstDamage, 0, WARP_TREE_LIMITS.burstDamage);
+    tree.comboUnlock = clampInt(source.comboUnlock, 0, WARP_TREE_LIMITS.comboUnlock);
+    tree.comboWindow = clampInt(source.comboWindow, 0, WARP_TREE_LIMITS.comboWindow);
+    tree.infusionPower = clampInt(source.infusionPower, 0, WARP_TREE_LIMITS.infusionPower);
+    tree.swapPulse = clampInt(source.swapPulse, 0, WARP_TREE_LIMITS.swapPulse);
+  } else {
+    const legacy = clampInt(fallbackLevel, 0, MAX_UPGRADE_LEVEL);
+    tree.distance = clampInt(Math.floor(legacy * 0.3), 0, WARP_TREE_LIMITS.distance);
+    tree.cooldown = clampInt(Math.floor(legacy * 0.27), 0, WARP_TREE_LIMITS.cooldown);
+    tree.burstRadius = clampInt(Math.floor(legacy * 0.22), 0, WARP_TREE_LIMITS.burstRadius);
+    tree.burstDamage = clampInt(Math.floor(legacy * 0.2), 0, WARP_TREE_LIMITS.burstDamage);
+    tree.comboUnlock = legacy >= 12 ? 1 : 0;
+    tree.comboWindow = tree.comboUnlock ? clampInt(Math.floor((legacy - 12) * 0.15), 0, WARP_TREE_LIMITS.comboWindow) : 0;
+    tree.infusionPower = tree.comboUnlock ? clampInt(Math.floor((legacy - 14) * 0.12), 0, WARP_TREE_LIMITS.infusionPower) : 0;
+    tree.swapPulse = tree.comboUnlock ? clampInt(Math.floor((legacy - 16) * 0.1), 0, WARP_TREE_LIMITS.swapPulse) : 0;
+  }
+  if (tree.comboUnlock <= 0) {
+    tree.comboWindow = 0;
+    tree.infusionPower = 0;
+    tree.swapPulse = 0;
+  }
+  return tree;
+}
+
+function getWarpTreeTotalLevel(tree) {
+  if (!tree) return 0;
+  return [
+    tree.distance,
+    tree.cooldown,
+    tree.burstRadius,
+    tree.burstDamage,
+    tree.comboUnlock,
+    tree.comboWindow,
+    tree.infusionPower,
+    tree.swapPulse,
+  ].reduce((sum, value) => sum + clampInt(value, 0, MAX_UPGRADE_LEVEL), 0);
+}
+
+function syncWarpItemLevel(item) {
+  if (!item || item.type !== "warp") return;
+  const normalized = normalizeWarpSkillTree(item.warpTree, item.level || 0);
+  if (item.warpTree && typeof item.warpTree === "object") {
+    Object.assign(item.warpTree, normalized);
+  } else {
+    item.warpTree = normalized;
+  }
+  item.level = clampInt(getWarpTreeTotalLevel(item.warpTree), 0, MAX_UPGRADE_LEVEL);
+}
+
+function ensureWarpSkillTree(item) {
+  if (!item || item.type !== "warp") return null;
+  syncWarpItemLevel(item);
+  return item.warpTree;
+}
+
+function getWarpAbilityStats(module, stacks = 1) {
+  const tree = normalizeWarpSkillTree(module?.warpTree, module?.level || 0);
+  const stackScale = getAbilityStackScale(stacks);
+  const distance = 150 + tree.distance * 9;
+  const damageRadius = 94 + tree.burstRadius * 6.4;
+  const damage = 54 + tree.burstDamage * 5.1;
+  const cooldown = Math.max(6 - tree.cooldown * 0.2, 1.1) * stackScale;
+  const comboEnabled = tree.comboUnlock > 0;
+  return {
+    distance,
+    damageRadius,
+    damage,
+    cooldown,
+    comboEnabled,
+    comboWindow: comboEnabled ? 3 + tree.comboWindow * 0.26 : 0,
+    comboInfusionMult: comboEnabled ? 2 + tree.infusionPower * 0.2 : 2,
+    swapPulseScale: comboEnabled ? tree.swapPulse * 0.18 : 0,
+    tree,
+  };
+}
+
+function getWarpTreeUpgradeDefinition(upgradeKey) {
+  for (const node of WARP_TREE_DEFINITION) {
+    const found = node.upgrades.find((upgrade) => upgrade.key === upgradeKey);
+    if (found) return { node, upgrade: found };
+  }
+  return null;
+}
+
+function calculateWarpTreeUpgradeCost(item, upgradeKey) {
+  const found = getWarpTreeUpgradeDefinition(upgradeKey);
+  if (!found) return Number.POSITIVE_INFINITY;
+  const { upgrade } = found;
+  if (!item || item.type !== "warp") return Number.POSITIVE_INFINITY;
+  const tree = normalizeWarpSkillTree(item.warpTree, item.level || 0);
+  const current = clampInt(tree[upgrade.key], 0, upgrade.max);
+  const owned = countOwnedType(item.type);
+  return Math.floor((upgrade.costBase + current * upgrade.costStep + current * current * upgrade.costCurve) * (1 + (owned - 1) * 0.2));
+}
+
+function isMineUpgradePathBlocked(tree, upgrade) {
+  if (!tree || !upgrade) return false;
+  if (upgrade.key === "chainUnlock") return (tree.gooUnlock || 0) > 0;
+  if (upgrade.key === "gooUnlock") return (tree.chainUnlock || 0) > 0;
+  if (upgrade.requires === "chainUnlock" && (tree.gooUnlock || 0) > 0) return true;
+  if (upgrade.requires === "gooUnlock" && (tree.chainUnlock || 0) > 0) return true;
+  return false;
+}
+
+function createStatListElement(title, lines) {
+  const card = document.createElement("div");
+  card.className = "slot-stat-card";
+  const safeLines = Array.isArray(lines) ? lines.filter(Boolean) : [];
+  const titleHtml = title ? `<h4>${title}</h4>` : "";
+  const lineHtml = safeLines.map((line) => `<li>${line}</li>`).join("");
+  card.innerHTML = `${titleHtml}<ul>${lineHtml}</ul>`;
+  return card;
+}
+
+function getItemStatLines(item) {
+  if (!item) return [];
+  const cfg = ITEM_CATALOG[item.type];
+  if (!cfg) return [];
+
+  if (item.type === "mine") {
+    const stats = getMineAbilityStats(item, countSlottedByType("mine"));
+    const lines = [
+      `Damage ${stats.damage.toFixed(1)}`,
+      `Cooldown ${stats.cooldown.toFixed(2)}s`,
+      `Explosion Radius ${stats.radius.toFixed(1)}`,
+      `Max Active Mines ${Math.floor(stats.maxActiveMines)}`,
+      `Stored Charges ${Math.floor(stats.chargeCapacity)}`,
+      `Detonation Charges ${stats.charges}`,
+      `Rearm Time ${stats.rearm.toFixed(2)}s`,
+    ];
+    if (stats.chainEnabled) {
+      lines.push(`Chain Grid Range ${stats.chainRange.toFixed(0)}`);
+      lines.push(`Chain Damage x${stats.chainDamageMult.toFixed(2)}`);
+      lines.push(`Link Recharge ${stats.chainRecharge.toFixed(2)}s`);
+    } else if (stats.gooEnabled) {
+      lines.push(`Sticky Goo Fuse ${stats.gooFuse.toFixed(2)}s`);
+      lines.push(`Goo Blast x${stats.gooBlastMult.toFixed(2)}`);
+      lines.push(`Goo Seek Speed ${stats.gooSeekSpeed.toFixed(0)}`);
+    } else {
+      lines.push("Special Path Inactive");
+    }
+    return lines;
+  }
+
+  if (cfg.kind === "weapon") {
+    const fireRate = cfg.fireRate * (1 + item.level * 0.03);
+    const cooldown = 1 / Math.max(0.01, fireRate);
+    const damage = cfg.damage * (1 + item.level * 0.08);
+    return [
+      `Damage ${damage.toFixed(1)} per shot`,
+      `Fire Rate ${fireRate.toFixed(2)}/s`,
+      `Cooldown ${cooldown.toFixed(2)}s`,
+      `Projectiles ${cfg.projectiles || 1}`,
+    ];
+  }
+
+  if (item.type === "warp") {
+    const stats = getWarpAbilityStats(item, countSlottedByType(item.type));
+    const lines = [
+      `Warp Distance ${stats.distance.toFixed(0)}`,
+      `Burst Radius ${stats.damageRadius.toFixed(1)}`,
+      `Burst Damage ${stats.damage.toFixed(1)}`,
+      `Cooldown ${stats.cooldown.toFixed(2)}s`,
+    ];
+    if (stats.comboEnabled) {
+      lines.push(`Combo Window ${stats.comboWindow.toFixed(2)}s`);
+      lines.push(`Mine Infusion x${stats.comboInfusionMult.toFixed(2)}`);
+      lines.push(`Swap Pulse +${(stats.swapPulseScale * 100).toFixed(0)}%`);
+    } else {
+      lines.push("Combo Path Inactive");
+    }
+    return lines;
+  }
+
+  if (item.type === "rocket") {
+    const damage = 56 + item.level * 3.2;
+    const turn = 3.2 + item.level * 0.07;
+    const cooldown = getAbilityCooldownTotal(item, countSlottedByType(item.type));
+    return [
+      `Rocket Damage ${damage.toFixed(1)}`,
+      `Turn Rate ${turn.toFixed(2)}`,
+      `Cooldown ${cooldown.toFixed(2)}s`,
+    ];
+  }
+
+  if (item.type === "helper") {
+    const composition = getHelperSummonComposition(item.level);
+    const total = composition.reduce((sum, entry) => sum + entry.count, 0);
+    const cooldown = getAbilityCooldownTotal(item, countSlottedByType(item.type));
+    return [
+      `Summoned Units ${total}`,
+      `Summon Tier ${getHelperSummonTier(item.level)}`,
+      `Cooldown ${cooldown.toFixed(2)}s`,
+    ];
+  }
+
+  if (item.type === "aegis") {
+    const duration = getAegisDuration(item.level);
+    const storeCap = getAegisStoreCap(item.level);
+    const cooldown = getAegisCooldown(item.level, countSlottedByType(item.type));
+    return [
+      `Shield Duration ${duration.toFixed(2)}s`,
+      `Stored Damage Cap ${storeCap.toFixed(0)}`,
+      `Cooldown ${cooldown.toFixed(2)}s`,
+    ];
+  }
+
+  if (item.type === "quantum_bound") {
+    const stats = getQuantumBoundStats([item]);
+    if (!stats) return ["No active guidance"];
+    return [
+      `Seek Turn ${stats.seekTurn.toFixed(3)}`,
+      `Seek Range ${stats.seekRange.toFixed(0)}`,
+      `Seek Lead ${stats.seekLead.toFixed(3)}`,
+    ];
+  }
+
+  if (item.type === "plating") return [`Bonus Max HP +${(item.level + 1) * 6}`];
+  if (item.type === "regen") return [`Bonus Regen +${((item.level + 1) * 0.05).toFixed(2)}/s`];
+  if (item.type === "thruster") return [`Move Speed +${(((item.level + 1) * 0.014) * 100).toFixed(1)}%`];
+  if (item.type === "azure_infusor" || item.type === "void_infusor" || item.type === "amber_infusor") {
+    return [`Front-shot proc chance ${(getInfusorProcChance(item.level) * 100).toFixed(1)}%`];
+  }
+
+  return [`Level ${item.level}`];
+}
+
+function createCoreSlotSummaryCard() {
+  const slotted = getSlottedItems();
+  const platingPower = totalItemLevel(slotted, "plating");
+  const regenPower = totalItemLevel(slotted, "regen");
+  const thrusterPower = totalItemLevel(slotted, "thruster");
+  const maxHp = 100 + platingPower * 6;
+  const speed = 242 * (1 + thrusterPower * 0.014);
+  const regen = 0.08 + regenPower * 0.05;
+
+  const lines = [
+    `Hull ${maxHp.toFixed(0)} HP`,
+    `Regen ${regen.toFixed(2)}/s`,
+    `Move Speed ${speed.toFixed(1)}`,
+  ];
+
+  const voidAbility = pickAbility("void");
+  const azureAbility = pickAbility("azure");
+  const amberAbility = pickAbility("amber");
+  if (voidAbility) lines.push(`Void: ${ITEM_CATALOG[voidAbility.type]?.name || voidAbility.type}`);
+  if (azureAbility) lines.push(`Azure: ${ITEM_CATALOG[azureAbility.type]?.name || azureAbility.type}`);
+  if (amberAbility) lines.push(`Amber: ${ITEM_CATALOG[amberAbility.type]?.name || amberAbility.type}`);
+
+  return createStatListElement("Player Snapshot", lines);
+}
+
 function renderLoadoutPanel() {
   if (!state.player) return;
 
   const slot = SLOT_LAYOUT[state.selectedSlotKey] || SLOT_LAYOUT[0];
   const occupied = getItemInSlot(slot.key);
+  if (occupied?.type === "mine") syncMineItemLevel(occupied);
+  if (occupied?.type === "warp") syncWarpItemLevel(occupied);
   ui.upgradePartLabel.textContent = occupied
     ? `Selected Slot: ${getSlotLabel(slot)} (${ITEM_CATALOG[occupied.type]?.name || occupied.type}, Lv ${occupied.level})`
     : `Selected Slot: ${getSlotLabel(slot)} (Empty)`;
@@ -797,6 +1478,15 @@ function renderSlotActions(slot, occupied) {
   const allowedTypes = getAllowedItemTypesForSlot(slot.key);
 
   if (!occupied) {
+    if (slot.key === 14) {
+      ui.slotActions.appendChild(createCoreSlotSummaryCard());
+      const slotted = getSlottedItems();
+      for (const item of slotted) {
+        const title = ITEM_CATALOG[item.type]?.name || item.type;
+        ui.slotActions.appendChild(createStatListElement(title, getItemStatLines(item)));
+      }
+    }
+
     const hint = document.createElement("p");
     hint.className = "slot-actions-empty";
     hint.textContent = `This slot is empty. ${getSlotActionHint(slot)}`;
@@ -828,6 +1518,8 @@ function renderSlotActions(slot, occupied) {
 
   const data = ITEM_CATALOG[occupied.type];
   if (!data) return;
+  if (occupied.type === "mine") ensureMineSkillTree(occupied);
+  if (occupied.type === "warp") ensureWarpSkillTree(occupied);
 
   const row = document.createElement("div");
   row.className = "slot-action-item";
@@ -836,16 +1528,19 @@ function renderSlotActions(slot, occupied) {
   const controls = document.createElement("div");
   controls.className = "slot-action-controls";
 
-  const upgradeCost = calculateUpgradeCost(occupied);
-  const upgradeBtn = document.createElement("button");
-  upgradeBtn.type = "button";
-  if (occupied.level >= MAX_UPGRADE_LEVEL) {
-    upgradeBtn.textContent = "Maxed";
-    upgradeBtn.disabled = true;
-  } else {
-    upgradeBtn.textContent = `Upgrade (${upgradeCost} Essence)`;
-    upgradeBtn.disabled = state.player.xpBank < upgradeCost;
-    upgradeBtn.addEventListener("click", () => upgradeItemInSlot(slot.key));
+  if (occupied.type !== "mine" && occupied.type !== "warp") {
+    const upgradeCost = calculateUpgradeCost(occupied);
+    const upgradeBtn = document.createElement("button");
+    upgradeBtn.type = "button";
+    if (occupied.level >= MAX_UPGRADE_LEVEL) {
+      upgradeBtn.textContent = "Maxed";
+      upgradeBtn.disabled = true;
+    } else {
+      upgradeBtn.textContent = `Upgrade (${upgradeCost} Essence)`;
+      upgradeBtn.disabled = state.player.xpBank < upgradeCost;
+      upgradeBtn.addEventListener("click", () => upgradeItemInSlot(slot.key));
+    }
+    controls.appendChild(upgradeBtn);
   }
 
   const refundXp = getItemRefundValue(occupied);
@@ -855,10 +1550,193 @@ function renderSlotActions(slot, occupied) {
   sellBtn.textContent = `Sell (+${refundXp} Essence)`;
   sellBtn.addEventListener("click", () => sellItemInSlot(slot.key));
 
-  controls.appendChild(upgradeBtn);
   controls.appendChild(sellBtn);
   row.appendChild(controls);
   ui.slotActions.appendChild(row);
+
+  ui.slotActions.appendChild(createStatListElement("Current Stats", getItemStatLines(occupied)));
+
+  if (occupied.type === "mine") {
+    const tree = ensureMineSkillTree(occupied);
+    for (const node of MINE_TREE_DEFINITION) {
+      const nodeCard = document.createElement("div");
+      nodeCard.className = "slot-skill-node";
+      nodeCard.innerHTML = `<h4>${node.title}</h4><p>${node.desc}</p>`;
+
+      for (const upgrade of node.upgrades) {
+        const current = clampInt(tree[upgrade.key], 0, upgrade.max);
+        const unlocked = !upgrade.requires || (tree[upgrade.requires] || 0) > 0;
+        const pathBlocked = isMineUpgradePathBlocked(tree, upgrade);
+        const atMax = current >= upgrade.max;
+        const cost = atMax ? 0 : calculateMineTreeUpgradeCost(occupied, upgrade.key);
+        const isUnlockUpgrade = upgrade.key === "chainUnlock" || upgrade.key === "gooUnlock";
+
+        const upgradeRow = document.createElement("div");
+        upgradeRow.className = "slot-skill-upgrade";
+        upgradeRow.innerHTML = `<div><strong>${upgrade.label}</strong><p>Lv ${current}/${upgrade.max}</p></div>`;
+
+        const btn = document.createElement("button");
+        btn.type = "button";
+        if (atMax) {
+          btn.textContent = "Maxed";
+          btn.disabled = true;
+        } else if (pathBlocked) {
+          btn.textContent = "Path Locked";
+          btn.disabled = true;
+        } else if (!unlocked) {
+          btn.textContent = "Locked";
+          btn.disabled = true;
+        } else {
+          btn.textContent = current <= 0 && isUnlockUpgrade ? `Unlock (${cost} Essence)` : `Upgrade (${cost} Essence)`;
+          btn.disabled = false;
+          btn.addEventListener("click", () => upgradeMineSkillTreeNode(slot.key, upgrade.key));
+        }
+
+        upgradeRow.appendChild(btn);
+        nodeCard.appendChild(upgradeRow);
+      }
+
+      ui.slotActions.appendChild(nodeCard);
+    }
+  }
+
+  if (occupied.type === "warp") {
+    const tree = ensureWarpSkillTree(occupied);
+    for (const node of WARP_TREE_DEFINITION) {
+      const nodeCard = document.createElement("div");
+      nodeCard.className = "slot-skill-node";
+      nodeCard.innerHTML = `<h4>${node.title}</h4><p>${node.desc}</p>`;
+
+      for (const upgrade of node.upgrades) {
+        const current = clampInt(tree[upgrade.key], 0, upgrade.max);
+        const unlocked = !upgrade.requires || (tree[upgrade.requires] || 0) > 0;
+        const atMax = current >= upgrade.max;
+        const cost = atMax ? 0 : calculateWarpTreeUpgradeCost(occupied, upgrade.key);
+        const isUnlockUpgrade = upgrade.key === "comboUnlock";
+
+        const upgradeRow = document.createElement("div");
+        upgradeRow.className = "slot-skill-upgrade";
+        upgradeRow.innerHTML = `<div><strong>${upgrade.label}</strong><p>Lv ${current}/${upgrade.max}</p></div>`;
+
+        const btn = document.createElement("button");
+        btn.type = "button";
+        if (atMax) {
+          btn.textContent = "Maxed";
+          btn.disabled = true;
+        } else if (!unlocked) {
+          btn.textContent = "Locked";
+          btn.disabled = true;
+        } else {
+          btn.textContent = current <= 0 && isUnlockUpgrade ? `Unlock (${cost} Essence)` : `Upgrade (${cost} Essence)`;
+          btn.disabled = false;
+          btn.addEventListener("click", () => upgradeWarpSkillTreeNode(slot.key, upgrade.key));
+        }
+
+        upgradeRow.appendChild(btn);
+        nodeCard.appendChild(upgradeRow);
+      }
+
+      ui.slotActions.appendChild(nodeCard);
+    }
+  }
+}
+
+function upgradeMineSkillTreeNode(slotKey, upgradeKey) {
+  if (!state.player) return;
+  const item = getItemInSlot(slotKey);
+  if (!item || item.type !== "mine") {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = "Mine upgrade failed: Mine Layer is not installed in this slot.";
+    return;
+  }
+
+  const found = getMineTreeUpgradeDefinition(upgradeKey);
+  if (!found) {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = "Mine upgrade failed: unknown upgrade node.";
+    return;
+  }
+  const { upgrade } = found;
+  const tree = ensureMineSkillTree(item);
+  if (!tree) {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = "Mine upgrade failed: unable to initialize mine skill tree.";
+    return;
+  }
+
+  if (isMineUpgradePathBlocked(tree, upgrade)) {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = "This path is locked. Choose either Node 2 or Node 3 for this Mine Layer.";
+    return;
+  }
+  if (upgrade.requires && (tree[upgrade.requires] || 0) <= 0) {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = upgrade.requires === "gooUnlock"
+      ? "This enhancement is locked. Unlock Sticky Goo Mines first."
+      : "This enhancement is locked. Unlock Amber Chain Grid first.";
+    return;
+  }
+  const current = clampInt(tree[upgrade.key], 0, upgrade.max);
+  if (current >= upgrade.max) {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = `${upgrade.label} is already maxed.`;
+    return;
+  }
+
+  const cost = calculateMineTreeUpgradeCost(item, upgrade.key);
+  if (state.player.xpBank < cost) {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = `Need ${cost} Essence for ${upgrade.label}.`;
+    return;
+  }
+
+  state.player.xpBank -= cost;
+  tree[upgrade.key] = current + 1;
+  syncMineItemLevel(item);
+  item.spentXp = Math.max(0, Math.floor(Number(item.spentXp) || 0)) + cost;
+  savePlayer(state.player);
+  audio.play("upgrade");
+  if (ui.upgradeMsg) ui.upgradeMsg.textContent = `${upgrade.label} upgraded to Lv ${tree[upgrade.key]}/${upgrade.max}.`;
+  renderLoadoutPanel();
+}
+
+function upgradeWarpSkillTreeNode(slotKey, upgradeKey) {
+  if (!state.player) return;
+  const item = getItemInSlot(slotKey);
+  if (!item || item.type !== "warp") {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = "Warp upgrade failed: Warp Module is not installed in this slot.";
+    return;
+  }
+
+  const found = getWarpTreeUpgradeDefinition(upgradeKey);
+  if (!found) {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = "Warp upgrade failed: unknown upgrade node.";
+    return;
+  }
+  const { upgrade } = found;
+  const tree = ensureWarpSkillTree(item);
+  if (!tree) {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = "Warp upgrade failed: unable to initialize warp skill tree.";
+    return;
+  }
+
+  if (upgrade.requires && (tree[upgrade.requires] || 0) <= 0) {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = "This enhancement is locked. Unlock Void Combo Relay first.";
+    return;
+  }
+  const current = clampInt(tree[upgrade.key], 0, upgrade.max);
+  if (current >= upgrade.max) {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = `${upgrade.label} is already maxed.`;
+    return;
+  }
+
+  const cost = calculateWarpTreeUpgradeCost(item, upgrade.key);
+  if (state.player.xpBank < cost) {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = `Need ${cost} Essence for ${upgrade.label}.`;
+    return;
+  }
+
+  state.player.xpBank -= cost;
+  tree[upgrade.key] = current + 1;
+  syncWarpItemLevel(item);
+  item.spentXp = Math.max(0, Math.floor(Number(item.spentXp) || 0)) + cost;
+  savePlayer(state.player);
+  audio.play("upgrade");
+  if (ui.upgradeMsg) ui.upgradeMsg.textContent = `${upgrade.label} upgraded to Lv ${tree[upgrade.key]}/${upgrade.max}.`;
+  renderLoadoutPanel();
 }
 
 function buyItemForSlot(slotKey, type) {
@@ -870,13 +1748,21 @@ function buyItemForSlot(slotKey, type) {
   if (state.player.xpBank < cost) return;
 
   state.player.xpBank -= cost;
-  state.player.items.push({
+  const newItem = {
     id: state.player.nextItemId,
     type,
     level: 0,
     slot: slotKey,
     spentXp: cost,
-  });
+  };
+  if (type === "mine") {
+    newItem.skillTree = createDefaultMineSkillTree();
+    syncMineItemLevel(newItem);
+  } else if (type === "warp") {
+    newItem.warpTree = createDefaultWarpSkillTree();
+    syncWarpItemLevel(newItem);
+  }
+  state.player.items.push(newItem);
   state.player.nextItemId += 1;
   savePlayer(state.player);
   audio.play("upgrade");
@@ -887,6 +1773,7 @@ function upgradeItemInSlot(slotKey) {
   if (!state.player) return;
   const item = getItemInSlot(slotKey);
   if (!item || item.level >= MAX_UPGRADE_LEVEL) return;
+  if (item.type === "mine" || item.type === "warp") return;
 
   const cost = calculateUpgradeCost(item);
   if (state.player.xpBank < cost) return;
@@ -1029,7 +1916,7 @@ function makeWorld(profile, difficulty) {
   const regen = 0.08 + regenPower * 0.05;
   const magnet = 120 + profile.upgrades.magnet * 3;
 
-  return {
+  const world = {
     difficulty: difficultyTier,
     difficultyMode: isTestMode ? TEST_DIFFICULTY_VALUE : String(difficultyTier),
     isTestMode,
@@ -1052,6 +1939,9 @@ function makeWorld(profile, difficulty) {
     bossBursts: [],
     rockets: [],
     allies: [],
+    nextMineId: 1,
+    mineLinkCooldowns: {},
+    testPlayerInvincible: isTestMode ? !!state.testInvincible : false,
     helper: null,
     player: {
       x: canvas.width * 0.5,
@@ -1068,6 +1958,10 @@ function makeWorld(profile, difficulty) {
       voidCd: 0,
       azureCd: 0,
       amberCd: 0,
+      amberCharges: 0,
+      amberChargeCap: 0,
+      warpComboT: 0,
+      warpComboDuration: 0,
       hitFlash: 0,
       angle: 0,
       dashIFrames: 0,
@@ -1079,6 +1973,8 @@ function makeWorld(profile, difficulty) {
       aegisFlash: 0,
     },
   };
+  syncAmberMineChargeCapacity(world, true);
+  return world;
 }
 
 function loop(t) {
@@ -1103,7 +1999,10 @@ function stepGame(dt) {
 
   p.voidCd = Math.max(0, p.voidCd - dt);
   p.azureCd = Math.max(0, p.azureCd - dt);
-  p.amberCd = Math.max(0, p.amberCd - dt);
+  p.amberCd = Math.max(0, p.amberCd - dt * getVoidMineChargeRateMultiplier(w));
+  p.warpComboT = Math.max(0, p.warpComboT - dt);
+  if ((p.warpComboT || 0) <= 0) p.warpComboDuration = 0;
+  stepAmberMineRecharge(w);
   p.dashIFrames = Math.max(0, p.dashIFrames - dt);
   p.hitFlash = Math.max(0, p.hitFlash - dt);
   p.hp = Math.min(p.maxHp, p.hp + p.regen * dt);
@@ -1348,6 +2247,7 @@ function applyPlayerDamage(w, damage, opts = {}) {
   const p = w.player;
   const hit = Math.max(0, damage || 0);
   if (hit <= 0) return false;
+  if (w?.isTestMode && w.testPlayerInvincible) return false;
 
   if ((p.aegisT || 0) > 0) {
     p.aegisStoredDamage = Math.min(p.aegisStoreCap || Number.POSITIVE_INFINITY, (p.aegisStoredDamage || 0) + hit);
@@ -1441,11 +2341,11 @@ function stepAegisShield(w, dt) {
 function getAbilityCooldownTotal(module, stacks) {
   if (!module) return 0;
   const stackScale = getAbilityStackScale(stacks);
-  if (module.type === "warp") return Math.max(6 - module.level * 0.06, 1.1) * stackScale;
+  if (module.type === "warp") return getWarpAbilityStats(module, stacks).cooldown;
   if (module.type === "rocket") return Math.max(5.2 - module.level * 0.06, 1.0) * stackScale;
   if (module.type === "helper") return Math.max(8 - module.level * 0.05, 2.0) * stackScale;
   if (module.type === "aegis") return getAegisCooldown(module.level, stacks);
-  if (module.type === "mine") return Math.max(4.6 - module.level * 0.05, 0.9) * stackScale;
+  if (module.type === "mine") return getMineAbilityStats(module, stacks).cooldown;
   return 0;
 }
 
@@ -1459,7 +2359,65 @@ function getAbilityCooldownSnapshot(triggerType, player) {
     : triggerType === "azure"
       ? player.azureCd
       : player.amberCd;
+  if (triggerType === "amber" && module.type === "mine") {
+    const stats = getMineAbilityStats(module, stacks);
+    const cap = Math.max(1, Math.floor(player.amberChargeCap || stats.chargeCapacity || 1));
+    const charges = clampInt(player.amberCharges ?? cap, 0, cap);
+    const rechargeRemaining = charges >= cap ? 0 : Math.max(0, remaining || 0);
+    return {
+      available: true,
+      remaining: rechargeRemaining,
+      total: Math.max(0.001, total || 0.001),
+      status: charges > 0 ? "ready" : "cooldown",
+      fillPct: charges >= cap ? 1 : clamp(1 - rechargeRemaining / Math.max(0.001, total || 0.001), 0, 1),
+      text: charges >= cap ? `${charges}/${cap}` : `${charges}/${cap} (${rechargeRemaining.toFixed(1)}s)`,
+    };
+  }
   return { available: true, remaining: Math.max(0, remaining || 0), total: Math.max(0.001, total || 0.001) };
+}
+
+function syncAmberMineChargeCapacity(w, fillToCap = false) {
+  const p = w.player;
+  const module = pickAbility("amber");
+  if (!module) {
+    p.amberChargeCap = 0;
+    p.amberCharges = 0;
+    return null;
+  }
+  if (module.type !== "mine") {
+    p.amberChargeCap = 0;
+    p.amberCharges = 0;
+    return null;
+  }
+
+  const stacks = countSlottedByType(module.type);
+  const stats = getMineAbilityStats(module, stacks);
+  const cap = Math.max(1, Math.floor(stats.chargeCapacity || 1));
+  p.amberChargeCap = cap;
+  if (fillToCap || !Number.isFinite(p.amberCharges)) {
+    p.amberCharges = cap;
+  } else {
+    p.amberCharges = clampInt(p.amberCharges, 0, cap);
+  }
+  if (p.amberCharges >= cap) p.amberCd = 0;
+  return { module, stacks, stats, cap };
+}
+
+function stepAmberMineRecharge(w) {
+  const data = syncAmberMineChargeCapacity(w, false);
+  if (!data) return;
+  const p = w.player;
+  const { stats, cap } = data;
+
+  if (p.amberCharges >= cap) {
+    p.amberCd = 0;
+    return;
+  }
+
+  if (p.amberCd > 0) return;
+
+  p.amberCharges = Math.min(cap, (p.amberCharges || 0) + 1);
+  p.amberCd = p.amberCharges < cap ? stats.cooldown : 0;
 }
 
 function getCannonCooldownSnapshot(player) {
@@ -1518,12 +2476,17 @@ function getPredictiveAimAngle(fromX, fromY, targetX, targetY, targetVx, targetV
   return Math.atan2(ty - fromY, tx - fromX);
 }
 
-function applyWarpBurstDamage(w, x, y, moduleLevel) {
-  const radius = 94 + moduleLevel * 1.9;
-  const baseDamage = 54 + moduleLevel * 3.1;
+function applyWarpBurstDamage(w, x, y, warpStats, opts = {}) {
+  const stats = (warpStats && typeof warpStats === "object")
+    ? warpStats
+    : { damageRadius: 94, damage: 54 };
+  const radius = Math.max(12, (stats.damageRadius || 94) * Math.max(0.15, opts.radiusMult || 1));
+  const baseDamage = Math.max(1, (stats.damage || 54) * Math.max(0.05, opts.damageMult || 1));
+  let kills = 0;
 
   for (const e of w.enemies) {
     if (e.hp <= 0) continue;
+    const beforeHp = e.hp;
     const d = Math.hypot(e.x - x, e.y - y);
     if (d > radius) continue;
     markEnemyHit(e);
@@ -1532,7 +2495,7 @@ function applyWarpBurstDamage(w, x, y, moduleLevel) {
     const raw = baseDamage * (0.35 + falloff * 0.65);
 
     if (applyTypedShieldBlock(w, e, x, y, "void")) {
-      e.lastHitKind = "warp";
+      e.lastHitKind = opts.sourceKind || "warp";
       continue;
     }
 
@@ -1550,10 +2513,12 @@ function applyWarpBurstDamage(w, x, y, moduleLevel) {
 
     e.hp -= dealt;
     registerSiphonOverlordHit(w, e, dealt);
-    e.lastHitKind = "warp";
+    e.lastHitKind = opts.sourceKind || "warp";
+    if (beforeHp > 0 && e.hp <= 0) kills += 1;
   }
 
   splash(w, x, y, "#8edbff", 22, 2.7);
+  return kills;
 }
 
 function useVoidAbility(w, mode = "movement") {
@@ -1566,10 +2531,11 @@ function useVoidAbility(w, mode = "movement") {
   const stacks = countSlottedByType(module.type);
 
   if (module.type === "warp") {
+    const stats = getWarpAbilityStats(module, stacks);
     const sourceX = p.x;
     const sourceY = p.y;
     let dir = null;
-    let distance = 150 + module.level * 4.2;
+    let distance = stats.distance;
 
     if (mode === "cursor") {
       const dx = state.mouse.x - p.x;
@@ -1586,10 +2552,15 @@ function useVoidAbility(w, mode = "movement") {
     p.x += dir.x * distance;
     p.y += dir.y * distance;
     clampPlayer(p);
-    applyWarpBurstDamage(w, p.x, p.y, module.level);
+    const kills = applyWarpBurstDamage(w, p.x, p.y, stats, { sourceKind: "warp" });
+    if (stats.comboEnabled && kills >= 1) {
+      p.warpComboT = Math.max(p.warpComboT || 0, stats.comboWindow);
+      p.warpComboDuration = stats.comboWindow;
+      splash(w, p.x, p.y, "#b88dff", 10, 1.25);
+    }
     splash(w, sourceX, sourceY, "#70ccff", 10, 1.45);
     p.dashIFrames = 0.22 + module.level * 0.003;
-    p.voidCd = Math.max(6 - module.level * 0.06, 1.1) * (1 - Math.min(0.35, (stacks - 1) * 0.08));
+    p.voidCd = stats.cooldown;
     audio.play("warp");
   }
 }
@@ -1638,7 +2609,6 @@ function useAzureAbility(w) {
 
 function useAmberAbility(w) {
   const p = w.player;
-  if (p.amberCd > 0) return;
 
   const module = pickAbility("amber");
   if (!module) return;
@@ -1646,12 +2616,57 @@ function useAmberAbility(w) {
   const stacks = countSlottedByType(module.type);
 
   if (module.type === "mine") {
-    const radius = 46 + module.level * 1.7;
-    const damage = 44 + module.level * 3.4;
-    w.mines.push({ x: p.x, y: p.y, r: radius, dmg: damage, life: 18, armed: 0.35, affinity: "amber" });
-    p.amberCd = Math.max(4.6 - module.level * 0.05, 0.9) * (1 - Math.min(0.35, (stacks - 1) * 0.08));
+    const stats = getMineAbilityStats(module, stacks);
+    syncAmberMineChargeCapacity(w, false);
+    const maxStored = Math.max(1, Math.floor(p.amberChargeCap || stats.chargeCapacity || 1));
+    p.amberCharges = clampInt(p.amberCharges ?? maxStored, 0, maxStored);
+    if (p.amberCharges <= 0) return;
+
+    for (const mine of w.mines) {
+      if (!Number.isFinite(mine.id) || mine.id <= 0) mine.id = w.nextMineId++;
+    }
+
+    const activeMines = w.mines
+      .filter((mine) => !mine.expired && (mine.chargesLeft || 0) > 0)
+      .sort((a, b) => (a.id || 0) - (b.id || 0));
+    const maxActive = Math.max(1, Math.floor(stats.maxActiveMines || 1));
+    if (activeMines.length >= maxActive) {
+      const trimCount = activeMines.length - maxActive + 1;
+      const removeIds = new Set(activeMines.slice(0, trimCount).map((mine) => mine.id));
+      w.mines = w.mines.filter((mine) => !removeIds.has(mine.id));
+    }
+
+    w.mines.push({
+      id: w.nextMineId++,
+      x: p.x,
+      y: p.y,
+      r: stats.radius,
+      dmg: stats.damage,
+      armed: 0.35,
+      affinity: "amber",
+      chargesLeft: stats.charges,
+      maxCharges: stats.charges,
+      rearm: stats.rearm,
+      trigger: stats.triggerRadius,
+      visualRadius: stats.visualRadius,
+      pulse: Math.random() * Math.PI * 2,
+      chainEnabled: stats.chainEnabled,
+      chainRange: stats.chainRange,
+      chainDamageMult: stats.chainDamageMult,
+      chainRecharge: stats.chainRecharge,
+      chainWidth: stats.chainWidth,
+      gooEnabled: stats.gooEnabled,
+      gooFuse: stats.gooFuse,
+      gooBlastMult: stats.gooBlastMult,
+      gooSeekSpeed: stats.gooSeekSpeed,
+    });
+    p.amberCharges = Math.max(0, p.amberCharges - 1);
+    p.amberCd = p.amberCharges < maxStored && p.amberCd <= 0.001 ? stats.cooldown : p.amberCd;
     audio.play("minePlace");
+    return;
   }
+
+  if (p.amberCd > 0) return;
 }
 
 function getAffinityGlowRgb(affinity) {
@@ -2561,43 +3576,273 @@ function stepRockets(w, dt) {
   w.rockets = w.rockets.filter((r) => r.life > 0);
 }
 
-function stepMines(w, dt) {
-  for (const m of w.mines) {
-    m.life -= dt;
-    m.armed -= dt;
-    if (m.armed > 0) continue;
+function getMineLinkKey(a, b) {
+  const aid = Math.floor(a?.id || 0);
+  const bid = Math.floor(b?.id || 0);
+  if (aid <= bid) return `${aid}:${bid}`;
+  return `${bid}:${aid}`;
+}
 
-    const trigger = w.enemies.some((e) => Math.hypot(e.x - m.x, e.y - m.y) < m.r * 0.45);
-    if (!trigger) continue;
+function getMineChainAffinityType(mine) {
+  if (!mine) return "normal";
+  return (mine.affinity === "void" || mine.voidInfused) ? "void" : "normal";
+}
 
-    for (const e of w.enemies) {
-      if (e.hp <= 0) continue;
-      const d = Math.hypot(e.x - m.x, e.y - m.y);
-      if (d <= m.r) {
-        markEnemyHit(e);
-        if (applyTypedShieldBlock(w, e, m.x, m.y, m.affinity || "amber")) {
-          e.lastHitKind = "mine";
-          continue;
-        }
-        const falloff = 1 - d / m.r;
-        const dealt = m.dmg * (0.35 + falloff * 0.65);
-        if (e.kind === "mega_cannon_boss" && e.shieldT > 0) {
-          e.hp = Math.min(e.maxHp || e.hp, e.hp + dealt * 0.55);
-          splash(w, e.x, e.y, "#8bff9f", 6, 1.0);
-        } else {
-          e.hp -= dealt;
-          registerSiphonOverlordHit(w, e, dealt);
-          e.lastHitKind = "mine";
-        }
-      }
+function canMinesChainTogether(a, b) {
+  return getMineChainAffinityType(a) === getMineChainAffinityType(b);
+}
+
+function getVoidMineChargeRateMultiplier(w) {
+  if (!w || !Array.isArray(w.mines) || w.mines.length <= 0) return 1;
+  let mult = 1;
+  for (const mine of w.mines) {
+    if (!mine || mine.expired || (mine.chargesLeft || 0) <= 0) continue;
+    if (!mine.voidInfused) continue;
+    const mineMult = Math.max(1, Number(mine.chargeRateMult) || 1);
+    if (mineMult > mult) mult = mineMult;
+  }
+  return mult;
+}
+
+function getPointToSegmentDistancePx(px, py, ax, ay, bx, by) {
+  const abx = bx - ax;
+  const aby = by - ay;
+  const apx = px - ax;
+  const apy = py - ay;
+  const denom = abx * abx + aby * aby;
+  if (denom <= 0.0001) return Math.hypot(px - ax, py - ay);
+  const t = clamp((apx * abx + apy * aby) / denom, 0, 1);
+  const cx = ax + abx * t;
+  const cy = ay + aby * t;
+  return Math.hypot(px - cx, py - cy);
+}
+
+function getClosestPointOnSegment(px, py, ax, ay, bx, by) {
+  const abx = bx - ax;
+  const aby = by - ay;
+  const apx = px - ax;
+  const apy = py - ay;
+  const denom = abx * abx + aby * aby;
+  if (denom <= 0.0001) return { x: ax, y: ay };
+  const t = clamp((apx * abx + apy * aby) / denom, 0, 1);
+  return { x: ax + abx * t, y: ay + aby * t };
+}
+
+function findClosestEnemyToPoint(w, x, y, exclude = null, maxDistance = Number.POSITIVE_INFINITY) {
+  let best = null;
+  let bestDist = maxDistance;
+  for (const e of w.enemies) {
+    if (!e || e.hp <= 0 || e === exclude) continue;
+    const d = Math.hypot(e.x - x, e.y - y);
+    if (d < bestDist) {
+      bestDist = d;
+      best = e;
+    }
+  }
+  return best;
+}
+
+function consumePlayerMineCharge(m) {
+  m.chargesLeft = Math.max(0, (m.chargesLeft || 1) - 1);
+  if (m.chargesLeft > 0) {
+    m.armed = Math.max(m.rearm || 0.7, 0.04);
+  } else {
+    m.expired = true;
+  }
+}
+
+function applyStickyGooMineToEnemy(w, mine, enemy) {
+  if (!mine || !enemy || enemy.hp <= 0) return;
+  const fuse = Math.max(0.8, mine.gooFuse || 3.2);
+  const payload = {
+    timer: fuse,
+    total: fuse,
+    seekSpeed: Math.max(36, mine.gooSeekSpeed || 96),
+    radius: Math.max(12, mine.r || 54),
+    dmg: Math.max(1, (mine.dmg || 44) * (mine.gooBlastMult || 1)),
+    affinity: mine.affinity || "amber",
+  };
+  const current = enemy.gooMine;
+  if (!current || payload.dmg >= (current.dmg || 0) || payload.timer <= (current.timer || Number.POSITIVE_INFINITY)) {
+    enemy.gooMine = payload;
+    enemy.gooMinePulse = 0.4;
+  }
+  markEnemyHit(enemy);
+  splash(w, enemy.x, enemy.y, (mine.voidInfused || mine.affinity === "void") ? "#bc8bff" : "#a7ff9d", 8, 1.0);
+}
+
+function detonateGooMineOnEnemy(w, carrier, gooData) {
+  if (!carrier || !gooData) return;
+  const radius = Math.max(12, gooData.radius || 52);
+  const damage = Math.max(1, gooData.dmg || 46);
+  const affinity = gooData.affinity || "amber";
+
+  for (const e of w.enemies) {
+    if (!e || e.hp <= 0) continue;
+    const d = Math.hypot(e.x - carrier.x, e.y - carrier.y);
+    if (d > radius) continue;
+
+    markEnemyHit(e);
+    if (applyTypedShieldBlock(w, e, carrier.x, carrier.y, affinity)) {
+      e.lastHitKind = "mine";
+      continue;
     }
 
-    m.life = -1;
-    splash(w, m.x, m.y, "#ffbb7d", 20, 3.3);
-    audio.play("mineBlast");
+    const falloff = 1 - d / radius;
+    const dealt = damage * (0.35 + falloff * 0.65);
+    if (e.kind === "mega_cannon_boss" && e.shieldT > 0) {
+      e.hp = Math.min(e.maxHp || e.hp, e.hp + dealt * 0.55);
+      splash(w, e.x, e.y, "#8bff9f", 6, 1.0);
+    } else {
+      e.hp -= dealt;
+      registerSiphonOverlordHit(w, e, dealt);
+      e.lastHitKind = "mine";
+    }
   }
 
-  w.mines = w.mines.filter((m) => m.life > 0);
+  carrier.gooMine = null;
+  carrier.gooMinePulse = 0;
+  splash(w, carrier.x, carrier.y, affinity === "void" ? "#ba8dff" : "#9fff9f", 14 + radius * 0.18, 2.4);
+  audio.play("mineBlast");
+}
+
+function detonatePlayerMine(w, m) {
+  if (!m || m.expired || (m.chargesLeft || 0) <= 0) return;
+
+  for (const e of w.enemies) {
+    if (e.hp <= 0) continue;
+    const d = Math.hypot(e.x - m.x, e.y - m.y);
+    if (d > m.r) continue;
+    markEnemyHit(e);
+    if (applyTypedShieldBlock(w, e, m.x, m.y, m.affinity || "amber")) {
+      e.lastHitKind = "mine";
+      continue;
+    }
+    const falloff = 1 - d / m.r;
+    const dealt = m.dmg * (0.35 + falloff * 0.65);
+    if (e.kind === "mega_cannon_boss" && e.shieldT > 0) {
+      e.hp = Math.min(e.maxHp || e.hp, e.hp + dealt * 0.55);
+      splash(w, e.x, e.y, "#8bff9f", 6, 1.0);
+    } else {
+      e.hp -= dealt;
+      registerSiphonOverlordHit(w, e, dealt);
+      e.lastHitKind = "mine";
+    }
+  }
+
+  consumePlayerMineCharge(m);
+
+  splash(w, m.x, m.y, (m.voidInfused || m.affinity === "void") ? "#c18cff" : "#ffbb7d", 14 + m.r * 0.22, 2.7);
+  audio.play("mineBlast");
+}
+
+function stepMines(w, dt) {
+  if (!w.mineLinkCooldowns || typeof w.mineLinkCooldowns !== "object") w.mineLinkCooldowns = {};
+
+  const kept = [];
+  for (const m of w.mines) {
+    m.armed -= dt;
+    m.pulse = (m.pulse || 0) + dt * 4.2;
+    if (!Number.isFinite(m.id) || m.id <= 0) m.id = w.nextMineId++;
+    if (!Number.isFinite(m.chargesLeft)) m.chargesLeft = 1;
+    if (!Number.isFinite(m.maxCharges)) m.maxCharges = Math.max(1, m.chargesLeft);
+    if (!Number.isFinite(m.rearm)) m.rearm = 0.75;
+    if (!Number.isFinite(m.chargeRateMult)) m.chargeRateMult = m.voidInfused ? 2 : 1;
+    if (typeof m.expired !== "boolean") m.expired = false;
+    if (typeof m.gooEnabled !== "boolean") m.gooEnabled = false;
+    if (!Number.isFinite(m.gooFuse)) m.gooFuse = 0;
+    if (!Number.isFinite(m.gooBlastMult)) m.gooBlastMult = 1;
+    if (!Number.isFinite(m.gooSeekSpeed)) m.gooSeekSpeed = 0;
+
+    if (m.expired || m.chargesLeft <= 0) {
+      continue;
+    }
+
+    if (m.armed <= 0) {
+      const triggerRadius = Math.max(8, m.trigger || m.r * 0.45);
+      if (m.gooEnabled) {
+        const targetEnemy = findClosestEnemyToPoint(w, m.x, m.y, null, triggerRadius);
+        if (targetEnemy) {
+          applyStickyGooMineToEnemy(w, m, targetEnemy);
+          consumePlayerMineCharge(m);
+        }
+      } else {
+        const shouldDetonate = w.enemies.some((e) => e.hp > 0 && Math.hypot(e.x - m.x, e.y - m.y) < triggerRadius);
+        if (shouldDetonate) {
+          detonatePlayerMine(w, m);
+        }
+      }
+      if (!m.expired && m.chargesLeft > 0) {
+        kept.push(m);
+      }
+      continue;
+    }
+
+    kept.push(m);
+  }
+
+  w.mines = kept;
+
+  const keys = Object.keys(w.mineLinkCooldowns);
+  for (const key of keys) {
+    w.mineLinkCooldowns[key] = Math.max(0, (w.mineLinkCooldowns[key] || 0) - dt);
+    if (w.mineLinkCooldowns[key] <= 0.001) delete w.mineLinkCooldowns[key];
+  }
+
+  const chainMines = w.mines.filter((m) => !m.expired && (m.chargesLeft || 0) > 0 && m.chainEnabled && (m.chainRange || 0) > 0);
+  const validLinkKeys = new Set();
+  for (let i = 0; i < chainMines.length; i += 1) {
+    const a = chainMines[i];
+    for (let j = i + 1; j < chainMines.length; j += 1) {
+      const b = chainMines[j];
+      if (!canMinesChainTogether(a, b)) continue;
+      const maxRange = Math.min(a.chainRange || 0, b.chainRange || 0);
+      const pairDist = Math.hypot(a.x - b.x, a.y - b.y);
+      if (maxRange <= 0 || pairDist > maxRange) continue;
+
+      const key = getMineLinkKey(a, b);
+      validLinkKeys.add(key);
+      if ((w.mineLinkCooldowns[key] || 0) > 0) continue;
+
+      const width = Math.max(4, Math.min(a.chainWidth || 10, b.chainWidth || 10));
+      let tripped = false;
+      for (const e of w.enemies) {
+        if (e.hp <= 0) continue;
+        const distToLink = getPointToSegmentDistancePx(e.x, e.y, a.x, a.y, b.x, b.y);
+        if (distToLink > (e.r || 10) + width * 0.5) continue;
+
+        const impact = getClosestPointOnSegment(e.x, e.y, a.x, a.y, b.x, b.y);
+        markEnemyHit(e);
+        const linkAffinity = getMineChainAffinityType(a) === "void" ? "void" : "amber";
+        if (!applyTypedShieldBlock(w, e, impact.x, impact.y, linkAffinity)) {
+          const linkDamage = ((a.dmg + b.dmg) * 0.5) * 0.34 * ((a.chainDamageMult + b.chainDamageMult) * 0.5);
+          if (e.kind === "mega_cannon_boss" && e.shieldT > 0) {
+            e.hp = Math.min(e.maxHp || e.hp, e.hp + linkDamage * 0.5);
+            splash(w, e.x, e.y, "#8bff9f", 6, 1.0);
+          } else {
+            e.hp -= linkDamage;
+            registerSiphonOverlordHit(w, e, linkDamage);
+            e.lastHitKind = "mine";
+          }
+        } else {
+          e.lastHitKind = "mine";
+        }
+
+        const recharge = Math.max(0.35, ((a.chainRecharge || 2.8) + (b.chainRecharge || 2.8)) * 0.5);
+        w.mineLinkCooldowns[key] = recharge;
+        splash(w, impact.x, impact.y, linkAffinity === "void" ? "#be90ff" : "#ffc27d", 10, 1.4);
+        audio.play("enemyShot");
+        tripped = true;
+        break;
+      }
+
+      if (tripped) continue;
+    }
+  }
+
+  for (const key of Object.keys(w.mineLinkCooldowns)) {
+    if (!validLinkKeys.has(key)) delete w.mineLinkCooldowns[key];
+  }
 }
 
 function stepEnemyMines(w, dt) {
@@ -3046,6 +4291,33 @@ function stepEnemies(w, dt) {
     e.hitFlash = Math.max(0, (e.hitFlash || 0) - dt);
     e.weakSpotFlash = Math.max(0, (e.weakSpotFlash || 0) - dt);
     e.allyDrainPulse = Math.max(0, (e.allyDrainPulse || 0) - dt);
+    e.gooMinePulse = Math.max(0, (e.gooMinePulse || 0) - dt);
+
+    if (e.gooMine && Number.isFinite(e.gooMine.timer)) {
+      e.gooMine.timer = Math.max(0, e.gooMine.timer - dt);
+      if (e.gooMine.timer <= 0) {
+        detonateGooMineOnEnemy(w, e, e.gooMine);
+        if (e.hp <= 0) continue;
+        continue;
+      }
+
+      const allyTarget = findClosestEnemyToPoint(w, e.x, e.y, e);
+      if (allyTarget) {
+        const adx = allyTarget.x - e.x;
+        const ady = allyTarget.y - e.y;
+        const ad = Math.hypot(adx, ady) || 1;
+        const desired = Math.atan2(ady, adx);
+        if (!Number.isFinite(e.facing)) e.facing = desired;
+        const deltaFacing = shortestAngleDelta(e.facing, desired);
+        e.facing += clamp(deltaFacing, -9.5 * dt, 9.5 * dt);
+        const moveSpeed = Math.max(40, e.gooMine.seekSpeed || e.speed || 90);
+        e.x += (adx / ad) * moveSpeed * dt;
+        e.y += (ady / ad) * moveSpeed * dt;
+        e.x = clamp(e.x, e.r || 12, canvas.width - (e.r || 12));
+        e.y = clamp(e.y, e.r || 12, canvas.height - (e.r || 12));
+      }
+      continue;
+    }
 
     const target = getSummonedAggroTarget(w, e.x, e.y);
     const targetVelocity = getTargetVelocity(target);
@@ -4301,15 +5573,83 @@ function drawGame() {
   drawGrid();
   drawBossBursts(w);
   const p = w.player;
+  const warpComboActive = (p.warpComboT || 0) > 0;
+
+  for (let i = 0; i < w.mines.length; i += 1) {
+    const a = w.mines[i];
+    if (!a?.chainEnabled || a.expired || (a.chargesLeft || 0) <= 0) continue;
+    for (let j = i + 1; j < w.mines.length; j += 1) {
+      const b = w.mines[j];
+      if (!b?.chainEnabled || b.expired || (b.chargesLeft || 0) <= 0) continue;
+      if (!canMinesChainTogether(a, b)) continue;
+      const dist = Math.hypot(a.x - b.x, a.y - b.y);
+      const linkRange = Math.min(a.chainRange || 0, b.chainRange || 0);
+      if (linkRange <= 0 || dist > linkRange) continue;
+      const key = getMineLinkKey(a, b);
+      const cooldownT = w.mineLinkCooldowns?.[key] || 0;
+      if (cooldownT > 0) continue;
+      const pulse = (Math.sin(w.t * 5.8 + i * 0.5 + j * 0.7) + 1) * 0.5;
+      const alpha = 0.18 + pulse * 0.16;
+      const linkRgb = getMineChainAffinityType(a) === "void" ? "187,141,255" : "255,184,94";
+      ctx.strokeStyle = `rgba(${linkRgb},${alpha})`;
+      ctx.lineWidth = Math.max(1, Math.min(a.chainWidth || 10, b.chainWidth || 10) * 0.14);
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
+    }
+  }
+  ctx.lineWidth = 1;
 
   for (const m of w.mines) {
-    ctx.strokeStyle = "#ffbb7d";
+    const pulse = (Math.sin(m.pulse || 0) + 1) * 0.5;
+    const coreR = Math.max(5, m.visualRadius || m.r * 0.22);
+    const armedPct = clamp(1 - (m.armed || 0) / Math.max(0.01, m.rearm || 0.9), 0, 1);
+    const isVoidMine = m.voidInfused || m.affinity === "void";
+    const edgeColor = isVoidMine ? "204,150,255" : (m.gooEnabled ? "150,255,155" : "255,186,116");
+    const fillColor = isVoidMine ? "222,184,255" : (m.gooEnabled ? "168,255,176" : "255,206,138");
+    const coreColor = isVoidMine ? "#c897ff" : (m.gooEnabled ? "#a9ff9e" : "#ffcc8b");
+    const tickOn = isVoidMine ? "rgba(235,208,255,0.95)" : (m.gooEnabled ? "rgba(198,255,201,0.95)" : "rgba(255,228,170,0.95)");
+    const tickOff = isVoidMine ? "rgba(94,66,126,0.52)" : (m.gooEnabled ? "rgba(64,109,66,0.5)" : "rgba(116,91,58,0.5)");
+
+    ctx.strokeStyle = `rgba(${edgeColor},${0.55 + pulse * 0.2})`;
+    ctx.lineWidth = 1.2;
     ctx.beginPath();
-    ctx.arc(m.x, m.y, m.r * 0.22, 0, Math.PI * 2);
+    ctx.arc(m.x, m.y, coreR + armedPct * 2.8, 0, Math.PI * 2);
     ctx.stroke();
-    ctx.fillStyle = "#ffcc8b";
+
+    ctx.fillStyle = `rgba(${fillColor},${0.62 + pulse * 0.24})`;
+    ctx.beginPath();
+    ctx.arc(m.x, m.y, coreR * 0.72, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = coreColor;
     ctx.fillRect(m.x - 3, m.y - 3, 6, 6);
+
+    const maxCharges = Math.max(1, Math.floor(m.maxCharges || 1));
+    const chargesLeft = clamp(Math.floor(m.chargesLeft || 0), 0, maxCharges);
+    const tickR = coreR + 8;
+    for (let i = 0; i < maxCharges; i += 1) {
+      const a = (i / maxCharges) * Math.PI * 2 - Math.PI * 0.5;
+      const tx = m.x + Math.cos(a) * tickR;
+      const ty = m.y + Math.sin(a) * tickR;
+      ctx.fillStyle = i < chargesLeft ? tickOn : tickOff;
+      ctx.beginPath();
+      ctx.arc(tx, ty, 1.8, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    if (warpComboActive && !m.expired && (m.chargesLeft || 0) > 0) {
+      const comboPulse = (Math.sin(w.t * 8.8 + (m.id || 0) * 0.3) + 1) * 0.5;
+      ctx.strokeStyle = `rgba(184,139,255,${0.35 + comboPulse * 0.3})`;
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.arc(m.x, m.y, coreR + 11 + comboPulse * 2.6, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.lineWidth = 1;
+    }
   }
+  ctx.lineWidth = 1;
 
   for (const m of w.enemyMines) {
     const arm = Math.max(0, m.armed || 0);
@@ -4510,6 +5850,22 @@ function drawGame() {
         ctx.lineTo(e.x + Math.cos(a) * tip, e.y + Math.sin(a) * tip);
         ctx.stroke();
       }
+      ctx.lineWidth = 1;
+    }
+
+    if (e.gooMine && (e.gooMine.timer || 0) > 0) {
+      const total = Math.max(0.8, e.gooMine.total || 4.2);
+      const pct = clamp((e.gooMine.timer || 0) / total, 0, 1);
+      const pulse = (Math.sin(w.t * 10.5 + (e.x + e.y) * 0.02) + 1) * 0.5;
+      ctx.strokeStyle = `rgba(162,255,148,${0.4 + pulse * 0.28})`;
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, e.r + 7 + pulse * 2, -Math.PI * 0.5, -Math.PI * 0.5 + Math.PI * 2 * pct);
+      ctx.stroke();
+      ctx.fillStyle = `rgba(170,255,168,${0.28 + pulse * 0.22})`;
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, Math.max(2.5, (e.r || 10) * 0.24), 0, Math.PI * 2);
+      ctx.fill();
       ctx.lineWidth = 1;
     }
 
@@ -4721,6 +6077,16 @@ function drawGame() {
         ctx.stroke();
         ctx.lineWidth = 1;
       }
+    }
+
+    if (warpComboActive) {
+      const comboPulse = (Math.sin(w.t * 8.5 + e.x * 0.02 + e.y * 0.015) + 1) * 0.5;
+      ctx.strokeStyle = `rgba(192,145,255,${0.26 + comboPulse * 0.35})`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, e.r + 9 + comboPulse * 2.8, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.lineWidth = 1;
     }
   }
 
@@ -4945,7 +6311,13 @@ function updateHud(w) {
   else ui.health.textContent = `HP ${hpNow}/${hpMax}`;
   if (ui.healthFill) ui.healthFill.style.width = `${Math.round(hpPct * 100)}%`;
 
-  setCooldownHud(ui.cdVoid, ui.cdVoidFill, ui.cdVoidText, getAbilityCooldownSnapshot("void", p));
+  const voidSnapshot = getAbilityCooldownSnapshot("void", p);
+  if ((p.warpComboT || 0) > 0) {
+    voidSnapshot.status = "ready";
+    voidSnapshot.fillPct = clamp((p.warpComboT || 0) / Math.max(0.001, p.warpComboDuration || 1), 0, 1);
+    voidSnapshot.text = `Combo ${p.warpComboT.toFixed(1)}s`;
+  }
+  setCooldownHud(ui.cdVoid, ui.cdVoidFill, ui.cdVoidText, voidSnapshot);
   const azureSnapshot = getAbilityCooldownSnapshot("azure", p);
   if ((p.aegisT || 0) > 0) {
     azureSnapshot.status = "cooldown";
@@ -5049,6 +6421,11 @@ function hexToRgb(hex) {
 
 function clamp(n, min, max) {
   return Math.max(min, Math.min(max, n));
+}
+
+function clampInt(value, min, max) {
+  const n = Math.floor(Number(value) || 0);
+  return clamp(n, min, max);
 }
 
 

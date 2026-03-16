@@ -290,6 +290,70 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   font-size: 0.78rem;
 }
 
+.slot-stat-card {
+  border: 1px solid #2f4a5f;
+  background: #102535;
+  border-radius: 8px;
+  padding: 0.48rem 0.56rem;
+}
+
+.slot-stat-card h4 {
+  margin: 0 0 0.3rem;
+  font-size: 0.82rem;
+  color: #d4ecff;
+}
+
+.slot-stat-card ul {
+  margin: 0;
+  padding-left: 1rem;
+  display: grid;
+  gap: 0.2rem;
+  color: #b8cde0;
+  font-size: 0.75rem;
+}
+
+.slot-skill-node {
+  border: 1px solid #3a5468;
+  background: #12293a;
+  border-radius: 8px;
+  padding: 0.52rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.slot-skill-node h4 {
+  margin: 0;
+  font-size: 0.84rem;
+  color: #e6f2ff;
+}
+
+.slot-skill-node p {
+  margin: 0;
+  font-size: 0.74rem;
+  color: #a9c1d7;
+}
+
+.slot-skill-upgrade {
+  border: 1px solid #2c4458;
+  background: #0f2232;
+  border-radius: 7px;
+  padding: 0.4rem 0.44rem;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.slot-skill-upgrade strong {
+  display: block;
+  font-size: 0.8rem;
+  color: #d4e8fc;
+}
+
+.slot-skill-upgrade p {
+  margin-top: 0.18rem;
+}
+
 .sell-btn {
   border-color: #6b3840;
   background: #3a1f27;
@@ -397,6 +461,20 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .test-controls { display: grid; gap: 0.38rem; }
 .test-control { display: grid; gap: 0.22rem; font-size: 0.72rem; color: #bfd8ee; letter-spacing: 0.03em; }
 .test-control select { padding: 0.32rem 0.44rem; border-radius: 7px; font-size: 0.78rem; }
+.test-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.74rem;
+  color: #d2f0ff;
+  letter-spacing: 0.02em;
+  padding: 0.2rem 0.1rem;
+}
+.test-toggle input {
+  width: 0.9rem;
+  height: 0.9rem;
+  accent-color: #7ee2ff;
+}
 .test-exit-btn {
   border-color: #6d4f5f;
   background: #2b1d26;

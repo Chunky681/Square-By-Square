@@ -36,6 +36,33 @@ const ITEM_DEFAULT_COSTS = {
   thruster: { buyBase: 92, upgradeBase: 37 },
 };
 
+const MINE_TREE_LIMITS = {
+  size: 10,
+  cooldown: 10,
+  activeLimit: 8,
+  charges: 5,
+  stockpile: 6,
+  chainUnlock: 1,
+  chainRange: 6,
+  chainDamage: 6,
+  chainRecharge: 4,
+  gooUnlock: 1,
+  gooFuse: 6,
+  gooBlast: 6,
+  gooDrive: 5,
+};
+
+const WARP_TREE_LIMITS = {
+  distance: 10,
+  cooldown: 10,
+  burstRadius: 10,
+  burstDamage: 10,
+  comboUnlock: 1,
+  comboWindow: 6,
+  infusionPower: 5,
+  swapPulse: 5,
+};
+
 function readStore() {
   const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem("rift_run_profiles_v1");
   if (!raw) {
@@ -161,7 +188,15 @@ function normalizePlayer(player) {
       const spentXp = Number.isFinite(Number(raw.spentXp))
         ? Math.max(0, Math.floor(Number(raw.spentXp)))
         : estimateLegacySpentXp(raw.type, level);
-      normalizedItems.push({ id, type: raw.type, level, slot, spentXp });
+      const normalized = { id, type: raw.type, level, slot, spentXp };
+      if (raw.type === "mine") {
+        normalized.skillTree = normalizeMineSkillTree(raw.skillTree, level);
+        normalized.level = Math.min(MAX_LEVEL, getMineTreeTotalLevel(normalized.skillTree));
+      } else if (raw.type === "warp") {
+        normalized.warpTree = normalizeWarpSkillTree(raw.warpTree, level);
+        normalized.level = Math.min(MAX_LEVEL, getWarpTreeTotalLevel(normalized.warpTree));
+      }
+      normalizedItems.push(normalized);
       maxId = Math.max(maxId, id);
     }
   }
@@ -170,8 +205,28 @@ function normalizePlayer(player) {
     normalizedItems.push({ id: 1, type: "cannon", level: 0, slot: 0, spentXp: 0 });
     maxId = 1;
 
-    if (player.ownedSpecial?.warp) normalizedItems.push({ id: ++maxId, type: "warp", level: p.upgrades.warpPower, slot: null, spentXp: estimateLegacySpentXp("warp", p.upgrades.warpPower) });
-    if (player.ownedSpecial?.mine) normalizedItems.push({ id: ++maxId, type: "mine", level: p.upgrades.mineDamage, slot: null, spentXp: estimateLegacySpentXp("mine", p.upgrades.mineDamage) });
+    if (player.ownedSpecial?.warp) {
+      const warpLegacyLevel = p.upgrades.warpPower;
+      normalizedItems.push({
+        id: ++maxId,
+        type: "warp",
+        level: Math.min(MAX_LEVEL, warpLegacyLevel),
+        slot: null,
+        spentXp: estimateLegacySpentXp("warp", warpLegacyLevel),
+        warpTree: normalizeWarpSkillTree(null, warpLegacyLevel),
+      });
+    }
+    if (player.ownedSpecial?.mine) {
+      const mineLegacyLevel = p.upgrades.mineDamage;
+      normalizedItems.push({
+        id: ++maxId,
+        type: "mine",
+        level: Math.min(MAX_LEVEL, mineLegacyLevel),
+        slot: null,
+        spentXp: estimateLegacySpentXp("mine", mineLegacyLevel),
+        skillTree: normalizeMineSkillTree(null, mineLegacyLevel),
+      });
+    }
     if (player.ownedSecondary?.rocket) normalizedItems.push({ id: ++maxId, type: "rocket", level: p.upgrades.rocketDamage, slot: null, spentXp: estimateLegacySpentXp("rocket", p.upgrades.rocketDamage) });
     if (player.ownedSecondary?.helper) normalizedItems.push({ id: ++maxId, type: "helper", level: p.upgrades.helperDamage, slot: null, spentXp: estimateLegacySpentXp("helper", p.upgrades.helperDamage) });
   }
@@ -181,6 +236,170 @@ function normalizePlayer(player) {
   p.nextItemId = Math.max(maxId + 1, requestedNext || 1);
 
   return p;
+}
+
+function createDefaultMineSkillTree() {
+  return {
+    size: 0,
+    cooldown: 0,
+    activeLimit: 0,
+    charges: 0,
+    stockpile: 0,
+    chainUnlock: 0,
+    chainRange: 0,
+    chainDamage: 0,
+    chainRecharge: 0,
+    gooUnlock: 0,
+    gooFuse: 0,
+    gooBlast: 0,
+    gooDrive: 0,
+  };
+}
+
+function normalizeMineBranchChoice(tree) {
+  if (!tree || typeof tree !== "object") return;
+  const chainScore = (tree.chainUnlock || 0) + (tree.chainRange || 0) + (tree.chainDamage || 0) + (tree.chainRecharge || 0);
+  const gooScore = (tree.gooUnlock || 0) + (tree.gooFuse || 0) + (tree.gooBlast || 0) + (tree.gooDrive || 0);
+  if (tree.chainUnlock > 0 && tree.gooUnlock > 0) {
+    if (gooScore > chainScore) {
+      tree.chainUnlock = 0;
+      tree.chainRange = 0;
+      tree.chainDamage = 0;
+      tree.chainRecharge = 0;
+    } else {
+      tree.gooUnlock = 0;
+      tree.gooFuse = 0;
+      tree.gooBlast = 0;
+      tree.gooDrive = 0;
+    }
+  }
+  if (tree.chainUnlock <= 0) {
+    tree.chainRange = 0;
+    tree.chainDamage = 0;
+    tree.chainRecharge = 0;
+  }
+  if (tree.gooUnlock <= 0) {
+    tree.gooFuse = 0;
+    tree.gooBlast = 0;
+    tree.gooDrive = 0;
+  }
+}
+
+function normalizeMineSkillTree(raw, fallbackLevel = 0) {
+  const tree = createDefaultMineSkillTree();
+  const source = raw && typeof raw === "object" ? raw : null;
+  if (source) {
+    tree.size = clampInt(source.size, 0, MINE_TREE_LIMITS.size);
+    tree.cooldown = clampInt(source.cooldown, 0, MINE_TREE_LIMITS.cooldown);
+    const legacyActiveLimit = Number.isFinite(Number(source.activeLimit)) ? source.activeLimit : source.duration;
+    tree.activeLimit = clampInt(legacyActiveLimit, 0, MINE_TREE_LIMITS.activeLimit);
+    tree.charges = clampInt(source.charges, 0, MINE_TREE_LIMITS.charges);
+    tree.stockpile = clampInt(source.stockpile, 0, MINE_TREE_LIMITS.stockpile);
+    tree.chainUnlock = clampInt(source.chainUnlock, 0, MINE_TREE_LIMITS.chainUnlock);
+    tree.chainRange = clampInt(source.chainRange, 0, MINE_TREE_LIMITS.chainRange);
+    tree.chainDamage = clampInt(source.chainDamage, 0, MINE_TREE_LIMITS.chainDamage);
+    const legacyRecharge = Number.isFinite(Number(source.chainRecharge)) ? source.chainRecharge : source.chainJumps;
+    tree.chainRecharge = clampInt(legacyRecharge, 0, MINE_TREE_LIMITS.chainRecharge);
+    tree.gooUnlock = clampInt(source.gooUnlock, 0, MINE_TREE_LIMITS.gooUnlock);
+    tree.gooFuse = clampInt(source.gooFuse, 0, MINE_TREE_LIMITS.gooFuse);
+    tree.gooBlast = clampInt(source.gooBlast, 0, MINE_TREE_LIMITS.gooBlast);
+    tree.gooDrive = clampInt(source.gooDrive, 0, MINE_TREE_LIMITS.gooDrive);
+  } else {
+    const legacy = clampInt(fallbackLevel, 0, MAX_LEVEL);
+    tree.size = clampInt(Math.floor(legacy * 0.3), 0, MINE_TREE_LIMITS.size);
+    tree.cooldown = clampInt(Math.floor(legacy * 0.28), 0, MINE_TREE_LIMITS.cooldown);
+    tree.activeLimit = clampInt(Math.floor(legacy * 0.2), 0, MINE_TREE_LIMITS.activeLimit);
+    tree.charges = clampInt(Math.floor(legacy * 0.16), 0, MINE_TREE_LIMITS.charges);
+    tree.stockpile = clampInt(Math.floor(legacy * 0.14), 0, MINE_TREE_LIMITS.stockpile);
+    tree.chainUnlock = legacy >= 8 ? 1 : 0;
+    tree.chainRange = tree.chainUnlock ? clampInt(Math.floor((legacy - 8) * 0.18), 0, MINE_TREE_LIMITS.chainRange) : 0;
+    tree.chainDamage = tree.chainUnlock ? clampInt(Math.floor((legacy - 10) * 0.16), 0, MINE_TREE_LIMITS.chainDamage) : 0;
+    tree.chainRecharge = tree.chainUnlock ? clampInt(Math.floor((legacy - 12) * 0.12), 0, MINE_TREE_LIMITS.chainRecharge) : 0;
+    tree.gooUnlock = 0;
+    tree.gooFuse = 0;
+    tree.gooBlast = 0;
+    tree.gooDrive = 0;
+  }
+
+  normalizeMineBranchChoice(tree);
+  return tree;
+}
+
+function getMineTreeTotalLevel(tree) {
+  if (!tree) return 0;
+  return [
+    tree.size,
+    tree.cooldown,
+    tree.activeLimit,
+    tree.charges,
+    tree.stockpile,
+    tree.chainUnlock,
+    tree.chainRange,
+    tree.chainDamage,
+    tree.chainRecharge,
+    tree.gooUnlock,
+    tree.gooFuse,
+    tree.gooBlast,
+    tree.gooDrive,
+  ].reduce((sum, value) => sum + clampInt(value, 0, MAX_LEVEL), 0);
+}
+
+function createDefaultWarpSkillTree() {
+  return {
+    distance: 0,
+    cooldown: 0,
+    burstRadius: 0,
+    burstDamage: 0,
+    comboUnlock: 0,
+    comboWindow: 0,
+    infusionPower: 0,
+    swapPulse: 0,
+  };
+}
+
+function normalizeWarpSkillTree(raw, fallbackLevel = 0) {
+  const tree = createDefaultWarpSkillTree();
+  const source = raw && typeof raw === "object" ? raw : null;
+  if (source) {
+    tree.distance = clampInt(source.distance, 0, WARP_TREE_LIMITS.distance);
+    tree.cooldown = clampInt(source.cooldown, 0, WARP_TREE_LIMITS.cooldown);
+    tree.burstRadius = clampInt(source.burstRadius, 0, WARP_TREE_LIMITS.burstRadius);
+    tree.burstDamage = clampInt(source.burstDamage, 0, WARP_TREE_LIMITS.burstDamage);
+    tree.comboUnlock = clampInt(source.comboUnlock, 0, WARP_TREE_LIMITS.comboUnlock);
+    tree.comboWindow = clampInt(source.comboWindow, 0, WARP_TREE_LIMITS.comboWindow);
+    tree.infusionPower = clampInt(source.infusionPower, 0, WARP_TREE_LIMITS.infusionPower);
+    tree.swapPulse = clampInt(source.swapPulse, 0, WARP_TREE_LIMITS.swapPulse);
+  } else {
+    const legacy = clampInt(fallbackLevel, 0, MAX_LEVEL);
+    tree.distance = clampInt(Math.floor(legacy * 0.3), 0, WARP_TREE_LIMITS.distance);
+    tree.cooldown = clampInt(Math.floor(legacy * 0.27), 0, WARP_TREE_LIMITS.cooldown);
+    tree.burstRadius = clampInt(Math.floor(legacy * 0.22), 0, WARP_TREE_LIMITS.burstRadius);
+    tree.burstDamage = clampInt(Math.floor(legacy * 0.2), 0, WARP_TREE_LIMITS.burstDamage);
+    tree.comboUnlock = legacy >= 12 ? 1 : 0;
+    tree.comboWindow = tree.comboUnlock ? clampInt(Math.floor((legacy - 12) * 0.15), 0, WARP_TREE_LIMITS.comboWindow) : 0;
+    tree.infusionPower = tree.comboUnlock ? clampInt(Math.floor((legacy - 14) * 0.12), 0, WARP_TREE_LIMITS.infusionPower) : 0;
+    tree.swapPulse = tree.comboUnlock ? clampInt(Math.floor((legacy - 16) * 0.1), 0, WARP_TREE_LIMITS.swapPulse) : 0;
+  }
+  if (tree.comboUnlock <= 0) {
+    tree.comboWindow = 0;
+    tree.infusionPower = 0;
+    tree.swapPulse = 0;
+  }
+  return tree;
+}
+
+function getWarpTreeTotalLevel(tree) {
+  if (!tree) return 0;
+  return [
+    tree.distance,
+    tree.cooldown,
+    tree.burstRadius,
+    tree.burstDamage,
+    tree.comboUnlock,
+    tree.comboWindow,
+    tree.infusionPower,
+    tree.swapPulse,
+  ].reduce((sum, value) => sum + clampInt(value, 0, MAX_LEVEL), 0);
 }
 
 function normalizeSlot(value) {
