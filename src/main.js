@@ -300,7 +300,7 @@ const MARATHON_CAMERA_DEADZONE_Y = 150;
 const MARATHON_LOCK_STEP_DISTANCE = 1000;
 const MARATHON_LOCK_DURATION = 20;
 const MARATHON_ROAM_SPAWN_GAP = 6.2;
-const MARATHON_LOCK_SPAWN_GAP = 0.6;
+const MARATHON_LOCK_SPAWN_GAP = 2.6;
 
 const DEFAULT_WORLD_THEME = {
   inner: "#1a2a36",
@@ -856,7 +856,7 @@ function updatePlayButtonLabel() {
 function updateDifficultyNote() {
   updatePlayButtonLabel();
   if (isMarathonDifficulty(state.selectedDifficulty)) {
-    ui.difficultyNote.textContent = "Marathon: endless open world. Difficulty ramps with distance, and every 100m triggers a 20s lock where enemies surge.";
+    ui.difficultyNote.textContent = "Marathon: endless open world. Difficulty ramps every 1000m, and each 1000m checkpoint locks the screen for a 20s enemy surge.";
     return;
   }
   if (isTestDifficulty(state.selectedDifficulty)) {
@@ -2170,9 +2170,8 @@ function stepGame(dt) {
     if (w.isMarathonMode) {
       const lockTimer = w.marathon?.lockTimer || 0;
       if (lockTimer > 0) {
-        const lockGap = Math.max(0.22, MARATHON_LOCK_SPAWN_GAP - w.difficulty * 0.004);
-        const lockSpawnRateBoost = 1 + Math.min(1.6, w.difficulty * 0.05);
-        w.nextSpawn += lockGap / Math.max(0.4, w.scale.spawnRate * lockSpawnRateBoost);
+        const lockGap = Math.max(1.8, MARATHON_LOCK_SPAWN_GAP - w.difficulty * 0.015);
+        w.nextSpawn += lockGap;
       } else {
         const roamGap = Math.max(2.8, MARATHON_ROAM_SPAWN_GAP - w.difficulty * 0.03);
         w.nextSpawn += roamGap;
@@ -6541,26 +6540,26 @@ function applyMarathonCameraShift(w) {
   if (!w?.isMarathonMode || !w.marathon) return;
   const p = w.player;
   const m = w.marathon;
-  if ((m.lockTimer || 0) > 0) return;
-
   p.x = clamp(p.x, 24, canvas.width - 24);
   p.y = clamp(p.y, 24, canvas.height - 24);
+  if ((m.lockTimer || 0) > 0) return;
 
+  let shiftX = 0;
+  let shiftY = 0;
   const centerX = m.spawnScreenX;
   const centerY = m.spawnScreenY;
   const minX = centerX - MARATHON_CAMERA_DEADZONE_X;
   const maxX = centerX + MARATHON_CAMERA_DEADZONE_X;
   const minY = centerY - MARATHON_CAMERA_DEADZONE_Y;
   const maxY = centerY + MARATHON_CAMERA_DEADZONE_Y;
-
-  let shiftX = 0;
-  let shiftY = 0;
   if (p.x < minX) shiftX = minX - p.x;
   else if (p.x > maxX) shiftX = maxX - p.x;
   if (p.y < minY) shiftY = minY - p.y;
   else if (p.y > maxY) shiftY = maxY - p.y;
 
-  if (shiftX === 0 && shiftY === 0) return;
+  if (shiftX === 0 && shiftY === 0) {
+    return;
+  }
   shiftWorldEntitiesByOffset(w, shiftX, shiftY);
   p.x += shiftX;
   p.y += shiftY;
@@ -6570,11 +6569,11 @@ function applyMarathonCameraShift(w) {
 
 function updateMarathonState(w, dt = 0) {
   if (!w?.isMarathonMode || !w.marathon) return;
+  const safeDt = Math.max(0, Number(dt) || 0);
   applyMarathonCameraShift(w);
 
   const m = w.marathon;
   const p = w.player;
-  const safeDt = Math.max(0, Number(dt) || 0);
   if ((m.lockTimer || 0) > 0) {
     m.lockTimer = Math.max(0, m.lockTimer - safeDt);
     if (m.lockTimer <= 0.001) {
