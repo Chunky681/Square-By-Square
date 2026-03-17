@@ -1,6 +1,6 @@
 
 import { clonePlayer, getOrCreatePlayer, savePlayer } from "./storage.js";
-import { ENEMY_CONFIG, pickEnemyKindForDifficulty } from "./enemyConfig.js";
+import { ENEMY_CONFIG, getSpawnCandidatesForDifficulty, pickEnemyKindForDifficulty } from "./enemyConfig.js";
 
 const RUN_DURATION = 60;
 const ARENA_WIDTH = 1600;
@@ -292,6 +292,60 @@ const DIFFICULTY_META = {
   10: "Abyss",
 };
 const TEST_DIFFICULTY_VALUE = "test";
+const MARATHON_DIFFICULTY_VALUE = "marathon";
+const MARATHON_DISTANCE_PER_DIFFICULTY = 1000;
+const MARATHON_MAX_DIFFICULTY = 50;
+const MARATHON_CAMERA_DEADZONE_X = 220;
+const MARATHON_CAMERA_DEADZONE_Y = 150;
+const MARATHON_LOCK_STEP_DISTANCE = 1000;
+const MARATHON_LOCK_DURATION = 20;
+const MARATHON_ROAM_SPAWN_GAP = 6.2;
+const MARATHON_LOCK_SPAWN_GAP = 0.6;
+
+const DEFAULT_WORLD_THEME = {
+  inner: "#1a2a36",
+  outer: "#0a1016",
+  gridRgb: "125,211,252",
+  gridAlpha: 0.08,
+};
+
+const MARATHON_BIOMES = [
+  {
+    id: "origin",
+    name: "Origin Basin",
+    minDistance: 0,
+    theme: { inner: "#1a2a36", outer: "#08111a", gridRgb: "125,211,252", gridAlpha: 0.08 },
+    enemyWeights: { chaser: 1.35, dart: 1.2, brute: 1.05, shardling: 0.7, tank: 0.45, splitter: 0.35, berserker: 0.5, siphon: 0.2, phantom: 0.2 },
+  },
+  {
+    id: "ember",
+    name: "Ember Expanse",
+    minDistance: 1800,
+    theme: { inner: "#2b1f18", outer: "#130d09", gridRgb: "255,170,105", gridAlpha: 0.095 },
+    enemyWeights: { chaser: 0.9, dart: 1.1, brute: 1.15, berserker: 1.35, leaper: 1.55, tank: 0.8, splitter: 0.75, shardling: 1.15, siphon: 0.45, phantom: 0.35, mini_boss_miner: 1.2 },
+  },
+  {
+    id: "verdant",
+    name: "Verdant Alloy",
+    minDistance: 3600,
+    theme: { inner: "#162a22", outer: "#07110d", gridRgb: "136,248,168", gridAlpha: 0.095 },
+    enemyWeights: { chaser: 0.7, dart: 0.95, brute: 1.15, berserker: 1.2, leaper: 1.2, tank: 1.45, splitter: 1.4, shardling: 1.25, siphon: 0.8, phantom: 0.75, mini_boss: 1.25 },
+  },
+  {
+    id: "void",
+    name: "Void Glass",
+    minDistance: 5600,
+    theme: { inner: "#1f1833", outer: "#0a0716", gridRgb: "197,146,255", gridAlpha: 0.1 },
+    enemyWeights: { chaser: 0.55, dart: 0.75, brute: 0.9, berserker: 1.05, leaper: 0.95, tank: 1.2, splitter: 1.3, shardling: 0.85, siphon: 1.45, phantom: 1.55, mini_boss: 1.1, siphon_overlord: 1.15 },
+  },
+  {
+    id: "cataclysm",
+    name: "Cataclysm Rim",
+    minDistance: 8200,
+    theme: { inner: "#2b1414", outer: "#0c0505", gridRgb: "255,118,118", gridAlpha: 0.11 },
+    enemyWeights: { chaser: 0.35, dart: 0.55, brute: 1.2, berserker: 1.25, leaper: 1.2, tank: 1.45, splitter: 1.45, shardling: 1.15, siphon: 1.35, phantom: 1.3, mini_boss: 1.35, mini_boss_miner: 1.35, mega_cannon_boss: 1.2, siphon_overlord: 1.25, boss_bottom_left: 1.15 },
+  },
+];
 
 const DROP_COLORS = {
   essence: "#9cf3a6",
@@ -489,7 +543,9 @@ function bindUI() {
 
   ui.difficultySelect.addEventListener("change", () => {
     const selected = ui.difficultySelect.value;
-    state.selectedDifficulty = selected === TEST_DIFFICULTY_VALUE ? TEST_DIFFICULTY_VALUE : (Number(selected) || 1);
+    if (selected === TEST_DIFFICULTY_VALUE) state.selectedDifficulty = TEST_DIFFICULTY_VALUE;
+    else if (selected === MARATHON_DIFFICULTY_VALUE) state.selectedDifficulty = MARATHON_DIFFICULTY_VALUE;
+    else state.selectedDifficulty = Number(selected) || 1;
     updateDifficultyNote();
   });
 
@@ -704,10 +760,18 @@ function tryHandleWarpComboSelection() {
 
   const px = p.x;
   const py = p.y;
-  p.x = clamp(enemy.x, 14, canvas.width - 14);
-  p.y = clamp(enemy.y, 14, canvas.height - 14);
-  enemy.x = clamp(px, enemy.r || 10, canvas.width - (enemy.r || 10));
-  enemy.y = clamp(py, enemy.r || 10, canvas.height - (enemy.r || 10));
+  if (w.isMarathonMode) {
+    p.x = enemy.x;
+    p.y = enemy.y;
+    enemy.x = px;
+    enemy.y = py;
+    clampPlayer(p);
+  } else {
+    p.x = clamp(enemy.x, 14, canvas.width - 14);
+    p.y = clamp(enemy.y, 14, canvas.height - 14);
+    enemy.x = clamp(px, enemy.r || 10, canvas.width - (enemy.r || 10));
+    enemy.y = clamp(py, enemy.r || 10, canvas.height - (enemy.r || 10));
+  }
   enemy.hitFlash = Math.max(enemy.hitFlash || 0, 0.2);
   p.warpComboT = 0;
   p.warpComboDuration = 0;
@@ -739,6 +803,10 @@ function fillDifficultySelect() {
     option.textContent = `D${d} - ${DIFFICULTY_META[d]}`;
     ui.difficultySelect.appendChild(option);
   }
+  const marathonOption = document.createElement("option");
+  marathonOption.value = MARATHON_DIFFICULTY_VALUE;
+  marathonOption.textContent = "Marathon - Open World";
+  ui.difficultySelect.appendChild(marathonOption);
   const testOption = document.createElement("option");
   testOption.value = TEST_DIFFICULTY_VALUE;
   testOption.textContent = "Test - Manual Spawns";
@@ -762,13 +830,35 @@ function isTestDifficulty(difficulty) {
   return difficulty === TEST_DIFFICULTY_VALUE;
 }
 
+function isMarathonDifficulty(difficulty) {
+  return difficulty === MARATHON_DIFFICULTY_VALUE;
+}
+
 function getDifficultyTier(difficulty) {
   const n = Number(difficulty);
   if (!Number.isFinite(n)) return 1;
   return clamp(Math.floor(n), 1, 10);
 }
 
+function updatePlayButtonLabel() {
+  if (!ui.playBtn) return;
+  if (isMarathonDifficulty(state.selectedDifficulty)) {
+    ui.playBtn.textContent = "Play (Marathon)";
+    return;
+  }
+  if (isTestDifficulty(state.selectedDifficulty)) {
+    ui.playBtn.textContent = "Play (Test Arena)";
+    return;
+  }
+  ui.playBtn.textContent = "Play (1:00 Survival)";
+}
+
 function updateDifficultyNote() {
+  updatePlayButtonLabel();
+  if (isMarathonDifficulty(state.selectedDifficulty)) {
+    ui.difficultyNote.textContent = "Marathon: endless open world. Difficulty ramps with distance, and every 100m triggers a 20s lock where enemies surge.";
+    return;
+  }
   if (isTestDifficulty(state.selectedDifficulty)) {
     ui.difficultyNote.textContent = `Test: endless run, no auto waves. Use the right panel to spawn enemies and live-scale at D${state.testDifficulty}.`;
     return;
@@ -1902,7 +1992,12 @@ function startRun() {
 
 function makeWorld(profile, difficulty) {
   const isTestMode = isTestDifficulty(difficulty);
-  const difficultyTier = isTestMode ? getDifficultyTier(state.testDifficulty) : getDifficultyTier(difficulty);
+  const isMarathonMode = isMarathonDifficulty(difficulty);
+  const difficultyTier = isTestMode
+    ? getDifficultyTier(state.testDifficulty)
+    : isMarathonMode
+      ? 1
+      : getDifficultyTier(difficulty);
   const scale = difficultyScale(difficultyTier);
 
   const slottedItems = profile.items.filter((item) => item.slot !== null && item.slot >= 0 && item.slot < MAX_VISIBLE_SLOTS);
@@ -1918,11 +2013,12 @@ function makeWorld(profile, difficulty) {
 
   const world = {
     difficulty: difficultyTier,
-    difficultyMode: isTestMode ? TEST_DIFFICULTY_VALUE : String(difficultyTier),
+    difficultyMode: isTestMode ? TEST_DIFFICULTY_VALUE : isMarathonMode ? MARATHON_DIFFICULTY_VALUE : String(difficultyTier),
     isTestMode,
+    isMarathonMode,
     scale,
     t: 0,
-    timer: isTestMode ? Number.POSITIVE_INFINITY : RUN_DURATION,
+    timer: isTestMode || isMarathonMode ? Number.POSITIVE_INFINITY : RUN_DURATION,
     nextSpawn: 0.8,
     threat: 1,
     kills: 0,
@@ -1943,6 +2039,22 @@ function makeWorld(profile, difficulty) {
     mineLinkCooldowns: {},
     testPlayerInvincible: isTestMode ? !!state.testInvincible : false,
     helper: null,
+    marathon: isMarathonMode
+      ? {
+          spawnScreenX: canvas.width * 0.5,
+          spawnScreenY: canvas.height * 0.5,
+          cameraOffsetX: 0,
+          cameraOffsetY: 0,
+          worldX: 0,
+          worldY: 0,
+          distance: 0,
+          maxDistance: 0,
+          nextLockDistance: MARATHON_LOCK_STEP_DISTANCE,
+          lockTimer: 0,
+          activeLockDistance: 0,
+          biome: getMarathonBiomeByDistance(0),
+        }
+      : null,
     player: {
       x: canvas.width * 0.5,
       y: canvas.height * 0.5,
@@ -1973,6 +2085,7 @@ function makeWorld(profile, difficulty) {
       aegisFlash: 0,
     },
   };
+  if (isMarathonMode) updateMarathonState(world, 0);
   syncAmberMineChargeCapacity(world, true);
   return world;
 }
@@ -1994,8 +2107,10 @@ function stepGame(dt) {
   const p = w.player;
 
   w.t += dt;
-  w.timer = w.isTestMode ? Number.POSITIVE_INFINITY : Math.max(0, RUN_DURATION - w.t);
-  w.threat = 1 + Math.floor(w.t / 22);
+  w.timer = w.isTestMode || w.isMarathonMode ? Number.POSITIVE_INFINITY : Math.max(0, RUN_DURATION - w.t);
+  if (!w.isMarathonMode) {
+    w.threat = 1 + Math.floor(w.t / 22);
+  }
 
   p.voidCd = Math.max(0, p.voidCd - dt);
   p.azureCd = Math.max(0, p.azureCd - dt);
@@ -2042,14 +2157,30 @@ function stepGame(dt) {
     state.input.amber = false;
   }
 
+  if (w.isMarathonMode) {
+    updateMarathonState(w, dt);
+  }
+
   if (state.input.firing) {
     fireSlottedWeapons(w);
   }
 
   if (!w.isTestMode && w.t >= w.nextSpawn) {
     spawnEnemyWave(w);
-    const baseGap = Math.max(0.35, 1.02 - w.threat * 0.022);
-    w.nextSpawn += baseGap / w.scale.spawnRate;
+    if (w.isMarathonMode) {
+      const lockTimer = w.marathon?.lockTimer || 0;
+      if (lockTimer > 0) {
+        const lockGap = Math.max(0.22, MARATHON_LOCK_SPAWN_GAP - w.difficulty * 0.004);
+        const lockSpawnRateBoost = 1 + Math.min(1.6, w.difficulty * 0.05);
+        w.nextSpawn += lockGap / Math.max(0.4, w.scale.spawnRate * lockSpawnRateBoost);
+      } else {
+        const roamGap = Math.max(2.8, MARATHON_ROAM_SPAWN_GAP - w.difficulty * 0.03);
+        w.nextSpawn += roamGap;
+      }
+    } else {
+      const baseGap = Math.max(0.35, 1.02 - w.threat * 0.022);
+      w.nextSpawn += baseGap / w.scale.spawnRate;
+    }
   }
 
   stepBullets(w, dt);
@@ -2075,7 +2206,7 @@ function stepGame(dt) {
     return;
   }
 
-  if (!w.isTestMode && w.timer <= 0) {
+  if (!w.isTestMode && !w.isMarathonMode && w.timer <= 0) {
     endRun(true);
   }
 }
@@ -3472,10 +3603,49 @@ function spawnEnemyByKind(w, kind, x, y) {
   w.enemies.push({ kind: "phantom", x, y, hp: (58 + w.threat * 6) * hpScale, speed: (150 + w.threat * 2.2) * spdScale, r: 12, cd: 1.0, zig: Math.random() * 6.28, phase: 0 });
 }
 
+function pickWeightedEnemyKind(candidates) {
+  if (!Array.isArray(candidates) || candidates.length === 0) return "chaser";
+  let total = 0;
+  for (const candidate of candidates) {
+    total += Math.max(0, Number(candidate.weight) || 0);
+  }
+  if (total <= 0) return candidates[0]?.kind || "chaser";
+
+  let roll = Math.random() * total;
+  for (const candidate of candidates) {
+    roll -= Math.max(0, Number(candidate.weight) || 0);
+    if (roll <= 0) return candidate.kind;
+  }
+  return candidates[candidates.length - 1]?.kind || "chaser";
+}
+
+function pickEnemyKindForWorld(w) {
+  if (!w?.isMarathonMode) {
+    return pickEnemyKindForDifficulty(w.difficulty);
+  }
+
+  const biome = w.marathon?.biome;
+  const baseCandidates = getSpawnCandidatesForDifficulty(w.difficulty);
+  if (!biome?.enemyWeights || baseCandidates.length <= 0) {
+    return pickEnemyKindForDifficulty(w.difficulty);
+  }
+
+  const weighted = [];
+  for (const candidate of baseCandidates) {
+    const mult = biome.enemyWeights[candidate.kind];
+    const nextWeight = candidate.weight * (Number.isFinite(mult) ? Math.max(0, mult) : 1);
+    if (nextWeight > 0) {
+      weighted.push({ kind: candidate.kind, weight: nextWeight });
+    }
+  }
+
+  return pickWeightedEnemyKind(weighted.length > 0 ? weighted : baseCandidates);
+}
+
 function spawnEnemyWave(w) {
   const count = 1 + Math.floor(w.threat * 0.48 + (w.difficulty - 1) * 0.35);
   for (let i = 0; i < count; i += 1) {
-    const kind = pickEnemyKindForDifficulty(w.difficulty);
+    const kind = pickEnemyKindForWorld(w);
     const edge = Math.floor(Math.random() * 4);
     let x = 0;
     let y = 0;
@@ -5560,17 +5730,26 @@ function drawBossBursts(w) {
   ctx.lineWidth = 1;
 }
 
+function getWorldVisualTheme(w) {
+  if (w?.isMarathonMode) {
+    const biomeTheme = w.marathon?.biome?.theme;
+    if (biomeTheme) return biomeTheme;
+  }
+  return DEFAULT_WORLD_THEME;
+}
+
 function drawGame() {
   const w = state.world;
   if (!w) return;
 
+  const theme = getWorldVisualTheme(w);
   const grad = ctx.createRadialGradient(canvas.width * 0.5, canvas.height * 0.5, 60, canvas.width * 0.5, canvas.height * 0.5, canvas.width * 0.84);
-  grad.addColorStop(0, "#1a2a36");
-  grad.addColorStop(1, "#0a1016");
+  grad.addColorStop(0, theme.inner || DEFAULT_WORLD_THEME.inner);
+  grad.addColorStop(1, theme.outer || DEFAULT_WORLD_THEME.outer);
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  drawGrid();
+  drawGrid(w, theme);
   drawBossBursts(w);
   const p = w.player;
   const warpComboActive = (p.warpComboT || 0) > 0;
@@ -6217,18 +6396,24 @@ function drawGame() {
   }
 }
 
-function drawGrid() {
+function drawGrid(w, theme = DEFAULT_WORLD_THEME) {
   const step = Math.max(56, Math.floor(Math.min(canvas.width, canvas.height) / 12));
-  ctx.strokeStyle = "rgba(125, 211, 252, 0.08)";
+  const camX = w?.isMarathonMode ? (w.marathon?.cameraOffsetX || 0) : 0;
+  const camY = w?.isMarathonMode ? (w.marathon?.cameraOffsetY || 0) : 0;
+  const offsetX = ((camX % step) + step) % step;
+  const offsetY = ((camY % step) + step) % step;
+  const gridAlpha = Number.isFinite(theme?.gridAlpha) ? theme.gridAlpha : DEFAULT_WORLD_THEME.gridAlpha;
+  const gridRgb = theme?.gridRgb || DEFAULT_WORLD_THEME.gridRgb;
+  ctx.strokeStyle = `rgba(${gridRgb}, ${gridAlpha})`;
   ctx.lineWidth = 1;
 
-  for (let x = step * 0.5; x < canvas.width; x += step) {
+  for (let x = -offsetX; x < canvas.width + step; x += step) {
     ctx.beginPath();
     ctx.moveTo(x, 0);
     ctx.lineTo(x, canvas.height);
     ctx.stroke();
   }
-  for (let y = step * 0.5; y < canvas.height; y += step) {
+  for (let y = -offsetY; y < canvas.height + step; y += step) {
     ctx.beginPath();
     ctx.moveTo(0, y);
     ctx.lineTo(canvas.width, y);
@@ -6279,15 +6464,27 @@ function endRun(survived) {
     savePlayer(state.player);
 
     ui.resultTitle.textContent = "Survived";
-    ui.resultSummary.textContent = `You held out for ${RUN_DURATION}s at D${w.difficulty}. Banked +${bankedEssence} Essence, +${bankedVoid} Void, +${bankedAzure} Azure, +${bankedAmber} Amber.`;
+    if (w.isMarathonMode) {
+      const m = w.marathon;
+      const biomeName = m?.biome?.name || "Unknown Biome";
+      ui.resultSummary.textContent = `Marathon clear at D${w.difficulty}. Farthest distance: ${formatDistance(m?.maxDistance || 0)} in ${biomeName}. Banked +${bankedEssence} Essence, +${bankedVoid} Void, +${bankedAzure} Azure, +${bankedAmber} Amber.`;
+    } else {
+      ui.resultSummary.textContent = `You held out for ${RUN_DURATION}s at D${w.difficulty}. Banked +${bankedEssence} Essence, +${bankedVoid} Void, +${bankedAzure} Azure, +${bankedAmber} Amber.`;
+    }
     audio.play("win");
   } else {
     state.player = clonePlayer(state.playerAtRunStart || state.player);
     savePlayer(state.player);
 
-    const elapsed = RUN_DURATION - w.timer;
     ui.resultTitle.textContent = "Defeated";
-    ui.resultSummary.textContent = `Run failed after ${Math.floor(elapsed)}s. ${bankedEssence} Essence, ${bankedVoid} Void, ${bankedAzure} Azure, and ${bankedAmber} Amber were lost.`;
+    if (w.isMarathonMode) {
+      const m = w.marathon;
+      const biomeName = m?.biome?.name || "Unknown Biome";
+      ui.resultSummary.textContent = `Marathon ended at ${formatDistance(m?.distance || 0)} (best ${formatDistance(m?.maxDistance || 0)}), D${w.difficulty}, ${biomeName}. ${bankedEssence} Essence, ${bankedVoid} Void, ${bankedAzure} Azure, and ${bankedAmber} Amber were lost.`;
+    } else {
+      const elapsed = RUN_DURATION - w.timer;
+      ui.resultSummary.textContent = `Run failed after ${Math.floor(elapsed)}s. ${bankedEssence} Essence, ${bankedVoid} Void, ${bankedAzure} Azure, and ${bankedAmber} Amber were lost.`;
+    }
     audio.play("lose");
   }
 
@@ -6296,14 +6493,143 @@ function endRun(survived) {
   setScreen("result");
 }
 
+function getMarathonBiomeByDistance(distance) {
+  let biome = MARATHON_BIOMES[0];
+  for (const candidate of MARATHON_BIOMES) {
+    if (distance >= candidate.minDistance) biome = candidate;
+    else break;
+  }
+  return biome;
+}
+
+function shiftEntityByOffset(entity, dx, dy) {
+  if (!entity || typeof entity !== "object") return;
+  if (Number.isFinite(entity.x)) entity.x += dx;
+  if (Number.isFinite(entity.y)) entity.y += dy;
+  if (Number.isFinite(entity.px)) entity.px += dx;
+  if (Number.isFinite(entity.py)) entity.py += dy;
+  if (Array.isArray(entity.drainLinks)) {
+    for (const link of entity.drainLinks) {
+      if (!link) continue;
+      if (Number.isFinite(link.x)) link.x += dx;
+      if (Number.isFinite(link.y)) link.y += dy;
+    }
+  }
+}
+
+function shiftEntityListByOffset(list, dx, dy) {
+  if (!Array.isArray(list) || list.length === 0) return;
+  for (const entity of list) {
+    shiftEntityByOffset(entity, dx, dy);
+  }
+}
+
+function shiftWorldEntitiesByOffset(w, dx, dy) {
+  if (!w || (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001)) return;
+  shiftEntityListByOffset(w.enemies, dx, dy);
+  shiftEntityListByOffset(w.bullets, dx, dy);
+  shiftEntityListByOffset(w.drops, dx, dy);
+  shiftEntityListByOffset(w.mines, dx, dy);
+  shiftEntityListByOffset(w.enemyMines, dx, dy);
+  shiftEntityListByOffset(w.bossBursts, dx, dy);
+  shiftEntityListByOffset(w.rockets, dx, dy);
+  shiftEntityListByOffset(w.allies, dx, dy);
+  shiftEntityListByOffset(w.particles, dx, dy);
+}
+
+function applyMarathonCameraShift(w) {
+  if (!w?.isMarathonMode || !w.marathon) return;
+  const p = w.player;
+  const m = w.marathon;
+  if ((m.lockTimer || 0) > 0) return;
+
+  p.x = clamp(p.x, 24, canvas.width - 24);
+  p.y = clamp(p.y, 24, canvas.height - 24);
+
+  const centerX = m.spawnScreenX;
+  const centerY = m.spawnScreenY;
+  const minX = centerX - MARATHON_CAMERA_DEADZONE_X;
+  const maxX = centerX + MARATHON_CAMERA_DEADZONE_X;
+  const minY = centerY - MARATHON_CAMERA_DEADZONE_Y;
+  const maxY = centerY + MARATHON_CAMERA_DEADZONE_Y;
+
+  let shiftX = 0;
+  let shiftY = 0;
+  if (p.x < minX) shiftX = minX - p.x;
+  else if (p.x > maxX) shiftX = maxX - p.x;
+  if (p.y < minY) shiftY = minY - p.y;
+  else if (p.y > maxY) shiftY = maxY - p.y;
+
+  if (shiftX === 0 && shiftY === 0) return;
+  shiftWorldEntitiesByOffset(w, shiftX, shiftY);
+  p.x += shiftX;
+  p.y += shiftY;
+  m.cameraOffsetX -= shiftX;
+  m.cameraOffsetY -= shiftY;
+}
+
+function updateMarathonState(w, dt = 0) {
+  if (!w?.isMarathonMode || !w.marathon) return;
+  applyMarathonCameraShift(w);
+
+  const m = w.marathon;
+  const p = w.player;
+  const safeDt = Math.max(0, Number(dt) || 0);
+  if ((m.lockTimer || 0) > 0) {
+    m.lockTimer = Math.max(0, m.lockTimer - safeDt);
+    if (m.lockTimer <= 0.001) {
+      m.lockTimer = 0;
+      m.activeLockDistance = 0;
+    }
+  }
+
+  m.worldX = (p.x - m.spawnScreenX) + m.cameraOffsetX;
+  m.worldY = (p.y - m.spawnScreenY) + m.cameraOffsetY;
+  m.distance = Math.hypot(m.worldX, m.worldY);
+  if ((m.lockTimer || 0) <= 0) {
+    m.maxDistance = Math.max(m.maxDistance, m.distance);
+  }
+
+  const nextLockDistance = Math.max(MARATHON_LOCK_STEP_DISTANCE, Number(m.nextLockDistance) || MARATHON_LOCK_STEP_DISTANCE);
+  if ((m.lockTimer || 0) <= 0 && m.maxDistance >= nextLockDistance) {
+    m.lockTimer = MARATHON_LOCK_DURATION;
+    m.activeLockDistance = nextLockDistance;
+    m.nextLockDistance = nextLockDistance + MARATHON_LOCK_STEP_DISTANCE;
+    w.nextSpawn = Math.min(w.nextSpawn, w.t + 0.08);
+  }
+
+  const marathonDifficulty = clamp(1 + Math.floor(m.maxDistance / MARATHON_DISTANCE_PER_DIFFICULTY), 1, MARATHON_MAX_DIFFICULTY);
+  if (marathonDifficulty !== w.difficulty) {
+    w.difficulty = marathonDifficulty;
+    w.scale = difficultyScale(marathonDifficulty);
+  }
+  w.difficultyMode = `${MARATHON_DIFFICULTY_VALUE}-${w.difficulty}`;
+  w.threat = 1 + Math.floor(w.t / 24) + Math.floor((w.difficulty - 1) * 0.9);
+  m.biome = getMarathonBiomeByDistance(m.distance);
+}
+
 function clampPlayer(p) {
+  if (state.world?.isMarathonMode) {
+    p.x = clamp(p.x, 24, canvas.width - 24);
+    p.y = clamp(p.y, 24, canvas.height - 24);
+    applyMarathonCameraShift(state.world);
+    return;
+  }
   p.x = clamp(p.x, 14, canvas.width - 14);
   p.y = clamp(p.y, 14, canvas.height - 14);
 }
 
 function updateHud(w) {
   const p = w.player;
-  ui.timer.textContent = w.isTestMode ? "TEST \u221e" : formatTime(w.timer);
+  if (w.isTestMode) {
+    ui.timer.textContent = "TEST \u221e";
+  } else if (w.isMarathonMode) {
+    const currentDistance = formatDistance(w.marathon?.distance || 0);
+    const achievedDistance = formatDistance(w.marathon?.maxDistance || 0);
+    ui.timer.textContent = `Dist ${currentDistance} | Achieved ${achievedDistance}`;
+  } else {
+    ui.timer.textContent = formatTime(w.timer);
+  }
   const hpNow = Math.max(0, Math.floor(p.hp));
   const hpMax = Math.max(1, Math.floor(p.maxHp));
   const hpPct = clamp(p.hp / Math.max(1, p.maxHp), 0, 1);
@@ -6337,8 +6663,26 @@ function updateHud(w) {
   if (ui.runAmberValue) ui.runAmberValue.textContent = String(Math.floor(w.runAmber));
   else ui.runAmber.textContent = `Run Amber ${Math.floor(w.runAmber)}`;
   ui.kills.textContent = `Kills ${w.kills}`;
-  ui.wave.textContent = `Threat ${w.threat}`;
-  ui.hudDifficulty.textContent = w.isTestMode ? `TEST D${w.difficulty}` : `D${w.difficulty}`;
+  if (w.isMarathonMode) {
+    const lockTimer = w.marathon?.lockTimer || 0;
+    if (lockTimer > 0) {
+      const lockAt = formatDistance(w.marathon?.activeLockDistance || 0);
+      ui.wave.textContent = `Threat ${w.threat} | LOCK ${lockTimer.toFixed(1)}s @ ${lockAt}`;
+    } else {
+      const nextLock = formatDistance(w.marathon?.nextLockDistance || MARATHON_LOCK_STEP_DISTANCE);
+      ui.wave.textContent = `Threat ${w.threat} | Roaming (next lock ${nextLock})`;
+    }
+  } else {
+    ui.wave.textContent = `Threat ${w.threat}`;
+  }
+  if (w.isTestMode) {
+    ui.hudDifficulty.textContent = `TEST D${w.difficulty}`;
+  } else if (w.isMarathonMode) {
+    const biomeName = w.marathon?.biome?.name || "Unknown";
+    ui.hudDifficulty.textContent = `MAR D${w.difficulty} | ${biomeName}`;
+  } else {
+    ui.hudDifficulty.textContent = `D${w.difficulty}`;
+  }
 }
 
 function createAudioSystem() {
@@ -6406,6 +6750,11 @@ function formatTime(seconds) {
   const m = Math.floor(s / 60);
   const rem = s % 60;
   return `${m}:${String(rem).padStart(2, "0")}`;
+}
+
+function formatDistance(distance) {
+  const units = Math.max(0, Math.floor(distance || 0));
+  return `${units}m`;
 }
 
 function hexToRgb(hex) {
