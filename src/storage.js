@@ -1,4 +1,5 @@
-const STORAGE_KEY = "rift_run_profiles_v2";
+const PLAYER_API_BASE = "/api/player";
+const SAVE_RETRY_DELAY_MS = 400;
 const MAX_LEVEL = 50;
 const MAX_SLOTS = 18;
 
@@ -63,44 +64,181 @@ const WARP_TREE_LIMITS = {
   swapPulse: 5,
 };
 
-function readStore() {
-  const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem("rift_run_profiles_v1");
-  if (!raw) {
-    return { players: {} };
-  }
+let didWarnSaveFailure = false;
+let isSaveFlushRunning = false;
+let saveRetryTimer = null;
+const pendingPlayerSaves = new Map();
 
-  try {
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object" || typeof parsed.players !== "object") {
-      return { players: {} };
-    }
-    return parsed;
-  } catch {
-    return { players: {} };
-  }
+function apiPathForPlayer(id) {
+  return `${PLAYER_API_BASE}/${encodeURIComponent(id)}`;
 }
 
-function writeStore(store) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+function requestJsonSync(method, path, payload = null) {
+  const xhr = new XMLHttpRequest();
+  xhr.open(method, path, false);
+  xhr.setRequestHeader("Accept", "application/json");
+  if (payload !== null) {
+    xhr.setRequestHeader("Content-Type", "application/json");
+  }
+  xhr.send(payload === null ? null : JSON.stringify(payload));
+
+  const text = (xhr.responseText || "").trim();
+  let body = null;
+  if (text) {
+    try {
+      body = JSON.parse(text);
+    } catch {
+      body = null;
+    }
+  }
+
+  if (xhr.status >= 200 && xhr.status < 300) {
+    return body;
+  }
+
+  const apiMessage = body && typeof body.error === "string" ? body.error : null;
+  throw new Error(apiMessage || `Storage request failed (${xhr.status}).`);
+}
+
+async function requestJsonAsync(method, path, payload = null) {
+  const options = {
+    method,
+    headers: {
+      Accept: "application/json",
+    },
+  };
+  if (payload !== null) {
+    options.headers["Content-Type"] = "application/json";
+    options.body = JSON.stringify(payload);
+  }
+
+  const response = await fetch(path, options);
+  const text = (await response.text()).trim();
+  let body = null;
+  if (text) {
+    try {
+      body = JSON.parse(text);
+    } catch {
+      body = null;
+    }
+  }
+
+  if (response.ok) {
+    return body;
+  }
+
+  const apiMessage = body && typeof body.error === "string" ? body.error : null;
+  throw new Error(apiMessage || `Storage request failed (${response.status}).`);
+}
+
+function readPlayerFromFile(id) {
+  const result = requestJsonSync("GET", apiPathForPlayer(id));
+  if (!result || typeof result !== "object" || !("player" in result)) {
+    return null;
+  }
+  return result.player;
+}
+
+function writePlayerToFileSync(player) {
+  requestJsonSync("PUT", apiPathForPlayer(player.id), { player });
+}
+
+async function writePlayerToFileAsync(player) {
+  await requestJsonAsync("PUT", apiPathForPlayer(player.id), { player });
+}
+
+function makeStorageUnavailableError(cause) {
+  const error = new Error("Could not access local player storage. Start the game with `python server.py` and try again.");
+  error.cause = cause;
+  return error;
 }
 
 export function getOrCreatePlayer(id) {
   const key = String(id ?? "").trim().toLowerCase();
-  const store = readStore();
-
-  if (!store.players[key]) {
-    store.players[key] = createDefaultPlayer(key);
-    writeStore(store);
-    return { ...store.players[key] };
+  if (!key) {
+    throw new Error("Player ID is required.");
   }
 
-  return normalizePlayer(store.players[key]);
+  try {
+    const existing = readPlayerFromFile(key);
+    if (existing && typeof existing === "object") {
+      return normalizePlayer(existing);
+    }
+
+    const created = createDefaultPlayer(key);
+    writePlayerToFileSync(created);
+    return normalizePlayer(created);
+  } catch (err) {
+    throw makeStorageUnavailableError(err);
+  }
 }
 
 export function savePlayer(player) {
-  const store = readStore();
-  store.players[player.id] = normalizePlayer(player);
-  writeStore(store);
+  const normalized = normalizePlayer(player);
+  pendingPlayerSaves.set(normalized.id, normalized);
+  scheduleSaveFlush();
+}
+
+function scheduleSaveFlush(delayMs = 0) {
+  if (isSaveFlushRunning) return;
+  if (delayMs > 0) {
+    if (saveRetryTimer !== null) return;
+    saveRetryTimer = setTimeout(() => {
+      saveRetryTimer = null;
+      if (isSaveFlushRunning || pendingPlayerSaves.size === 0) return;
+      isSaveFlushRunning = true;
+      void flushPendingSaves();
+    }, delayMs);
+    return;
+  }
+
+  isSaveFlushRunning = true;
+  void flushPendingSaves();
+}
+
+async function flushPendingSaves() {
+  while (pendingPlayerSaves.size > 0) {
+    const entry = pendingPlayerSaves.entries().next().value;
+    if (!entry) break;
+    const [playerId, snapshot] = entry;
+    pendingPlayerSaves.delete(playerId);
+    try {
+      await writePlayerToFileAsync(snapshot);
+      didWarnSaveFailure = false;
+    } catch (err) {
+      pendingPlayerSaves.set(playerId, snapshot);
+      if (!didWarnSaveFailure) {
+        didWarnSaveFailure = true;
+        console.error("Player save failed. Retrying in the background. Ensure `python server.py` is running.", err);
+      }
+      isSaveFlushRunning = false;
+      scheduleSaveFlush(SAVE_RETRY_DELAY_MS);
+      return;
+    }
+  }
+
+  isSaveFlushRunning = false;
+}
+
+function flushPendingSavesSynchronously() {
+  if (pendingPlayerSaves.size === 0) return;
+  for (const snapshot of pendingPlayerSaves.values()) {
+    try {
+      writePlayerToFileSync(snapshot);
+    } catch {
+      // Ignore unload-time save errors.
+    }
+  }
+  pendingPlayerSaves.clear();
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("beforeunload", flushPendingSavesSynchronously);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") {
+      flushPendingSavesSynchronously();
+    }
+  });
 }
 
 export function clonePlayer(player) {
@@ -117,6 +255,9 @@ function createDefaultPlayer(id) {
     bestTime: 0,
     totalKills: 0,
     wins: 0,
+    marathonCheckpointDistance: 0,
+    marathonCheckpointX: 0,
+    marathonCheckpointY: 0,
     nextItemId: 2,
     items: [
       { id: 1, type: "cannon", level: 0, slot: 0, spentXp: 0 },
@@ -156,6 +297,26 @@ function normalizePlayer(player) {
   p.bestTime = Math.max(0, Number(player.bestTime) || 0);
   p.totalKills = Math.max(0, Number(player.totalKills) || 0);
   p.wins = Math.max(0, Number(player.wins) || 0);
+  const marathonDirect = Number(player.marathonCheckpointDistance);
+  const marathonLegacy = Number(player.marathonCheckpoint?.distance);
+  p.marathonCheckpointDistance = Math.max(
+    0,
+    Math.floor(
+      Number.isFinite(marathonDirect)
+        ? marathonDirect
+        : (Number.isFinite(marathonLegacy) ? marathonLegacy : 0),
+    ),
+  );
+  const checkpointDirectX = Number(player.marathonCheckpointX);
+  const checkpointDirectY = Number(player.marathonCheckpointY);
+  const checkpointLegacyX = Number(player.marathonCheckpoint?.x);
+  const checkpointLegacyY = Number(player.marathonCheckpoint?.y);
+  p.marathonCheckpointX = Number.isFinite(checkpointDirectX)
+    ? checkpointDirectX
+    : (Number.isFinite(checkpointLegacyX) ? checkpointLegacyX : p.marathonCheckpointDistance);
+  p.marathonCheckpointY = Number.isFinite(checkpointDirectY)
+    ? checkpointDirectY
+    : (Number.isFinite(checkpointLegacyY) ? checkpointLegacyY : 0);
 
   const source = player.upgrades ?? {};
   Object.keys(p.upgrades).forEach((key) => {

@@ -40,7 +40,7 @@ Browser survival game with ID-based player profiles and no password login.
 ## Run Locally
 
 ```powershell
-python -m http.server 8080
+python server.py --port 8080
 ```
 
 Open [http://localhost:8080](http://localhost:8080).
