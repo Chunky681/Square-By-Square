@@ -6,6 +6,8 @@ const MAX_SLOTS = 18;
 const ITEM_TYPES = new Set([
   "cannon",
   "burst",
+  "lance",
+  "combo_link",
   "warp",
   "mine",
   "rocket",
@@ -23,6 +25,8 @@ const ITEM_TYPES = new Set([
 const ITEM_DEFAULT_COSTS = {
   cannon: { buyBase: 80, upgradeBase: 34 },
   burst: { buyBase: 120, upgradeBase: 44 },
+  lance: { buyBase: 168, upgradeBase: 59 },
+  combo_link: { buyBase: 154, upgradeBase: 54 },
   warp: { buyBase: 140, upgradeBase: 55 },
   mine: { buyBase: 130, upgradeBase: 53 },
   rocket: { buyBase: 175, upgradeBase: 62 },
@@ -62,6 +66,23 @@ const WARP_TREE_LIMITS = {
   comboWindow: 6,
   infusionPower: 5,
   swapPulse: 5,
+  chainDamage: 8,
+  chainLimit: 8,
+};
+
+const AEGIS_TREE_LIMITS = {
+  duration: 10,
+  cooldown: 10,
+  storeCap: 10,
+  beamDamage: 8,
+  beamRadius: 8,
+  beamControl: 8,
+};
+
+const COMBO_LINK_TREE_LIMITS = {
+  comboGain: 16,
+  comboCap: 18,
+  comboWindow: 16,
 };
 
 let didWarnSaveFailure = false;
@@ -356,6 +377,12 @@ function normalizePlayer(player) {
       } else if (raw.type === "warp") {
         normalized.warpTree = normalizeWarpSkillTree(raw.warpTree, level);
         normalized.level = Math.min(MAX_LEVEL, getWarpTreeTotalLevel(normalized.warpTree));
+      } else if (raw.type === "aegis") {
+        normalized.aegisTree = normalizeAegisSkillTree(raw.aegisTree, level);
+        normalized.level = Math.min(MAX_LEVEL, getAegisTreeTotalLevel(normalized.aegisTree));
+      } else if (raw.type === "combo_link") {
+        normalized.comboTree = normalizeComboLinkSkillTree(raw.comboTree, level);
+        normalized.level = Math.min(MAX_LEVEL, getComboLinkTreeTotalLevel(normalized.comboTree));
       }
       normalizedItems.push(normalized);
       maxId = Math.max(maxId, id);
@@ -386,6 +413,17 @@ function normalizePlayer(player) {
         slot: null,
         spentXp: estimateLegacySpentXp("mine", mineLegacyLevel),
         skillTree: normalizeMineSkillTree(null, mineLegacyLevel),
+      });
+    }
+    if (player.ownedSpecial?.aegis) {
+      const aegisLegacyLevel = clampInt(player.aegisLevel, 0, MAX_LEVEL);
+      normalizedItems.push({
+        id: ++maxId,
+        type: "aegis",
+        level: Math.min(MAX_LEVEL, aegisLegacyLevel),
+        slot: null,
+        spentXp: estimateLegacySpentXp("aegis", aegisLegacyLevel),
+        aegisTree: normalizeAegisSkillTree(null, aegisLegacyLevel),
       });
     }
     if (player.ownedSecondary?.rocket) normalizedItems.push({ id: ++maxId, type: "rocket", level: p.upgrades.rocketDamage, slot: null, spentXp: estimateLegacySpentXp("rocket", p.upgrades.rocketDamage) });
@@ -515,6 +553,8 @@ function createDefaultWarpSkillTree() {
     comboWindow: 0,
     infusionPower: 0,
     swapPulse: 0,
+    chainDamage: 0,
+    chainLimit: 0,
   };
 }
 
@@ -530,6 +570,8 @@ function normalizeWarpSkillTree(raw, fallbackLevel = 0) {
     tree.comboWindow = clampInt(source.comboWindow, 0, WARP_TREE_LIMITS.comboWindow);
     tree.infusionPower = clampInt(source.infusionPower, 0, WARP_TREE_LIMITS.infusionPower);
     tree.swapPulse = clampInt(source.swapPulse, 0, WARP_TREE_LIMITS.swapPulse);
+    tree.chainDamage = clampInt(source.chainDamage, 0, WARP_TREE_LIMITS.chainDamage);
+    tree.chainLimit = clampInt(source.chainLimit, 0, WARP_TREE_LIMITS.chainLimit);
   } else {
     const legacy = clampInt(fallbackLevel, 0, MAX_LEVEL);
     tree.distance = clampInt(Math.floor(legacy * 0.3), 0, WARP_TREE_LIMITS.distance);
@@ -540,11 +582,15 @@ function normalizeWarpSkillTree(raw, fallbackLevel = 0) {
     tree.comboWindow = tree.comboUnlock ? clampInt(Math.floor((legacy - 12) * 0.15), 0, WARP_TREE_LIMITS.comboWindow) : 0;
     tree.infusionPower = tree.comboUnlock ? clampInt(Math.floor((legacy - 14) * 0.12), 0, WARP_TREE_LIMITS.infusionPower) : 0;
     tree.swapPulse = tree.comboUnlock ? clampInt(Math.floor((legacy - 16) * 0.1), 0, WARP_TREE_LIMITS.swapPulse) : 0;
+    tree.chainDamage = 0;
+    tree.chainLimit = 0;
   }
   if (tree.comboUnlock <= 0) {
     tree.comboWindow = 0;
     tree.infusionPower = 0;
     tree.swapPulse = 0;
+    tree.chainDamage = 0;
+    tree.chainLimit = 0;
   }
   return tree;
 }
@@ -560,6 +606,88 @@ function getWarpTreeTotalLevel(tree) {
     tree.comboWindow,
     tree.infusionPower,
     tree.swapPulse,
+    tree.chainDamage,
+    tree.chainLimit,
+  ].reduce((sum, value) => sum + clampInt(value, 0, MAX_LEVEL), 0);
+}
+
+function createDefaultAegisSkillTree() {
+  return {
+    duration: 0,
+    cooldown: 0,
+    storeCap: 0,
+    beamDamage: 0,
+    beamRadius: 0,
+    beamControl: 0,
+  };
+}
+
+function normalizeAegisSkillTree(raw, fallbackLevel = 0) {
+  const tree = createDefaultAegisSkillTree();
+  const source = raw && typeof raw === "object" ? raw : null;
+  if (source) {
+    tree.duration = clampInt(source.duration, 0, AEGIS_TREE_LIMITS.duration);
+    tree.cooldown = clampInt(source.cooldown, 0, AEGIS_TREE_LIMITS.cooldown);
+    tree.storeCap = clampInt(source.storeCap, 0, AEGIS_TREE_LIMITS.storeCap);
+    tree.beamDamage = clampInt(source.beamDamage, 0, AEGIS_TREE_LIMITS.beamDamage);
+    tree.beamRadius = clampInt(source.beamRadius, 0, AEGIS_TREE_LIMITS.beamRadius);
+    tree.beamControl = clampInt(source.beamControl, 0, AEGIS_TREE_LIMITS.beamControl);
+    return tree;
+  }
+
+  const legacy = clampInt(fallbackLevel, 0, MAX_LEVEL);
+  tree.duration = clampInt(Math.floor(legacy * 0.22), 0, AEGIS_TREE_LIMITS.duration);
+  tree.cooldown = clampInt(Math.floor(legacy * 0.2), 0, AEGIS_TREE_LIMITS.cooldown);
+  tree.storeCap = clampInt(Math.floor(legacy * 0.2), 0, AEGIS_TREE_LIMITS.storeCap);
+  tree.beamDamage = clampInt(Math.floor(legacy * 0.14), 0, AEGIS_TREE_LIMITS.beamDamage);
+  tree.beamRadius = clampInt(Math.floor(legacy * 0.12), 0, AEGIS_TREE_LIMITS.beamRadius);
+  tree.beamControl = clampInt(Math.floor(legacy * 0.12), 0, AEGIS_TREE_LIMITS.beamControl);
+  return tree;
+}
+
+function getAegisTreeTotalLevel(tree) {
+  if (!tree) return 0;
+  return [
+    tree.duration,
+    tree.cooldown,
+    tree.storeCap,
+    tree.beamDamage,
+    tree.beamRadius,
+    tree.beamControl,
+  ].reduce((sum, value) => sum + clampInt(value, 0, MAX_LEVEL), 0);
+}
+
+function createDefaultComboLinkSkillTree() {
+  return {
+    comboGain: 0,
+    comboCap: 0,
+    comboWindow: 0,
+  };
+}
+
+function normalizeComboLinkSkillTree(raw, fallbackLevel = 0) {
+  const tree = createDefaultComboLinkSkillTree();
+  const source = raw && typeof raw === "object" ? raw : null;
+  if (source) {
+    tree.comboGain = clampInt(source.comboGain, 0, COMBO_LINK_TREE_LIMITS.comboGain);
+    tree.comboCap = clampInt(source.comboCap, 0, COMBO_LINK_TREE_LIMITS.comboCap);
+    tree.comboWindow = clampInt(source.comboWindow, 0, COMBO_LINK_TREE_LIMITS.comboWindow);
+    return tree;
+  }
+
+  const legacy = clampInt(fallbackLevel, 0, MAX_LEVEL);
+  tree.comboGain = clampInt(Math.floor(legacy * 0.34), 0, COMBO_LINK_TREE_LIMITS.comboGain);
+  tree.comboCap = clampInt(Math.floor(legacy * 0.38), 0, COMBO_LINK_TREE_LIMITS.comboCap);
+  tree.comboWindow = clampInt(Math.floor(legacy * 0.34), 0, COMBO_LINK_TREE_LIMITS.comboWindow);
+  return tree;
+}
+
+function getComboLinkTreeTotalLevel(tree) {
+  if (!tree) return 0;
+  return [
+    tree.comboGain,
+    tree.comboCap,
+    tree.comboWindow,
   ].reduce((sum, value) => sum + clampInt(value, 0, MAX_LEVEL), 0);
 }
 

@@ -33,7 +33,10 @@ const SLOT_LAYOUT = [
 
 const FRONT_WEAPON_SLOT_KEY = 0;
 const INFUSOR_SLOT_KEYS = new Set([1, 11, 12, 13]);
+const FRONT_ALT_WEAPON_SLOT_KEYS = new Set([1, 11, 12, 13]);
 const WEAPON_TYPES = new Set(["cannon", "burst"]);
+const ALT_WEAPON_TYPES = new Set(["lance"]);
+const COMBO_SUPPORT_TYPES = new Set(["combo_link"]);
 const INFUSOR_TYPES = new Set(["azure_infusor", "void_infusor", "amber_infusor", "quantum_bound"]);
 
 const SPECIAL_AFFINITY_BY_TYPE = {
@@ -74,6 +77,25 @@ const ITEM_CATALOG = {
     speed: 540,
     color: "#ffd37d",
     desc: "Three-shot directional burst.",
+  },
+  lance: {
+    name: "Lance Emitter",
+    kind: "alt_weapon",
+    trigger: "alt_fire",
+    buyBase: 168,
+    buyScale: 1.42,
+    upgradeBase: 59,
+    color: "#9ef7d6",
+    desc: "Right-click charge beam with instant long-range hitscan and penetration scaling.",
+  },
+  combo_link: {
+    name: "Combo Link",
+    kind: "support",
+    buyBase: 154,
+    buyScale: 1.4,
+    upgradeBase: 54,
+    color: "#f3ff8e",
+    desc: "Main gun combo amplifier: consecutive hits increase damage multiplier.",
   },
   warp: {
     name: "Warp Module",
@@ -215,6 +237,23 @@ const WARP_TREE_LIMITS = {
   comboWindow: 6,
   infusionPower: 5,
   swapPulse: 5,
+  chainDamage: 8,
+  chainLimit: 8,
+};
+
+const AEGIS_TREE_LIMITS = {
+  duration: 10,
+  cooldown: 10,
+  storeCap: 10,
+  beamDamage: 8,
+  beamRadius: 8,
+  beamControl: 8,
+};
+
+const COMBO_LINK_TREE_LIMITS = {
+  comboGain: 16,
+  comboCap: 18,
+  comboWindow: 16,
 };
 
 const MINE_TREE_DEFINITION = [
@@ -269,15 +308,59 @@ const WARP_TREE_DEFINITION = [
   {
     id: "warp_combo",
     title: "Node 2 - Void Combo Relay",
-    desc: "On warp-kill, gain a combo window to infuse mines or swap with non-boss enemies.",
+    desc: "On warp-kill, gain a combo window to infuse mines or swap with non-boss enemies. Swap-kill chains reduce the next combo window by 30%.",
     upgrades: [
       { key: "comboUnlock", label: "Combo Activation", max: WARP_TREE_LIMITS.comboUnlock, costBase: 118, costStep: 0, costCurve: 0 },
       { key: "comboWindow", label: "Combo Window", max: WARP_TREE_LIMITS.comboWindow, costBase: 58, costStep: 10, costCurve: 0.82, requires: "comboUnlock" },
       { key: "infusionPower", label: "Infusion Amplifier", max: WARP_TREE_LIMITS.infusionPower, costBase: 64, costStep: 11, costCurve: 0.88, requires: "comboUnlock" },
       { key: "swapPulse", label: "Swap Pulse", max: WARP_TREE_LIMITS.swapPulse, costBase: 60, costStep: 10, costCurve: 0.84, requires: "comboUnlock" },
+      { key: "chainDamage", label: "Chain Damage Scaling", max: WARP_TREE_LIMITS.chainDamage, costBase: 66, costStep: 11, costCurve: 0.9, requires: "comboUnlock" },
+      { key: "chainLimit", label: "Max Chain Count", max: WARP_TREE_LIMITS.chainLimit, costBase: 62, costStep: 10, costCurve: 0.86, requires: "comboUnlock" },
     ],
   },
 ];
+
+const AEGIS_TREE_DEFINITION = [
+  {
+    id: "aegis_core",
+    title: "Node 1 - Azure Shield Core",
+    desc: "Shield duration, cooldown, and stored damage capacity.",
+    upgrades: [
+      { key: "duration", label: "Shield Duration", max: AEGIS_TREE_LIMITS.duration, costBase: 58, costStep: 10, costCurve: 0.82 },
+      { key: "cooldown", label: "Ability Cooldown", max: AEGIS_TREE_LIMITS.cooldown, costBase: 62, costStep: 11, costCurve: 0.86 },
+      { key: "storeCap", label: "Stored Damage Cap", max: AEGIS_TREE_LIMITS.storeCap, costBase: 60, costStep: 11, costCurve: 0.84 },
+    ],
+  },
+  {
+    id: "aegis_glassing",
+    title: "Node 2 - Sky Glassing Combo",
+    desc: "Press C before shield collapse. Too early fails, slightly early gives a small beam, perfect timing gives full beam.",
+    upgrades: [
+      { key: "beamDamage", label: "Beam Damage", max: AEGIS_TREE_LIMITS.beamDamage, costBase: 66, costStep: 12, costCurve: 0.9 },
+      { key: "beamRadius", label: "Beam Hit Radius", max: AEGIS_TREE_LIMITS.beamRadius, costBase: 62, costStep: 11, costCurve: 0.86 },
+      { key: "beamControl", label: "Beam Tracking Speed", max: AEGIS_TREE_LIMITS.beamControl, costBase: 60, costStep: 10, costCurve: 0.82 },
+    ],
+  },
+];
+
+const COMBO_LINK_TREE_DEFINITION = [
+  {
+    id: "combo_link_core",
+    title: "Combo Link Upgrades",
+    desc: "Upgrade each main-gun combo component independently.",
+    upgrades: [
+      { key: "comboGain", label: "Per-Hit Multiplier Gain", max: COMBO_LINK_TREE_LIMITS.comboGain, costBase: 54, costStep: 9, costCurve: 0.78 },
+      { key: "comboCap", label: "Max Combo Effect", max: COMBO_LINK_TREE_LIMITS.comboCap, costBase: 60, costStep: 10, costCurve: 0.84 },
+      { key: "comboWindow", label: "Combo Time Window", max: COMBO_LINK_TREE_LIMITS.comboWindow, costBase: 52, costStep: 9, costCurve: 0.76 },
+    ],
+  },
+];
+
+const AEGIS_COMBO_BASE_BEAM_DURATION = 2.4;
+const AEGIS_COMBO_PERFECT_WINDOW = 0.2;
+const AEGIS_COMBO_EARLY_WINDOW = 0.7;
+const LANCE_HITBOX_PAD = 6;
+const LANCE_COOLDOWN_MULT = 10;
 
 const DIFFICULTY_META = {
   1: "Calm",
@@ -371,6 +454,7 @@ const SPECIAL_CURRENCY_BY_KILL = {
   mine: "amber",
   helper: "azure",
   rocket: "azure",
+  azure_beam: "azure",
 };
 
 const BOSS_BOTTOM_LEFT_MINION_BY_TYPE = {
@@ -524,7 +608,7 @@ const state = {
   testDifficulty: 1,
   testInvincible: false,
   marathonTestTuning: cloneMarathonTestTuning(DEFAULT_MARATHON_TEST_TUNING),
-  input: { up: false, down: false, left: false, right: false, firing: false, void: false, voidCursor: false, azure: false, amber: false },
+  input: { up: false, down: false, left: false, right: false, firing: false, altFiring: false, void: false, voidCursor: false, azure: false, amber: false, aegisCombo: false },
   mouse: { x: 0, y: 0 },
   world: null,
   raf: 0,
@@ -652,10 +736,12 @@ function bindInput() {
     state.input.left = false;
     state.input.right = false;
     state.input.firing = false;
+    state.input.altFiring = false;
     state.input.void = false;
     state.input.voidCursor = false;
     state.input.azure = false;
     state.input.amber = false;
+    state.input.aegisCombo = false;
   };
 
   window.addEventListener("keydown", (e) => {
@@ -669,8 +755,24 @@ function bindInput() {
     if (k === "s" || k === "arrowdown") state.input.down = true;
     if (k === "a" || k === "arrowleft") state.input.left = true;
     if (k === "d" || k === "arrowright") state.input.right = true;
+    if (k === "shift" && state.mode === "game") {
+      if (!e.repeat) {
+        const handledCombo = tryHandleWarpComboSelection();
+        if (!handledCombo) state.input.voidCursor = true;
+      }
+      e.preventDefault();
+    }
     if (k === " ") state.input.void = true;
-    if (k === "c") state.input.azure = true;
+    if (k === "c") {
+      const player = state.world?.player;
+      const canTimeAegis = state.mode === "game" && !!player?.aegisBeamStats && (player.aegisT || 0) > 0;
+      if (canTimeAegis) {
+        if (!e.repeat) state.input.aegisCombo = true;
+        e.preventDefault();
+      } else {
+        state.input.azure = true;
+      }
+    }
     if (k === "e") state.input.amber = true;
   });
 
@@ -708,8 +810,8 @@ function bindInput() {
     if (e.button !== 0) {
       if (state.mode === "game") {
         if (e.button === 2) {
-          const handledCombo = tryHandleWarpComboSelection();
-          if (!handledCombo) state.input.voidCursor = true;
+          audio.unlock();
+          state.input.altFiring = true;
         }
         e.preventDefault();
       }
@@ -720,9 +822,10 @@ function bindInput() {
   });
   canvas.addEventListener("pointerup", (e) => {
     if (e.button === 0) state.input.firing = false;
+    if (e.button === 2) state.input.altFiring = false;
   });
-  canvas.addEventListener("pointercancel", () => { state.input.firing = false; });
-  canvas.addEventListener("pointerleave", () => { state.input.firing = false; });
+  canvas.addEventListener("pointercancel", () => { state.input.firing = false; state.input.altFiring = false; });
+  canvas.addEventListener("pointerleave", () => { state.input.firing = false; state.input.altFiring = false; });
 }
 
 function isWarpComboEnemyEligible(enemy) {
@@ -821,6 +924,8 @@ function tryHandleWarpComboSelection() {
     if (infused) {
       p.warpComboT = 0;
       p.warpComboDuration = 0;
+      p.warpComboChainCount = 0;
+      p.warpComboChainCap = 0;
       splash(w, mine.x, mine.y, "#b78cff", 10, 1.4);
       audio.play("warp");
       return true;
@@ -829,6 +934,17 @@ function tryHandleWarpComboSelection() {
 
   const enemy = getWarpComboEnemyTarget(w, mx, my);
   if (!enemy) return false;
+  const currentComboDuration = Math.max(0.001, Number(p.warpComboDuration) || Number(p.warpComboT) || Number(stats.comboWindow) || 0.001);
+  const chainCount = Math.max(0, Math.floor(Number(p.warpComboChainCount) || 0));
+  const chainCap = Math.max(
+    1,
+    Math.floor(
+      Number(stats.comboChainCap)
+      || Number(p.warpComboChainCap)
+      || 1,
+    ),
+  );
+  const chainDamageScale = 1 + chainCount * Math.max(0, Number(stats.comboChainDamagePer) || 0);
 
   const px = p.x;
   const py = p.y;
@@ -845,20 +961,43 @@ function tryHandleWarpComboSelection() {
     enemy.y = clamp(py, enemy.r || 10, canvas.height - (enemy.r || 10));
   }
   enemy.hitFlash = Math.max(enemy.hitFlash || 0, 0.2);
-  p.warpComboT = 0;
-  p.warpComboDuration = 0;
 
+  let comboKills = 0;
   if ((stats.swapPulseScale || 0) > 0) {
-    applyWarpBurstDamage(w, p.x, p.y, stats, {
+    comboKills += applyWarpBurstDamage(w, p.x, p.y, stats, {
       radiusMult: 0.55 + stats.swapPulseScale,
-      damageMult: 0.28 + stats.swapPulseScale,
+      damageMult: (0.28 + stats.swapPulseScale) * chainDamageScale,
       sourceKind: "warp_swap",
     });
-    applyWarpBurstDamage(w, enemy.x, enemy.y, stats, {
+    comboKills += applyWarpBurstDamage(w, enemy.x, enemy.y, stats, {
       radiusMult: 0.55 + stats.swapPulseScale,
-      damageMult: 0.22 + stats.swapPulseScale * 0.85,
+      damageMult: (0.22 + stats.swapPulseScale * 0.85) * chainDamageScale,
       sourceKind: "warp_swap",
     });
+  }
+
+  if (comboKills > 0) {
+    const nextChainCount = chainCount + 1;
+    const chainPitch = 1 + Math.min(1.1, Math.max(0, nextChainCount - 1) * 0.14);
+    audio.play("warpComboChain", { pitch: chainPitch });
+    if (nextChainCount >= chainCap) {
+      p.warpComboT = 0;
+      p.warpComboDuration = 0;
+      p.warpComboChainCount = 0;
+      p.warpComboChainCap = 0;
+    } else {
+      const nextWindow = Math.max(0.12, currentComboDuration * 0.7);
+      p.warpComboDuration = nextWindow;
+      p.warpComboT = nextWindow;
+      p.warpComboChainCount = nextChainCount;
+      p.warpComboChainCap = chainCap;
+      splash(w, p.x, p.y, "#ce9dff", 8, 1.1);
+    }
+  } else {
+    p.warpComboT = 0;
+    p.warpComboDuration = 0;
+    p.warpComboChainCount = 0;
+    p.warpComboChainCap = 0;
   }
 
   splash(w, p.x, p.y, "#b993ff", 12, 1.5);
@@ -1104,9 +1243,11 @@ function exitTestModeRun() {
   if (!state.world || (!state.world.isTestMode && !state.world.isMarathonTestMode)) return;
   state.world = null;
   state.input.firing = false;
+  state.input.altFiring = false;
   state.input.void = false;
   state.input.azure = false;
   state.input.amber = false;
+  state.input.aegisCombo = false;
   openMenu();
 }
 
@@ -1232,10 +1373,12 @@ function getSlotLabel(slot) {
 
 function isItemAllowedInSlot(type, slotKey) {
   const isWeapon = WEAPON_TYPES.has(type);
+  const isAltWeapon = ALT_WEAPON_TYPES.has(type);
+  const isComboSupport = COMBO_SUPPORT_TYPES.has(type);
   const isInfusor = INFUSOR_TYPES.has(type);
   if (slotKey === FRONT_WEAPON_SLOT_KEY) return isWeapon;
-  if (INFUSOR_SLOT_KEYS.has(slotKey)) return isInfusor;
-  if (isWeapon || isInfusor) return false;
+  if (FRONT_ALT_WEAPON_SLOT_KEYS.has(slotKey)) return isInfusor || isAltWeapon || isComboSupport;
+  if (isWeapon || isInfusor || isAltWeapon || isComboSupport) return false;
 
   const slotAffinity = getSlotAffinity(slotKey);
   const itemAffinity = SPECIAL_AFFINITY_BY_TYPE[type] || null;
@@ -1250,8 +1393,8 @@ function getAllowedItemTypesForSlot(slotKey) {
 
 function getSlotActionHint(slot) {
   if (slot.key === FRONT_WEAPON_SLOT_KEY) return "Front slot: weapon-only (Cannon or Burst Cannon).";
-  if (INFUSOR_SLOT_KEYS.has(slot.key)) return "Infusor slot: only Infusor modules can be installed.";
-  if (slot.affinity === "infusor") return "Infusor slot: only Infusor modules can be installed.";
+  if (FRONT_ALT_WEAPON_SLOT_KEYS.has(slot.key)) return "Front support slot: Infusors, Lance Emitter, or Combo Link.";
+  if (slot.affinity === "infusor") return "Front support slot: Infusors, Lance Emitter, or Combo Link.";
   if (slot.affinity === "void") return "Void slot: only Void abilities can be installed.";
   if (slot.affinity === "azure") return "Azure slot: only Azure abilities can be installed.";
   if (slot.affinity === "amber") return "Amber slot: only Amber abilities can be installed.";
@@ -1444,6 +1587,8 @@ function createDefaultWarpSkillTree() {
     comboWindow: 0,
     infusionPower: 0,
     swapPulse: 0,
+    chainDamage: 0,
+    chainLimit: 0,
   };
 }
 
@@ -1459,6 +1604,8 @@ function normalizeWarpSkillTree(raw, fallbackLevel = 0) {
     tree.comboWindow = clampInt(source.comboWindow, 0, WARP_TREE_LIMITS.comboWindow);
     tree.infusionPower = clampInt(source.infusionPower, 0, WARP_TREE_LIMITS.infusionPower);
     tree.swapPulse = clampInt(source.swapPulse, 0, WARP_TREE_LIMITS.swapPulse);
+    tree.chainDamage = clampInt(source.chainDamage, 0, WARP_TREE_LIMITS.chainDamage);
+    tree.chainLimit = clampInt(source.chainLimit, 0, WARP_TREE_LIMITS.chainLimit);
   } else {
     const legacy = clampInt(fallbackLevel, 0, MAX_UPGRADE_LEVEL);
     tree.distance = clampInt(Math.floor(legacy * 0.3), 0, WARP_TREE_LIMITS.distance);
@@ -1469,11 +1616,15 @@ function normalizeWarpSkillTree(raw, fallbackLevel = 0) {
     tree.comboWindow = tree.comboUnlock ? clampInt(Math.floor((legacy - 12) * 0.15), 0, WARP_TREE_LIMITS.comboWindow) : 0;
     tree.infusionPower = tree.comboUnlock ? clampInt(Math.floor((legacy - 14) * 0.12), 0, WARP_TREE_LIMITS.infusionPower) : 0;
     tree.swapPulse = tree.comboUnlock ? clampInt(Math.floor((legacy - 16) * 0.1), 0, WARP_TREE_LIMITS.swapPulse) : 0;
+    tree.chainDamage = 0;
+    tree.chainLimit = 0;
   }
   if (tree.comboUnlock <= 0) {
     tree.comboWindow = 0;
     tree.infusionPower = 0;
     tree.swapPulse = 0;
+    tree.chainDamage = 0;
+    tree.chainLimit = 0;
   }
   return tree;
 }
@@ -1489,6 +1640,8 @@ function getWarpTreeTotalLevel(tree) {
     tree.comboWindow,
     tree.infusionPower,
     tree.swapPulse,
+    tree.chainDamage,
+    tree.chainLimit,
   ].reduce((sum, value) => sum + clampInt(value, 0, MAX_UPGRADE_LEVEL), 0);
 }
 
@@ -1526,6 +1679,8 @@ function getWarpAbilityStats(module, stacks = 1) {
     comboWindow: comboEnabled ? 3 + tree.comboWindow * 0.26 : 0,
     comboInfusionMult: comboEnabled ? 2 + tree.infusionPower * 0.2 : 2,
     swapPulseScale: comboEnabled ? tree.swapPulse * 0.18 : 0,
+    comboChainDamagePer: comboEnabled ? 0.08 + tree.chainDamage * 0.035 : 0,
+    comboChainCap: comboEnabled ? 3 + tree.chainLimit : 0,
     tree,
   };
 }
@@ -1544,6 +1699,186 @@ function calculateWarpTreeUpgradeCost(item, upgradeKey) {
   const { upgrade } = found;
   if (!item || item.type !== "warp") return Number.POSITIVE_INFINITY;
   const tree = normalizeWarpSkillTree(item.warpTree, item.level || 0);
+  const current = clampInt(tree[upgrade.key], 0, upgrade.max);
+  const owned = countOwnedType(item.type);
+  return Math.floor((upgrade.costBase + current * upgrade.costStep + current * current * upgrade.costCurve) * (1 + (owned - 1) * 0.2));
+}
+
+function createDefaultAegisSkillTree() {
+  return {
+    duration: 0,
+    cooldown: 0,
+    storeCap: 0,
+    beamDamage: 0,
+    beamRadius: 0,
+    beamControl: 0,
+  };
+}
+
+function normalizeAegisSkillTree(raw, fallbackLevel = 0) {
+  const tree = createDefaultAegisSkillTree();
+  const source = raw && typeof raw === "object" ? raw : null;
+  if (source) {
+    tree.duration = clampInt(source.duration, 0, AEGIS_TREE_LIMITS.duration);
+    tree.cooldown = clampInt(source.cooldown, 0, AEGIS_TREE_LIMITS.cooldown);
+    tree.storeCap = clampInt(source.storeCap, 0, AEGIS_TREE_LIMITS.storeCap);
+    tree.beamDamage = clampInt(source.beamDamage, 0, AEGIS_TREE_LIMITS.beamDamage);
+    tree.beamRadius = clampInt(source.beamRadius, 0, AEGIS_TREE_LIMITS.beamRadius);
+    tree.beamControl = clampInt(source.beamControl, 0, AEGIS_TREE_LIMITS.beamControl);
+    return tree;
+  }
+
+  const legacy = clampInt(fallbackLevel, 0, MAX_UPGRADE_LEVEL);
+  tree.duration = clampInt(Math.floor(legacy * 0.22), 0, AEGIS_TREE_LIMITS.duration);
+  tree.cooldown = clampInt(Math.floor(legacy * 0.2), 0, AEGIS_TREE_LIMITS.cooldown);
+  tree.storeCap = clampInt(Math.floor(legacy * 0.2), 0, AEGIS_TREE_LIMITS.storeCap);
+  tree.beamDamage = clampInt(Math.floor(legacy * 0.14), 0, AEGIS_TREE_LIMITS.beamDamage);
+  tree.beamRadius = clampInt(Math.floor(legacy * 0.12), 0, AEGIS_TREE_LIMITS.beamRadius);
+  tree.beamControl = clampInt(Math.floor(legacy * 0.12), 0, AEGIS_TREE_LIMITS.beamControl);
+  return tree;
+}
+
+function getAegisTreeTotalLevel(tree) {
+  if (!tree) return 0;
+  return [
+    tree.duration,
+    tree.cooldown,
+    tree.storeCap,
+    tree.beamDamage,
+    tree.beamRadius,
+    tree.beamControl,
+  ].reduce((sum, value) => sum + clampInt(value, 0, MAX_UPGRADE_LEVEL), 0);
+}
+
+function syncAegisItemLevel(item) {
+  if (!item || item.type !== "aegis") return;
+  const normalized = normalizeAegisSkillTree(item.aegisTree, item.level || 0);
+  if (item.aegisTree && typeof item.aegisTree === "object") {
+    Object.assign(item.aegisTree, normalized);
+  } else {
+    item.aegisTree = normalized;
+  }
+  item.level = clampInt(getAegisTreeTotalLevel(item.aegisTree), 0, MAX_UPGRADE_LEVEL);
+}
+
+function ensureAegisSkillTree(item) {
+  if (!item || item.type !== "aegis") return null;
+  syncAegisItemLevel(item);
+  return item.aegisTree;
+}
+
+function getAegisAbilityStats(module, stacks = 1) {
+  const tree = normalizeAegisSkillTree(module?.aegisTree, module?.level || 0);
+  const stackScale = getAbilityStackScale(stacks);
+  const coreLevel = tree.duration + tree.cooldown + tree.storeCap;
+  const duration = 1.5 + tree.duration * 0.18;
+  const storeCap = 160 + tree.storeCap * 14;
+  const cooldown = Math.max(9.8 - tree.cooldown * 0.22, 5.0) * stackScale;
+  const beamDamage = 92 + tree.beamDamage * 16;
+  const beamRadius = 68 + tree.beamRadius * 7.2;
+  const beamControlSpeed = 84 + tree.beamControl * 22;
+  return {
+    duration,
+    storeCap,
+    cooldown,
+    coreLevel,
+    beamDamage,
+    beamRadius,
+    beamControlSpeed,
+    beamDuration: AEGIS_COMBO_BASE_BEAM_DURATION,
+    tree,
+  };
+}
+
+function hasAegisSkyGlassingCombo(tree) {
+  if (!tree) return false;
+  return (tree.beamDamage || 0) > 0 || (tree.beamRadius || 0) > 0 || (tree.beamControl || 0) > 0;
+}
+
+function getAegisTreeUpgradeDefinition(upgradeKey) {
+  for (const node of AEGIS_TREE_DEFINITION) {
+    const found = node.upgrades.find((upgrade) => upgrade.key === upgradeKey);
+    if (found) return { node, upgrade: found };
+  }
+  return null;
+}
+
+function calculateAegisTreeUpgradeCost(item, upgradeKey) {
+  const found = getAegisTreeUpgradeDefinition(upgradeKey);
+  if (!found) return Number.POSITIVE_INFINITY;
+  const { upgrade } = found;
+  if (!item || item.type !== "aegis") return Number.POSITIVE_INFINITY;
+  const tree = normalizeAegisSkillTree(item.aegisTree, item.level || 0);
+  const current = clampInt(tree[upgrade.key], 0, upgrade.max);
+  const owned = countOwnedType(item.type);
+  return Math.floor((upgrade.costBase + current * upgrade.costStep + current * current * upgrade.costCurve) * (1 + (owned - 1) * 0.2));
+}
+
+function createDefaultComboLinkSkillTree() {
+  return {
+    comboGain: 0,
+    comboCap: 0,
+    comboWindow: 0,
+  };
+}
+
+function normalizeComboLinkSkillTree(raw, fallbackLevel = 0) {
+  const tree = createDefaultComboLinkSkillTree();
+  const source = raw && typeof raw === "object" ? raw : null;
+  if (source) {
+    tree.comboGain = clampInt(source.comboGain, 0, COMBO_LINK_TREE_LIMITS.comboGain);
+    tree.comboCap = clampInt(source.comboCap, 0, COMBO_LINK_TREE_LIMITS.comboCap);
+    tree.comboWindow = clampInt(source.comboWindow, 0, COMBO_LINK_TREE_LIMITS.comboWindow);
+    return tree;
+  }
+
+  const legacy = clampInt(fallbackLevel, 0, MAX_UPGRADE_LEVEL);
+  tree.comboGain = clampInt(Math.floor(legacy * 0.34), 0, COMBO_LINK_TREE_LIMITS.comboGain);
+  tree.comboCap = clampInt(Math.floor(legacy * 0.38), 0, COMBO_LINK_TREE_LIMITS.comboCap);
+  tree.comboWindow = clampInt(Math.floor(legacy * 0.34), 0, COMBO_LINK_TREE_LIMITS.comboWindow);
+  return tree;
+}
+
+function getComboLinkTreeTotalLevel(tree) {
+  if (!tree) return 0;
+  return [
+    tree.comboGain,
+    tree.comboCap,
+    tree.comboWindow,
+  ].reduce((sum, value) => sum + clampInt(value, 0, MAX_UPGRADE_LEVEL), 0);
+}
+
+function syncComboLinkItemLevel(item) {
+  if (!item || item.type !== "combo_link") return;
+  const normalized = normalizeComboLinkSkillTree(item.comboTree, item.level || 0);
+  if (item.comboTree && typeof item.comboTree === "object") {
+    Object.assign(item.comboTree, normalized);
+  } else {
+    item.comboTree = normalized;
+  }
+  item.level = clampInt(getComboLinkTreeTotalLevel(item.comboTree), 0, MAX_UPGRADE_LEVEL);
+}
+
+function ensureComboLinkSkillTree(item) {
+  if (!item || item.type !== "combo_link") return null;
+  syncComboLinkItemLevel(item);
+  return item.comboTree;
+}
+
+function getComboLinkTreeUpgradeDefinition(upgradeKey) {
+  for (const node of COMBO_LINK_TREE_DEFINITION) {
+    const found = node.upgrades.find((upgrade) => upgrade.key === upgradeKey);
+    if (found) return { node, upgrade: found };
+  }
+  return null;
+}
+
+function calculateComboLinkTreeUpgradeCost(item, upgradeKey) {
+  const found = getComboLinkTreeUpgradeDefinition(upgradeKey);
+  if (!found) return Number.POSITIVE_INFINITY;
+  const { upgrade } = found;
+  if (!item || item.type !== "combo_link") return Number.POSITIVE_INFINITY;
+  const tree = normalizeComboLinkSkillTree(item.comboTree, item.level || 0);
   const current = clampInt(tree[upgrade.key], 0, upgrade.max);
   const owned = countOwnedType(item.type);
   return Math.floor((upgrade.costBase + current * upgrade.costStep + current * current * upgrade.costCurve) * (1 + (owned - 1) * 0.2));
@@ -1622,10 +1957,35 @@ function getItemStatLines(item) {
       lines.push(`Combo Window ${stats.comboWindow.toFixed(2)}s`);
       lines.push(`Mine Infusion x${stats.comboInfusionMult.toFixed(2)}`);
       lines.push(`Swap Pulse +${(stats.swapPulseScale * 100).toFixed(0)}%`);
+      lines.push(`Chain Damage +${(stats.comboChainDamagePer * 100).toFixed(0)}% / chain`);
+      lines.push(`Max Chains ${Math.max(1, Math.floor(stats.comboChainCap || 1))}`);
+      lines.push("Swap-Kill Chain: next combo window x0.7");
     } else {
       lines.push("Combo Path Inactive");
     }
     return lines;
+  }
+
+  if (item.type === "lance") {
+    const stats = getLanceStats(item);
+    return [
+      `Charge Time ${stats.chargeTime.toFixed(2)}s`,
+      `Cooldown ${stats.cooldown.toFixed(2)}s`,
+      `Beam Damage ${stats.damage.toFixed(1)}`,
+      `Range ${stats.range.toFixed(0)}`,
+      `Penetration ${stats.penetration}`,
+      `Trail DPS ${stats.trailDamage.toFixed(1)}`,
+      `Trail Linger ${stats.trailDuration.toFixed(2)}s`,
+    ];
+  }
+
+  if (item.type === "combo_link") {
+    const stats = getMainGunComboStats([item]);
+    return [
+      `Combo Gain +${(stats.bonusPerHit * 100).toFixed(1)}% per landed main-gun shot`,
+      `Max Combo Bonus +${(stats.maxBonus * 100).toFixed(0)}%`,
+      `Hit Window ${stats.timeoutWindow.toFixed(2)}s`,
+    ];
   }
 
   if (item.type === "rocket") {
@@ -1651,13 +2011,16 @@ function getItemStatLines(item) {
   }
 
   if (item.type === "aegis") {
-    const duration = getAegisDuration(item.level);
-    const storeCap = getAegisStoreCap(item.level);
-    const cooldown = getAegisCooldown(item.level, countSlottedByType(item.type));
+    const stats = getAegisAbilityStats(item, countSlottedByType(item.type));
     return [
-      `Shield Duration ${duration.toFixed(2)}s`,
-      `Stored Damage Cap ${storeCap.toFixed(0)}`,
-      `Cooldown ${cooldown.toFixed(2)}s`,
+      `Shield Duration ${stats.duration.toFixed(2)}s`,
+      `Stored Damage Cap ${stats.storeCap.toFixed(0)}`,
+      `Cooldown ${stats.cooldown.toFixed(2)}s`,
+      `Perfect Trigger (C) <= ${(AEGIS_COMBO_PERFECT_WINDOW * 1000).toFixed(0)}ms before pop`,
+      `Early Trigger (C) <= ${(AEGIS_COMBO_EARLY_WINDOW * 1000).toFixed(0)}ms before pop`,
+      `Strong Beam ${stats.beamDamage.toFixed(0)} DPS`,
+      `Beam Radius ${stats.beamRadius.toFixed(1)}`,
+      `Beam Control ${stats.beamControlSpeed.toFixed(0)}/s`,
     ];
   }
 
@@ -1713,6 +2076,8 @@ function renderLoadoutPanel() {
   const occupied = getItemInSlot(slot.key);
   if (occupied?.type === "mine") syncMineItemLevel(occupied);
   if (occupied?.type === "warp") syncWarpItemLevel(occupied);
+  if (occupied?.type === "aegis") syncAegisItemLevel(occupied);
+  if (occupied?.type === "combo_link") syncComboLinkItemLevel(occupied);
   ui.upgradePartLabel.textContent = occupied
     ? `Selected Slot: ${getSlotLabel(slot)} (${ITEM_CATALOG[occupied.type]?.name || occupied.type}, Lv ${occupied.level})`
     : `Selected Slot: ${getSlotLabel(slot)} (Empty)`;
@@ -1793,6 +2158,8 @@ function renderSlotActions(slot, occupied) {
   if (!data) return;
   if (occupied.type === "mine") ensureMineSkillTree(occupied);
   if (occupied.type === "warp") ensureWarpSkillTree(occupied);
+  if (occupied.type === "aegis") ensureAegisSkillTree(occupied);
+  if (occupied.type === "combo_link") ensureComboLinkSkillTree(occupied);
 
   const row = document.createElement("div");
   row.className = "slot-action-item";
@@ -1801,7 +2168,7 @@ function renderSlotActions(slot, occupied) {
   const controls = document.createElement("div");
   controls.className = "slot-action-controls";
 
-  if (occupied.type !== "mine" && occupied.type !== "warp") {
+  if (occupied.type !== "mine" && occupied.type !== "warp" && occupied.type !== "aegis" && occupied.type !== "combo_link") {
     const upgradeCost = calculateUpgradeCost(occupied);
     const upgradeBtn = document.createElement("button");
     upgradeBtn.type = "button";
@@ -1912,6 +2279,76 @@ function renderSlotActions(slot, occupied) {
       ui.slotActions.appendChild(nodeCard);
     }
   }
+
+  if (occupied.type === "aegis") {
+    const tree = ensureAegisSkillTree(occupied);
+    for (const node of AEGIS_TREE_DEFINITION) {
+      const nodeCard = document.createElement("div");
+      nodeCard.className = "slot-skill-node";
+      nodeCard.innerHTML = `<h4>${node.title}</h4><p>${node.desc}</p>`;
+
+      for (const upgrade of node.upgrades) {
+        const current = clampInt(tree[upgrade.key], 0, upgrade.max);
+        const atMax = current >= upgrade.max;
+        const cost = atMax ? 0 : calculateAegisTreeUpgradeCost(occupied, upgrade.key);
+
+        const upgradeRow = document.createElement("div");
+        upgradeRow.className = "slot-skill-upgrade";
+        upgradeRow.innerHTML = `<div><strong>${upgrade.label}</strong><p>Lv ${current}/${upgrade.max}</p></div>`;
+
+        const btn = document.createElement("button");
+        btn.type = "button";
+        if (atMax) {
+          btn.textContent = "Maxed";
+          btn.disabled = true;
+        } else {
+          btn.textContent = `Upgrade (${cost} Essence)`;
+          btn.disabled = false;
+          btn.addEventListener("click", () => upgradeAegisSkillTreeNode(slot.key, upgrade.key));
+        }
+
+        upgradeRow.appendChild(btn);
+        nodeCard.appendChild(upgradeRow);
+      }
+
+      ui.slotActions.appendChild(nodeCard);
+    }
+  }
+
+  if (occupied.type === "combo_link") {
+    const tree = ensureComboLinkSkillTree(occupied);
+    for (const node of COMBO_LINK_TREE_DEFINITION) {
+      const nodeCard = document.createElement("div");
+      nodeCard.className = "slot-skill-node";
+      nodeCard.innerHTML = `<h4>${node.title}</h4><p>${node.desc}</p>`;
+
+      for (const upgrade of node.upgrades) {
+        const current = clampInt(tree[upgrade.key], 0, upgrade.max);
+        const atMax = current >= upgrade.max;
+        const cost = atMax ? 0 : calculateComboLinkTreeUpgradeCost(occupied, upgrade.key);
+
+        const upgradeRow = document.createElement("div");
+        upgradeRow.className = "slot-skill-upgrade";
+        upgradeRow.innerHTML = `<div><strong>${upgrade.label}</strong><p>Lv ${current}/${upgrade.max}</p></div>`;
+
+        const btn = document.createElement("button");
+        btn.type = "button";
+        if (atMax) {
+          btn.textContent = "Maxed";
+          btn.disabled = true;
+        } else {
+          btn.textContent = `Upgrade (${cost} Essence)`;
+          btn.disabled = false;
+          btn.addEventListener("click", () => upgradeComboLinkSkillTreeNode(slot.key, upgrade.key));
+        }
+
+        upgradeRow.appendChild(btn);
+        nodeCard.appendChild(upgradeRow);
+      }
+
+      ui.slotActions.appendChild(nodeCard);
+    }
+  }
 }
 
 function upgradeMineSkillTreeNode(slotKey, upgradeKey) {
@@ -2012,6 +2449,90 @@ function upgradeWarpSkillTreeNode(slotKey, upgradeKey) {
   renderLoadoutPanel();
 }
 
+function upgradeAegisSkillTreeNode(slotKey, upgradeKey) {
+  if (!state.player) return;
+  const item = getItemInSlot(slotKey);
+  if (!item || item.type !== "aegis") {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = "Aegis upgrade failed: Azure Shield is not installed in this slot.";
+    return;
+  }
+
+  const found = getAegisTreeUpgradeDefinition(upgradeKey);
+  if (!found) {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = "Aegis upgrade failed: unknown upgrade node.";
+    return;
+  }
+  const { upgrade } = found;
+  const tree = ensureAegisSkillTree(item);
+  if (!tree) {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = "Aegis upgrade failed: unable to initialize Aegis skill tree.";
+    return;
+  }
+
+  const current = clampInt(tree[upgrade.key], 0, upgrade.max);
+  if (current >= upgrade.max) {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = `${upgrade.label} is already maxed.`;
+    return;
+  }
+
+  const cost = calculateAegisTreeUpgradeCost(item, upgrade.key);
+  if (state.player.xpBank < cost) {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = `Need ${cost} Essence for ${upgrade.label}.`;
+    return;
+  }
+
+  state.player.xpBank -= cost;
+  tree[upgrade.key] = current + 1;
+  syncAegisItemLevel(item);
+  item.spentXp = Math.max(0, Math.floor(Number(item.spentXp) || 0)) + cost;
+  savePlayer(state.player);
+  audio.play("upgrade");
+  if (ui.upgradeMsg) ui.upgradeMsg.textContent = `${upgrade.label} upgraded to Lv ${tree[upgrade.key]}/${upgrade.max}.`;
+  renderLoadoutPanel();
+}
+
+function upgradeComboLinkSkillTreeNode(slotKey, upgradeKey) {
+  if (!state.player) return;
+  const item = getItemInSlot(slotKey);
+  if (!item || item.type !== "combo_link") {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = "Combo Link upgrade failed: Combo Link is not installed in this slot.";
+    return;
+  }
+
+  const found = getComboLinkTreeUpgradeDefinition(upgradeKey);
+  if (!found) {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = "Combo Link upgrade failed: unknown upgrade node.";
+    return;
+  }
+  const { upgrade } = found;
+  const tree = ensureComboLinkSkillTree(item);
+  if (!tree) {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = "Combo Link upgrade failed: unable to initialize combo skill tree.";
+    return;
+  }
+
+  const current = clampInt(tree[upgrade.key], 0, upgrade.max);
+  if (current >= upgrade.max) {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = `${upgrade.label} is already maxed.`;
+    return;
+  }
+
+  const cost = calculateComboLinkTreeUpgradeCost(item, upgrade.key);
+  if (state.player.xpBank < cost) {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = `Need ${cost} Essence for ${upgrade.label}.`;
+    return;
+  }
+
+  state.player.xpBank -= cost;
+  tree[upgrade.key] = current + 1;
+  syncComboLinkItemLevel(item);
+  item.spentXp = Math.max(0, Math.floor(Number(item.spentXp) || 0)) + cost;
+  savePlayer(state.player);
+  audio.play("upgrade");
+  if (ui.upgradeMsg) ui.upgradeMsg.textContent = `${upgrade.label} upgraded to Lv ${tree[upgrade.key]}/${upgrade.max}.`;
+  renderLoadoutPanel();
+}
+
 function buyItemForSlot(slotKey, type) {
   if (!state.player) return;
   if (getItemInSlot(slotKey)) return;
@@ -2034,6 +2555,12 @@ function buyItemForSlot(slotKey, type) {
   } else if (type === "warp") {
     newItem.warpTree = createDefaultWarpSkillTree();
     syncWarpItemLevel(newItem);
+  } else if (type === "aegis") {
+    newItem.aegisTree = createDefaultAegisSkillTree();
+    syncAegisItemLevel(newItem);
+  } else if (type === "combo_link") {
+    newItem.comboTree = createDefaultComboLinkSkillTree();
+    syncComboLinkItemLevel(newItem);
   }
   state.player.items.push(newItem);
   state.player.nextItemId += 1;
@@ -2046,7 +2573,7 @@ function upgradeItemInSlot(slotKey) {
   if (!state.player) return;
   const item = getItemInSlot(slotKey);
   if (!item || item.level >= MAX_UPGRADE_LEVEL) return;
-  if (item.type === "mine" || item.type === "warp") return;
+  if (item.type === "mine" || item.type === "warp" || item.type === "aegis" || item.type === "combo_link") return;
 
   const cost = calculateUpgradeCost(item);
   if (state.player.xpBank < cost) return;
@@ -2130,6 +2657,8 @@ function assignUnslottedItemsToOpenSlots() {
 function shortItemLabel(type) {
   if (type === "cannon") return "CN";
   if (type === "burst") return "BR";
+  if (type === "lance") return "LN";
+  if (type === "combo_link") return "CL";
   if (type === "warp") return "WP";
   if (type === "mine") return "MN";
   if (type === "rocket") return "RK";
@@ -2231,6 +2760,9 @@ function makeWorld(profile, difficulty) {
     mines: [],
     enemyMines: [],
     bossBursts: [],
+    azureBeams: [],
+    lanceBeams: [],
+    lanceTrails: [],
     rockets: [],
     allies: [],
     nextMineId: 1,
@@ -2268,6 +2800,17 @@ function makeWorld(profile, difficulty) {
       regen,
       magnet,
       fireCdByItem: {},
+      mainGunComboEnabled: false,
+      mainGunComboStreak: 0,
+      mainGunComboMult: 0,
+      mainGunComboT: 0,
+      mainGunComboWindow: 0,
+      altChargeT: 0,
+      altChargeNeed: 0,
+      altChargeActive: false,
+      altChargeReady: false,
+      altFireCd: 0,
+      altFireCdTotal: 0,
       voidCd: 0,
       azureCd: 0,
       amberCd: 0,
@@ -2275,6 +2818,8 @@ function makeWorld(profile, difficulty) {
       amberChargeCap: 0,
       warpComboT: 0,
       warpComboDuration: 0,
+      warpComboChainCount: 0,
+      warpComboChainCap: 0,
       hitFlash: 0,
       angle: 0,
       dashIFrames: 0,
@@ -2284,6 +2829,10 @@ function makeWorld(profile, difficulty) {
       aegisStoreCap: 0,
       aegisLevel: 0,
       aegisFlash: 0,
+      aegisBeamStats: null,
+      aegisComboAttempt: null,
+      aegisComboFeedback: null,
+      aegisComboRingSuppressed: false,
     },
   };
   if (isMarathonMode) updateMarathonState(world, 0);
@@ -2313,14 +2862,29 @@ function stepGame(dt) {
     w.threat = 1 + Math.floor(w.t / 22);
   }
 
-  p.voidCd = Math.max(0, p.voidCd - dt);
+  const warpComboActive = (p.warpComboT || 0) > 0;
+  if (!warpComboActive) {
+    p.voidCd = Math.max(0, p.voidCd - dt);
+  }
   p.azureCd = Math.max(0, p.azureCd - dt);
   p.amberCd = Math.max(0, p.amberCd - dt * getVoidMineChargeRateMultiplier(w));
+  p.altFireCd = Math.max(0, (p.altFireCd || 0) - dt);
   p.warpComboT = Math.max(0, p.warpComboT - dt);
-  if ((p.warpComboT || 0) <= 0) p.warpComboDuration = 0;
+  if ((p.warpComboT || 0) <= 0) {
+    p.warpComboDuration = 0;
+    p.warpComboChainCount = 0;
+    p.warpComboChainCap = 0;
+  }
   stepAmberMineRecharge(w);
+  stepMainGunComboState(w, dt);
   p.dashIFrames = Math.max(0, p.dashIFrames - dt);
   p.hitFlash = Math.max(0, p.hitFlash - dt);
+  if (p.aegisComboFeedback) {
+    p.aegisComboFeedback.t = Math.max(0, (p.aegisComboFeedback.t || 0) - dt);
+    if ((p.aegisComboFeedback.t || 0) <= 0.001) {
+      p.aegisComboFeedback = null;
+    }
+  }
   p.hp = Math.min(p.maxHp, p.hp + p.regen * dt);
 
   for (const key of Object.keys(p.fireCdByItem)) {
@@ -2358,9 +2922,16 @@ function stepGame(dt) {
     state.input.amber = false;
   }
 
+  if (state.input.aegisCombo) {
+    registerAegisComboTimingPress(w);
+    state.input.aegisCombo = false;
+  }
+
   if (w.isMarathonMode) {
     updateMarathonState(w, dt);
   }
+
+  stepAltWeaponCharge(w, dt);
 
   if (state.input.firing) {
     fireSlottedWeapons(w);
@@ -2397,6 +2968,9 @@ function stepGame(dt) {
   stepBossBursts(w, dt);
   stepHelper(w, dt);
   stepEnemies(w, dt);
+  stepAzureBeams(w, dt);
+  stepLanceBeams(w, dt);
+  stepLanceTrails(w, dt);
   resolveCombat(w);
   stepAegisShield(w, dt);
   collectDrops(w, dt);
@@ -2498,11 +3072,111 @@ function getQuantumBoundStats(infusors) {
   };
 }
 
+function getLanceStats(module) {
+  const level = Math.max(0, Number(module?.level) || 0);
+  const chargeTime = Math.max(0.6, 1.32 - level * 0.016);
+  return {
+    chargeTime,
+    cooldown: Math.max(2.8, chargeTime * LANCE_COOLDOWN_MULT),
+    damage: 136 + level * 13.5,
+    range: 2300 + level * 30,
+    penetration: 1 + Math.floor(level / 4),
+    width: 8 + level * 0.15,
+    trailDamage: 20 + level * 4.8,
+    trailDuration: 1.4 + level * 0.09,
+    trailWidth: 12 + level * 0.24,
+  };
+}
+
+function getMainGunComboStats(modules = null) {
+  const source = Array.isArray(modules) ? modules : getSlottedItems();
+  const links = source.filter((item) => item?.type === "combo_link");
+  if (links.length <= 0) {
+    return {
+      enabled: false,
+      bonusPerHit: 0,
+      maxBonus: 0,
+      timeoutWindow: 0,
+      moduleCount: 0,
+      totalLevel: 0,
+    };
+  }
+
+  const totals = links.reduce((acc, item) => {
+    const tree = normalizeComboLinkSkillTree(item?.comboTree, item?.level || 0);
+    acc.comboGain += tree.comboGain;
+    acc.comboCap += tree.comboCap;
+    acc.comboWindow += tree.comboWindow;
+    return acc;
+  }, { comboGain: 0, comboCap: 0, comboWindow: 0 });
+  const totalLevel = totals.comboGain + totals.comboCap + totals.comboWindow;
+  const moduleCount = links.length;
+  const bonusPerHit = 0.03 + totals.comboGain * 0.0024 + moduleCount * 0.005;
+  const maxBonus = 0.35 + totals.comboCap * 0.018 + moduleCount * 0.06;
+  const timeoutWindow = 1.1 + totals.comboWindow * 0.045 + moduleCount * 0.08;
+  return {
+    enabled: true,
+    bonusPerHit,
+    maxBonus,
+    timeoutWindow,
+    moduleCount,
+    totalLevel,
+    comboGainLevel: totals.comboGain,
+    comboCapLevel: totals.comboCap,
+    comboWindowLevel: totals.comboWindow,
+  };
+}
+
+function stepMainGunComboState(w, dt) {
+  const p = w.player;
+  const stats = getMainGunComboStats();
+  p.mainGunComboEnabled = !!stats.enabled;
+  if (!stats.enabled) {
+    clearMainGunComboState(w);
+    p.mainGunComboWindow = 0;
+    return;
+  }
+
+  p.mainGunComboWindow = Math.max(0.001, stats.timeoutWindow);
+  p.mainGunComboMult = clamp(p.mainGunComboMult || 0, 0, stats.maxBonus);
+  if ((p.mainGunComboStreak || 0) <= 0) {
+    clearMainGunComboState(w);
+    return;
+  }
+
+  p.mainGunComboT = Math.max(0, (p.mainGunComboT || 0) - Math.max(0, dt || 0));
+  if ((p.mainGunComboT || 0) <= 0.001) {
+    clearMainGunComboState(w);
+  }
+}
+
+function clearMainGunComboState(w) {
+  const p = w?.player;
+  if (!p) return;
+  p.mainGunComboStreak = 0;
+  p.mainGunComboMult = 0;
+  p.mainGunComboT = 0;
+}
+
+function registerMainGunComboHit(w, bullet) {
+  if (!bullet?.mainGunShot) return;
+  const stats = getMainGunComboStats();
+  if (!stats.enabled) return;
+  bullet.mainGunComboHit = true;
+  const p = w.player;
+  p.mainGunComboStreak = Math.max(0, Math.floor(p.mainGunComboStreak || 0)) + 1;
+  p.mainGunComboWindow = Math.max(0.001, stats.timeoutWindow);
+  p.mainGunComboT = p.mainGunComboWindow;
+  const nextBonus = p.mainGunComboStreak * stats.bonusPerHit;
+  p.mainGunComboMult = Math.min(stats.maxBonus, nextBonus);
+}
+
 function fireSlottedWeapons(w) {
   const p = w.player;
   const slotted = getSlottedItems();
   const infusors = getFrontInfusorModules();
   const quantumStats = getQuantumBoundStats(infusors);
+  const comboStats = getMainGunComboStats();
 
   for (const item of slotted) {
     const cfg = ITEM_CATALOG[item.type];
@@ -2518,7 +3192,10 @@ function fireSlottedWeapons(w) {
     const mount = getMountTransform(p, item.slot);
     const shotCount = cfg.projectiles || 1;
     const spread = cfg.spread || 0;
-    const damage = cfg.damage * (1 + item.level * 0.08);
+    const comboMult = item.slot === FRONT_WEAPON_SLOT_KEY && comboStats.enabled
+      ? 1 + Math.max(0, Number(p.mainGunComboMult) || 0)
+      : 1;
+    const damage = cfg.damage * (1 + item.level * 0.08) * comboMult;
 
     for (let i = 0; i < shotCount; i += 1) {
       const t = shotCount === 1 ? 0 : i / (shotCount - 1) - 0.5;
@@ -2529,6 +3206,7 @@ function fireSlottedWeapons(w) {
             seekTurn: quantumStats?.seekTurn || 0,
             seekRange: quantumStats?.seekRange || 0,
             seekLead: quantumStats?.seekLead || 0,
+            mainGunShot: true,
           }
         : null;
       fireCannon(w, mount.x, mount.y, a, damage, cfg.speed || 760, shotMods);
@@ -2536,6 +3214,136 @@ function fireSlottedWeapons(w) {
 
     audio.play("shoot");
   }
+}
+
+function fireLanceWeapon(w, module) {
+  if (!module) return 0;
+  const p = w.player;
+  const mount = getMountTransform(p, module.slot);
+  const stats = getLanceStats(module);
+  const dxToMouse = state.mouse.x - mount.x;
+  const dyToMouse = state.mouse.y - mount.y;
+  const aim = Math.atan2(dyToMouse, dxToMouse);
+  const dirX = Math.cos(aim);
+  const dirY = Math.sin(aim);
+  const maxRange = Math.max(400, stats.range);
+  const lanceHitboxRadius = Math.max(4, (stats.width || 8) * 0.35 + LANCE_HITBOX_PAD);
+  const hits = [];
+
+  for (const enemy of w.enemies) {
+    if (!enemy || enemy.hp <= 0) continue;
+    const ex = enemy.x - mount.x;
+    const ey = enemy.y - mount.y;
+    const t = ex * dirX + ey * dirY;
+    if (t < 0 || t > maxRange) continue;
+    const r = Math.max(6, enemy.r || 10);
+    const hitRadius = r + lanceHitboxRadius;
+    const d2 = ex * ex + ey * ey - t * t;
+    if (d2 > hitRadius * hitRadius) continue;
+    const thc = Math.sqrt(Math.max(0, hitRadius * hitRadius - d2));
+    const tHit = Math.max(0, t - thc);
+    const tExit = Math.min(maxRange, t + thc);
+    hits.push({ enemy, t: tHit, tExit });
+  }
+  hits.sort((a, b) => a.t - b.t);
+
+  const penetration = Math.max(1, Math.floor(stats.penetration || 1));
+  let impacted = 0;
+  let beamEndT = maxRange;
+  for (let i = 0; i < hits.length && impacted < penetration; i += 1) {
+    const hitInfo = hits[i];
+    const enemy = hitInfo.enemy;
+    if (!enemy || enemy.hp <= 0) continue;
+    markEnemyHit(enemy);
+    let dealt = stats.damage;
+    if (isMiniBossKind(enemy.kind)) {
+      const guard = clamp(enemy.guard || 0, 0, 0.9);
+      dealt *= (1 - guard);
+    }
+    enemy.hp -= dealt;
+    registerSiphonOverlordHit(w, enemy, dealt);
+    enemy.lastHitKind = "lance";
+    splash(w, enemy.x, enemy.y, "#a7ffe1", 4, 0.85);
+    impacted += 1;
+    beamEndT = Math.max(0, Math.min(maxRange, Number(hitInfo.tExit) || hitInfo.t || beamEndT));
+  }
+  if (impacted < penetration) beamEndT = maxRange;
+
+  if (!Array.isArray(w.lanceBeams)) w.lanceBeams = [];
+  w.lanceBeams.push({
+    x1: mount.x,
+    y1: mount.y,
+    x2: mount.x + dirX * beamEndT,
+    y2: mount.y + dirY * beamEndT,
+    width: stats.width,
+    life: 0.14,
+    ttl: 0.14,
+  });
+
+  if (!Array.isArray(w.lanceTrails)) w.lanceTrails = [];
+  w.lanceTrails.push({
+    x1: mount.x,
+    y1: mount.y,
+    x2: mount.x + dirX * beamEndT,
+    y2: mount.y + dirY * beamEndT,
+    width: Math.max(8, stats.trailWidth || 12),
+    dps: Math.max(1, stats.trailDamage || 20),
+    life: Math.max(0.12, stats.trailDuration || 1.4),
+    ttl: Math.max(0.12, stats.trailDuration || 1.4),
+    pulse: Math.random() * Math.PI * 2,
+  });
+  return impacted;
+}
+
+function stepAltWeaponCharge(w, dt) {
+  const p = w.player;
+  const lances = getSlottedItems().filter((item) => item.type === "lance");
+  if (lances.length <= 0) {
+    p.altChargeT = 0;
+    p.altChargeNeed = 0;
+    p.altChargeActive = false;
+    p.altChargeReady = false;
+    p.altFireCd = 0;
+    p.altFireCdTotal = 0;
+    return;
+  }
+
+  const chargeNeed = lances.reduce((maxValue, item) => Math.max(maxValue, getLanceStats(item).chargeTime), 0.8);
+  const cooldownNeed = lances.reduce((maxValue, item) => Math.max(maxValue, getLanceStats(item).cooldown), 0);
+  p.altChargeNeed = chargeNeed;
+  p.altFireCdTotal = Math.max(0.001, cooldownNeed);
+
+  if ((p.altFireCd || 0) > 0) {
+    p.altChargeT = 0;
+    p.altChargeActive = false;
+    p.altChargeReady = false;
+    return;
+  }
+
+  if (state.input.altFiring) {
+    if (!p.altChargeActive) {
+      p.altChargeActive = true;
+      p.altChargeReady = false;
+      audio.play("lanceChargeStart");
+    }
+    p.altChargeT = Math.min(chargeNeed, (p.altChargeT || 0) + Math.max(0, dt || 0));
+    if (p.altChargeT >= chargeNeed - 0.001 && !p.altChargeReady) {
+      p.altChargeReady = true;
+      audio.play("lanceChargeReady");
+    }
+    return;
+  }
+
+  if (p.altChargeActive && (p.altChargeT || 0) >= chargeNeed - 0.001) {
+    for (const item of lances) {
+      fireLanceWeapon(w, item);
+    }
+    p.altFireCd = Math.max(0, cooldownNeed);
+    audio.play("lanceFire");
+  }
+  p.altChargeT = 0;
+  p.altChargeActive = false;
+  p.altChargeReady = false;
 }
 
 function pickAbility(triggerType) {
@@ -2556,20 +3364,6 @@ function countSlottedByType(type) {
 
 function getAbilityStackScale(stacks) {
   return 1 - Math.min(0.35, Math.max(0, stacks - 1) * 0.08);
-}
-
-function getAegisDuration(level) {
-  const lv = clamp(level || 0, 0, MAX_UPGRADE_LEVEL - 1);
-  const t = lv / Math.max(1, MAX_UPGRADE_LEVEL - 1);
-  return 1.5 + t * 1.5;
-}
-
-function getAegisStoreCap(level) {
-  return 160 + Math.max(0, level || 0) * 9;
-}
-
-function getAegisCooldown(level, stacks) {
-  return Math.max(9.8 - (level || 0) * 0.085, 5.2) * getAbilityStackScale(stacks);
 }
 
 function getAegisTimeBurnPerDamage(level) {
@@ -2658,12 +3452,29 @@ function collapseAegisShield(w) {
   const wasActive = (p.aegisDuration || 0) > 0 || (p.aegisStoreCap || 0) > 0 || (p.aegisLevel || 0) > 0;
   if (!wasActive) return;
 
+  const comboStats = p.aegisBeamStats ? { ...p.aegisBeamStats } : null;
+  const comboAttempt = p.aegisComboAttempt ? { ...p.aegisComboAttempt } : null;
   releaseAegisEnergyRockets(w);
   p.aegisT = 0;
   p.aegisStoredDamage = 0;
   p.aegisDuration = 0;
   p.aegisStoreCap = 0;
   p.aegisLevel = 0;
+  p.aegisBeamStats = null;
+  p.aegisComboAttempt = null;
+  p.aegisComboFeedback = null;
+  p.aegisComboRingSuppressed = false;
+
+  if (comboStats && comboAttempt) {
+    const timeBeforePop = Math.max(0, Number(comboAttempt.timeBeforePop) || 0);
+    if (timeBeforePop <= AEGIS_COMBO_PERFECT_WINDOW) {
+      spawnAegisGlassingBeam(w, comboStats, true);
+      if (comboStats.comboPurchased) showAegisComboFeedback(w, "perfect");
+    } else if (timeBeforePop <= AEGIS_COMBO_EARLY_WINDOW) {
+      spawnAegisGlassingBeam(w, comboStats, false);
+      if (comboStats.comboPurchased) showAegisComboFeedback(w, "close");
+    }
+  }
 }
 
 function stepAegisShield(w, dt) {
@@ -2676,13 +3487,195 @@ function stepAegisShield(w, dt) {
   collapseAegisShield(w);
 }
 
+function spawnAegisGlassingBeam(w, stats, strongHit) {
+  if (!w?.player || !stats) return;
+  const power = strongHit ? 1 : 0.34;
+  const radiusScale = strongHit ? 1 : 0.62;
+  const controlScale = strongHit ? 1 : 0.68;
+  const spawnX = Number.isFinite(state.mouse.x) ? state.mouse.x : w.player.x;
+  const spawnY = Number.isFinite(state.mouse.y) ? state.mouse.y : w.player.y;
+  const beam = {
+    x: spawnX,
+    y: spawnY,
+    life: stats.beamDuration,
+    total: stats.beamDuration,
+    warmup: 0.2,
+    radius: Math.max(18, stats.beamRadius * radiusScale),
+    dps: Math.max(12, stats.beamDamage * power),
+    controlSpeed: Math.max(20, stats.beamControlSpeed * controlScale),
+    strongHit: !!strongHit,
+  };
+  w.azureBeams.push(beam);
+  splash(w, beam.x, beam.y, strongHit ? "#9ce6ff" : "#7ac9ff", strongHit ? 16 : 10, strongHit ? 1.9 : 1.35);
+  audio.play(strongHit ? "crit" : "hit");
+}
+
+function showAegisComboFeedback(w, result) {
+  const p = w?.player;
+  if (!p) return;
+  let ringColor = "125,200,255";
+  let ttl = 0.5;
+  let splashColor = "#7ec8ff";
+  let splashCount = 7;
+  let splashForce = 0.95;
+  let alphaPeak = 0.82;
+  let lineWidth = 2.3;
+  if (result === "perfect") {
+    ringColor = "144,236,255";
+    ttl = 0.76;
+    splashColor = "#9ce6ff";
+    splashCount = 12;
+    splashForce = 1.28;
+    alphaPeak = 1.0;
+    lineWidth = 3.2;
+  } else if (result === "close") {
+    ttl = 0.58;
+  } else {
+    return;
+  }
+
+  p.aegisComboFeedback = {
+    result,
+    ringColor,
+    alphaPeak,
+    lineWidth,
+    startRadius: 14,
+    endRadius: 66,
+    t: ttl,
+    ttl,
+  };
+  splash(w, p.x, p.y, splashColor, splashCount, splashForce);
+}
+
+function registerAegisComboTimingPress(w) {
+  const p = w?.player;
+  if (!p || !p.aegisBeamStats || (p.aegisT || 0) <= 0) return false;
+  if (p.aegisComboAttempt) return false;
+  const timeBeforePop = Math.max(0, Number(p.aegisT) || 0);
+  p.aegisComboAttempt = { timeBeforePop };
+  if (timeBeforePop > AEGIS_COMBO_EARLY_WINDOW) {
+    p.aegisComboRingSuppressed = true;
+  }
+  return true;
+}
+
+function stepAzureBeams(w, dt) {
+  if (!Array.isArray(w?.azureBeams) || w.azureBeams.length <= 0) return;
+  const safeDt = Math.max(0.001, dt || 0.016);
+  const next = [];
+
+  for (const beam of w.azureBeams) {
+    if (!beam) continue;
+    beam.life = Math.max(0, (beam.life || 0) - safeDt);
+    beam.warmup = Math.max(0, (beam.warmup || 0) - safeDt);
+    if (beam.life <= 0.001) continue;
+
+    const tx = state.mouse.x;
+    const ty = state.mouse.y;
+    const dx = tx - beam.x;
+    const dy = ty - beam.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist > 0.001) {
+      const step = Math.min(dist, (beam.controlSpeed || 0) * safeDt);
+      beam.x += (dx / dist) * step;
+      beam.y += (dy / dist) * step;
+    }
+
+    if ((beam.warmup || 0) <= 0) {
+      const radius = Math.max(16, beam.radius || 64);
+      for (const e of w.enemies) {
+        if (!e || e.hp <= 0) continue;
+        const d = Math.hypot(e.x - beam.x, e.y - beam.y);
+        if (d > radius + (e.r || 10) * 0.45) continue;
+
+        markEnemyHit(e);
+        if (applyTypedShieldBlock(w, e, beam.x, beam.y, "azure")) {
+          e.lastHitKind = "azure_beam";
+          continue;
+        }
+        if (e.kind === "mega_cannon_boss" && e.shieldT > 0) {
+          const heal = Math.max(1, beam.dps * safeDt * 0.5);
+          e.hp = Math.min(e.maxHp || e.hp, e.hp + heal);
+          continue;
+        }
+
+        const falloff = 1 - clamp(d / Math.max(1, radius), 0, 1);
+        let dealt = beam.dps * safeDt * (0.45 + falloff * 0.55);
+        if (isMiniBossKind(e.kind)) {
+          const guard = Math.max(0, Math.min(0.9, e.guard || 0));
+          dealt *= (1 - guard);
+        }
+        e.hp -= dealt;
+        registerSiphonOverlordHit(w, e, dealt);
+        e.lastHitKind = "azure_beam";
+
+        if (Math.random() < 0.18) {
+          splash(w, e.x, e.y, beam.strongHit ? "#9bdfff" : "#7ec8ff", beam.strongHit ? 4 : 3, 0.7);
+        }
+      }
+    }
+
+    next.push(beam);
+  }
+
+  w.azureBeams = next;
+}
+
+function stepLanceBeams(w, dt) {
+  if (!Array.isArray(w?.lanceBeams) || w.lanceBeams.length <= 0) return;
+  const safeDt = Math.max(0.001, dt || 0.016);
+  w.lanceBeams = w.lanceBeams.filter((beam) => {
+    if (!beam) return false;
+    beam.life = Math.max(0, (beam.life || 0) - safeDt);
+    return beam.life > 0.001;
+  });
+}
+
+function stepLanceTrails(w, dt) {
+  if (!Array.isArray(w?.lanceTrails) || w.lanceTrails.length <= 0) return;
+  const safeDt = Math.max(0.001, dt || 0.016);
+  const next = [];
+
+  for (const trail of w.lanceTrails) {
+    if (!trail) continue;
+    trail.life = Math.max(0, (trail.life || 0) - safeDt);
+    if ((trail.life || 0) <= 0.001) continue;
+
+    const baseRadius = Math.max(6, Number(trail.width) || 10);
+    for (const e of w.enemies) {
+      if (!e || e.hp <= 0) continue;
+      const hitRadius = baseRadius + Math.max(4, (e.r || 10) * 0.32);
+      if (!doesSegmentHitCircle(trail.x1, trail.y1, trail.x2, trail.y2, e.x, e.y, hitRadius)) continue;
+
+      const distSq = getPointToSegmentDistanceSq(trail.x1, trail.y1, trail.x2, trail.y2, e.x, e.y);
+      const dist = Math.sqrt(Math.max(0, distSq));
+      const falloff = 1 - clamp(dist / Math.max(1, hitRadius), 0, 1);
+      let dealt = Math.max(0, Number(trail.dps) || 0) * safeDt * (0.35 + falloff * 0.65);
+      if (dealt <= 0) continue;
+
+      markEnemyHit(e);
+      if (isMiniBossKind(e.kind)) {
+        const guard = Math.max(0, Math.min(0.9, e.guard || 0));
+        dealt *= (1 - guard);
+      }
+      e.hp -= dealt;
+      registerSiphonOverlordHit(w, e, dealt);
+      e.lastHitKind = "lance_trail";
+    }
+
+    next.push(trail);
+  }
+
+  w.lanceTrails = next;
+}
+
 function getAbilityCooldownTotal(module, stacks) {
   if (!module) return 0;
   const stackScale = getAbilityStackScale(stacks);
   if (module.type === "warp") return getWarpAbilityStats(module, stacks).cooldown;
   if (module.type === "rocket") return Math.max(5.2 - module.level * 0.06, 1.0) * stackScale;
   if (module.type === "helper") return Math.max(8 - module.level * 0.05, 2.0) * stackScale;
-  if (module.type === "aegis") return getAegisCooldown(module.level, stacks);
+  if (module.type === "aegis") return getAegisAbilityStats(module, stacks).cooldown;
   if (module.type === "mine") return getMineAbilityStats(module, stacks).cooldown;
   return 0;
 }
@@ -2894,6 +3887,8 @@ function useVoidAbility(w, mode = "movement") {
     if (stats.comboEnabled && kills >= 1) {
       p.warpComboT = Math.max(p.warpComboT || 0, stats.comboWindow);
       p.warpComboDuration = stats.comboWindow;
+      p.warpComboChainCount = 0;
+      p.warpComboChainCap = Math.max(1, Math.floor(stats.comboChainCap || 1));
       splash(w, p.x, p.y, "#b88dff", 10, 1.25);
     }
     splash(w, sourceX, sourceY, "#70ccff", 10, 1.45);
@@ -2932,14 +3927,24 @@ function useAzureAbility(w) {
   }
 
   if (module.type === "aegis") {
-    const duration = getAegisDuration(module.level);
-    p.aegisT = duration;
-    p.aegisDuration = duration;
+    const stats = getAegisAbilityStats(module, stacks);
+    p.aegisT = stats.duration;
+    p.aegisDuration = stats.duration;
     p.aegisStoredDamage = 0;
-    p.aegisStoreCap = getAegisStoreCap(module.level);
-    p.aegisLevel = module.level;
+    p.aegisStoreCap = stats.storeCap;
+    p.aegisLevel = stats.coreLevel;
+    p.aegisBeamStats = {
+      beamDamage: stats.beamDamage,
+      beamRadius: stats.beamRadius,
+      beamControlSpeed: stats.beamControlSpeed,
+      beamDuration: stats.beamDuration,
+      comboPurchased: hasAegisSkyGlassingCombo(stats.tree),
+    };
+    p.aegisComboAttempt = null;
+    p.aegisComboFeedback = null;
+    p.aegisComboRingSuppressed = false;
     p.aegisFlash = 0.22;
-    p.azureCd = getAegisCooldown(module.level, stacks);
+    p.azureCd = stats.cooldown;
     splash(w, p.x, p.y, "#8fe9ff", 12, 1.3);
     audio.play("helperSpawn");
   }
@@ -3045,6 +4050,7 @@ function fireCannon(w, originX, originY, angle, damage, speed, mods = null) {
     seekTurn: mods?.seekTurn || 0,
     seekRange: mods?.seekRange || 0,
     seekLead: mods?.seekLead || 0,
+    mainGunShot: !!mods?.mainGunShot,
     pulseSeed: Math.random() * Math.PI * 2,
   });
   const splashColor = shotAffinity ? getAffinityColorHex(shotAffinity) : (crit ? "#ffd9ff" : "#c98bff");
@@ -3976,6 +4982,7 @@ function spawnEnemyWave(w) {
 }
 
 function stepBullets(w, dt) {
+  let brokeComboFromMiss = false;
   for (const b of w.bullets) {
     b.px = b.x;
     b.py = b.y;
@@ -4025,8 +5032,17 @@ function stepBullets(w, dt) {
     b.x += b.vx * dt;
     b.y += b.vy * dt;
     b.life -= dt;
+
+    const inBounds = b.x > -40 && b.y > -40 && b.x < canvas.width + 40 && b.y < canvas.height + 40;
+    const alive = b.life > 0 && inBounds;
+    if (!alive && b.mainGunShot && !b.mainGunComboHit) {
+      brokeComboFromMiss = true;
+    }
   }
   w.bullets = w.bullets.filter((b) => b.life > 0 && b.x > -40 && b.y > -40 && b.x < canvas.width + 40 && b.y < canvas.height + 40);
+  if (brokeComboFromMiss) {
+    clearMainGunComboState(w);
+  }
 }
 
 function stepRockets(w, dt) {
@@ -5651,6 +6667,7 @@ function resolveCombat(w) {
         }
         e.hp -= dealt;
         registerSiphonOverlordHit(w, e, dealt);
+        registerMainGunComboHit(w, b);
         e.lastHitKind = b.helper ? "helper" : "essence";
         b.life = 0;
         splash(w, e.x, e.y, weakSpotHit ? "#ffcfff" : b.crit ? "#fff1a4" : "#ffd37d", weakSpotHit ? 15 : (b.crit ? 12 : 6), weakSpotHit ? 2.0 : 1.6);
@@ -6313,6 +7330,91 @@ function drawGame() {
     ctx.fill();
   }
 
+  if (Array.isArray(w.azureBeams) && w.azureBeams.length > 0) {
+    for (const beam of w.azureBeams) {
+      const lifePct = clamp((beam.life || 0) / Math.max(0.001, beam.total || 1), 0, 1);
+      const warm = clamp((beam.warmup || 0) / 0.2, 0, 1);
+      const pulse = (Math.sin(w.t * 12 + (beam.x + beam.y) * 0.02) + 1) * 0.5;
+      const radius = Math.max(16, beam.radius || 64);
+      const alphaBase = beam.strongHit ? 0.34 : 0.24;
+      const alpha = alphaBase * (0.5 + lifePct * 0.5) + pulse * 0.12;
+
+      if (warm > 0.001) {
+        ctx.fillStyle = `rgba(150,220,255,${0.14 + warm * 0.2})`;
+        ctx.beginPath();
+        ctx.arc(beam.x, beam.y, radius * (0.55 + (1 - warm) * 0.25), 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        ctx.fillStyle = `rgba(120,205,255,${alpha})`;
+        ctx.beginPath();
+        ctx.arc(beam.x, beam.y, radius * (0.9 + pulse * 0.08), 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.strokeStyle = `rgba(182,236,255,${0.35 + pulse * 0.3})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(beam.x, beam.y, radius, 0, Math.PI * 2);
+      ctx.stroke();
+
+      const columnTop = beam.y - (warm > 0 ? (60 + warm * 140) : 230);
+      ctx.strokeStyle = `rgba(168,231,255,${0.22 + lifePct * 0.24})`;
+      ctx.lineWidth = Math.max(6, radius * (beam.strongHit ? 0.5 : 0.4));
+      ctx.beginPath();
+      ctx.moveTo(beam.x, columnTop);
+      ctx.lineTo(beam.x, beam.y);
+      ctx.stroke();
+      ctx.lineWidth = 1;
+    }
+  }
+
+  if (Array.isArray(w.lanceTrails) && w.lanceTrails.length > 0) {
+    for (const trail of w.lanceTrails) {
+      const lifePct = clamp((trail.life || 0) / Math.max(0.001, trail.ttl || 1), 0, 1);
+      const pulse = (Math.sin(w.t * 10 + (trail.pulse || 0)) + 1) * 0.5;
+      const width = Math.max(2.5, (trail.width || 10) * (0.6 + lifePct * 0.5));
+
+      ctx.strokeStyle = `rgba(255,164,102,${0.1 + lifePct * 0.28 + pulse * 0.06})`;
+      ctx.lineWidth = width;
+      ctx.beginPath();
+      ctx.moveTo(trail.x1, trail.y1);
+      ctx.lineTo(trail.x2, trail.y2);
+      ctx.stroke();
+
+      ctx.strokeStyle = `rgba(255,222,156,${0.08 + lifePct * 0.24})`;
+      ctx.lineWidth = Math.max(1, width * 0.42);
+      ctx.beginPath();
+      ctx.moveTo(trail.x1, trail.y1);
+      ctx.lineTo(trail.x2, trail.y2);
+      ctx.stroke();
+      ctx.lineWidth = 1;
+    }
+  }
+
+  if (Array.isArray(w.lanceBeams) && w.lanceBeams.length > 0) {
+    for (const beam of w.lanceBeams) {
+      const lifePct = clamp((beam.life || 0) / Math.max(0.001, beam.ttl || 0.12), 0, 1);
+      const pulse = (Math.sin(w.t * 18 + (beam.x1 + beam.y1) * 0.02) + 1) * 0.5;
+      const width = Math.max(2, (beam.width || 8) * (0.65 + lifePct * 0.6));
+      const alpha = 0.18 + lifePct * 0.62 + pulse * 0.1;
+
+      ctx.strokeStyle = `rgba(126,255,205,${alpha})`;
+      ctx.lineWidth = width;
+      ctx.beginPath();
+      ctx.moveTo(beam.x1, beam.y1);
+      ctx.lineTo(beam.x2, beam.y2);
+      ctx.stroke();
+
+      ctx.strokeStyle = `rgba(232,255,246,${0.16 + lifePct * 0.46})`;
+      ctx.lineWidth = Math.max(1, width * 0.38);
+      ctx.beginPath();
+      ctx.moveTo(beam.x1, beam.y1);
+      ctx.lineTo(beam.x2, beam.y2);
+      ctx.stroke();
+      ctx.lineWidth = 1;
+    }
+  }
+
   for (const b of w.bullets) {
     if (!b.enemy && !b.helper && PLAYER_ROCKET_SHEET.complete && PLAYER_ROCKET_SHEET.naturalWidth > 0 && PLAYER_ROCKET_SHEET.naturalHeight > 0) {
       const pulse = (Math.sin(w.t * 13.5 + (b.pulseSeed || 0)) + 1) * 0.5;
@@ -6759,6 +7861,75 @@ function drawGame() {
   ctx.fillRect(8, -3, 12, 6);
   ctx.restore();
 
+  if (p.mainGunComboEnabled && (p.mainGunComboStreak || 0) > 0) {
+    const comboWindow = Math.max(0.001, p.mainGunComboWindow || p.mainGunComboT || 0.001);
+    const comboPct = clamp((p.mainGunComboT || 0) / comboWindow, 0, 1);
+    const bonusPct = Math.max(0, (p.mainGunComboMult || 0) * 100);
+    const barW = 84;
+    const barH = 5;
+    const barX = p.x - barW * 0.5;
+    const barY = p.y - 82;
+
+    ctx.fillStyle = "rgba(20,22,10,0.82)";
+    ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
+    ctx.fillStyle = "rgba(96,102,34,0.82)";
+    ctx.fillRect(barX, barY, barW, barH);
+    ctx.fillStyle = "rgba(238,255,132,0.95)";
+    ctx.fillRect(barX, barY, barW * comboPct, barH);
+
+    ctx.fillStyle = "rgba(245,255,188,0.97)";
+    ctx.font = "10px 'Segoe UI', sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(`MAIN COMBO x${(1 + (p.mainGunComboMult || 0)).toFixed(2)} | HITS ${Math.floor(p.mainGunComboStreak || 0)} | +${bonusPct.toFixed(0)}%`, p.x, barY - 4);
+  }
+
+  if (p.altChargeActive || (p.altFireCd || 0) > 0.001) {
+    const barW = 72;
+    const barH = 6;
+    const barX = p.x - barW * 0.5;
+    const barY = p.y - 66;
+    ctx.fillStyle = "rgba(12,22,24,0.84)";
+    ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
+    if ((p.altFireCd || 0) > 0.001 && !p.altChargeActive) {
+      const total = Math.max(0.001, p.altFireCdTotal || 1);
+      const readyPct = clamp(1 - (p.altFireCd || 0) / total, 0, 1);
+      ctx.fillStyle = "rgba(72,56,39,0.82)";
+      ctx.fillRect(barX, barY, barW, barH);
+      ctx.fillStyle = "rgba(255,186,118,0.92)";
+      ctx.fillRect(barX, barY, barW * readyPct, barH);
+    } else {
+      const need = Math.max(0.001, p.altChargeNeed || 1);
+      const chargePct = clamp((p.altChargeT || 0) / need, 0, 1);
+      ctx.fillStyle = "rgba(44,98,86,0.82)";
+      ctx.fillRect(barX, barY, barW, barH);
+      ctx.fillStyle = chargePct >= 0.999 ? "rgba(180,255,220,0.98)" : "rgba(126,255,205,0.95)";
+      ctx.fillRect(barX, barY, barW * chargePct, barH);
+    }
+  }
+
+  if ((p.warpComboT || 0) > 0) {
+    const comboTotal = Math.max(0.001, p.warpComboDuration || p.warpComboT || 0.001);
+    const comboPct = clamp((p.warpComboT || 0) / comboTotal, 0, 1);
+    const comboChainCount = Math.max(0, Math.floor(p.warpComboChainCount || 0));
+    const comboChainCap = Math.max(1, Math.floor(p.warpComboChainCap || 1));
+    const barW = 88;
+    const barH = 6;
+    const barX = p.x - barW * 0.5;
+    const barY = p.y - 52;
+
+    ctx.fillStyle = "rgba(18,16,30,0.84)";
+    ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
+    ctx.fillStyle = "rgba(76,60,118,0.86)";
+    ctx.fillRect(barX, barY, barW, barH);
+    ctx.fillStyle = "rgba(194,150,255,0.95)";
+    ctx.fillRect(barX, barY, barW * comboPct, barH);
+
+    ctx.fillStyle = "rgba(228,210,255,0.96)";
+    ctx.font = "10px 'Segoe UI', sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(`VOID COMBO ${p.warpComboT.toFixed(1)}s | CHAIN ${comboChainCount}/${comboChainCap}`, p.x, barY - 5);
+  }
+
   if ((p.aegisT || 0) > 0) {
     const shieldPct = clamp(p.aegisT / Math.max(0.001, p.aegisDuration || 1), 0, 1);
     const predictedRockets = getAegisRocketCount(p.aegisStoredDamage || 0, p.aegisLevel || 0);
@@ -6801,7 +7972,7 @@ function drawGame() {
       ctx.stroke();
     }
 
-    // Shield duration bar above player head (blue only, no numeric timer).
+    // Shield duration bar above player head (kept visible during Aegis).
     const barW = 52;
     const barH = 6;
     const barX = p.x - barW * 0.5;
@@ -6813,12 +7984,44 @@ function drawGame() {
     ctx.fillStyle = "rgba(108,213,255,0.94)";
     ctx.fillRect(barX, barY, barW * shieldPct, barH);
 
+    // Combo ring appears only when Sky Glassing Combo has been purchased.
+    if (p.aegisBeamStats?.comboPurchased && !p.aegisComboRingSuppressed) {
+      const comboRingR = 18 + shieldPct * 52;
+      const comboPulse = (Math.sin(w.t * 10.2) + 1) * 0.5;
+      const closePct = 1 - shieldPct;
+      const comboAlpha = 0.14 + closePct * 0.62 + comboPulse * 0.08;
+      const ringLineWidth = 1.8 + closePct * 1.7;
+      ctx.strokeStyle = `rgba(118,208,255,${comboAlpha})`;
+      ctx.lineWidth = ringLineWidth;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, comboRingR, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.lineWidth = 1;
+    }
+
     if (flash > 0.02) {
       ctx.fillStyle = `rgba(165,240,255,${0.14 + flash * 0.25})`;
       ctx.beginPath();
       ctx.arc(p.x, p.y, 8 + flash * 6.5, 0, Math.PI * 2);
       ctx.fill();
     }
+  }
+
+  if (p.aegisComboFeedback) {
+    const cue = p.aegisComboFeedback;
+    const lifePct = clamp((cue.t || 0) / Math.max(0.001, cue.ttl || 1), 0, 1);
+    const pulse = (Math.sin(w.t * 15.5) + 1) * 0.5;
+    const alpha = (cue.alphaPeak || 0.85) * lifePct * (0.78 + pulse * 0.22);
+    const startR = Math.max(8, cue.startRadius || 14);
+    const endR = Math.max(startR + 2, cue.endRadius || 64);
+    const ringR = startR + (1 - lifePct) * (endR - startR) + pulse * 1.4;
+
+    ctx.strokeStyle = `rgba(${cue.ringColor || "140,180,220"},${alpha})`;
+    ctx.lineWidth = Math.max(1.4, (cue.lineWidth || 2.4) * (0.7 + lifePct * 0.6));
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, ringR, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.lineWidth = 1;
   }
 
   if (p.dashIFrames > 0) {
@@ -6946,6 +8149,10 @@ function shiftEntityByOffset(entity, dx, dy) {
   if (Number.isFinite(entity.y)) entity.y += dy;
   if (Number.isFinite(entity.px)) entity.px += dx;
   if (Number.isFinite(entity.py)) entity.py += dy;
+  if (Number.isFinite(entity.x1)) entity.x1 += dx;
+  if (Number.isFinite(entity.y1)) entity.y1 += dy;
+  if (Number.isFinite(entity.x2)) entity.x2 += dx;
+  if (Number.isFinite(entity.y2)) entity.y2 += dy;
   if (Array.isArray(entity.drainLinks)) {
     for (const link of entity.drainLinks) {
       if (!link) continue;
@@ -6970,6 +8177,8 @@ function shiftWorldEntitiesByOffset(w, dx, dy) {
   shiftEntityListByOffset(w.mines, dx, dy);
   shiftEntityListByOffset(w.enemyMines, dx, dy);
   shiftEntityListByOffset(w.bossBursts, dx, dy);
+  shiftEntityListByOffset(w.lanceBeams, dx, dy);
+  shiftEntityListByOffset(w.lanceTrails, dx, dy);
   shiftEntityListByOffset(w.rockets, dx, dy);
   shiftEntityListByOffset(w.allies, dx, dy);
   shiftEntityListByOffset(w.particles, dx, dy);
@@ -7085,7 +8294,9 @@ function updateHud(w) {
   if ((p.warpComboT || 0) > 0) {
     voidSnapshot.status = "ready";
     voidSnapshot.fillPct = clamp((p.warpComboT || 0) / Math.max(0.001, p.warpComboDuration || 1), 0, 1);
-    voidSnapshot.text = `Combo ${p.warpComboT.toFixed(1)}s`;
+    const comboChainCount = Math.max(0, Math.floor(p.warpComboChainCount || 0));
+    const comboChainCap = Math.max(1, Math.floor(p.warpComboChainCap || 1));
+    voidSnapshot.text = `Combo ${p.warpComboT.toFixed(1)}s (${comboChainCount}/${comboChainCap})`;
   }
   setCooldownHud(ui.cdVoid, ui.cdVoidFill, ui.cdVoidText, voidSnapshot);
   const azureSnapshot = getAbilityCooldownSnapshot("azure", p);
@@ -7160,8 +8371,9 @@ function createAudioSystem() {
     osc.stop(now + duration + 0.02);
   }
 
-  function play(name) {
+  function play(name, opts = {}) {
     if (!unlocked) return;
+    const pitch = Math.max(0.5, Math.min(3, Number(opts.pitch) || 1));
     if (name === "shoot") tone(420, 0.05, "square", 0.03);
     else if (name === "hit") tone(250, 0.04, "triangle", 0.04);
     else if (name === "crit") tone(760, 0.08, "triangle", 0.05);
@@ -7173,9 +8385,22 @@ function createAudioSystem() {
     else if (name === "rocketLaunch") tone(260, 0.08, "square", 0.05);
     else if (name === "helperSpawn") tone(560, 0.08, "sine", 0.04);
     else if (name === "helperShot") tone(680, 0.04, "triangle", 0.025);
+    else if (name === "lanceChargeStart") tone(210, 0.08, "sawtooth", 0.045);
+    else if (name === "lanceChargeReady") {
+      tone(480, 0.06, "triangle", 0.04);
+      setTimeout(() => tone(640, 0.08, "sine", 0.04), 50);
+    }
+    else if (name === "lanceFire") {
+      tone(760, 0.09, "square", 0.05);
+      setTimeout(() => tone(520, 0.12, "triangle", 0.045), 40);
+    }
     else if (name === "enemyShot") tone(140, 0.05, "square", 0.03);
     else if (name === "playerHit") tone(96, 0.1, "sawtooth", 0.055);
     else if (name === "upgrade") tone(740, 0.06, "triangle", 0.04);
+    else if (name === "warpComboChain") {
+      tone(620 * pitch, 0.06, "triangle", 0.045);
+      setTimeout(() => tone(780 * pitch, 0.09, "sine", 0.04), 45);
+    }
     else if (name === "win") {
       tone(520, 0.09, "sine", 0.05);
       setTimeout(() => tone(690, 0.12, "sine", 0.05), 80);
