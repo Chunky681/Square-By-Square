@@ -1,4 +1,5 @@
 const PLAYER_API_BASE = "/api/player";
+const LOCAL_PLAYER_PREFIX = "rift-run-player:";
 const SAVE_RETRY_DELAY_MS = 400;
 const MAX_LEVEL = 50;
 const MAX_SLOTS = 18;
@@ -89,9 +90,26 @@ let didWarnSaveFailure = false;
 let isSaveFlushRunning = false;
 let saveRetryTimer = null;
 const pendingPlayerSaves = new Map();
+let storageMode = null;
 
 function apiPathForPlayer(id) {
   return `${PLAYER_API_BASE}/${encodeURIComponent(id)}`;
+}
+
+function localStorageKeyForPlayer(id) {
+  return `${LOCAL_PLAYER_PREFIX}${id}`;
+}
+
+function canUseLocalStorage() {
+  if (typeof window === "undefined" || !window.localStorage) return false;
+  try {
+    const key = `${LOCAL_PLAYER_PREFIX}__probe__`;
+    window.localStorage.setItem(key, "1");
+    window.localStorage.removeItem(key);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function requestJsonSync(method, path, payload = null) {
@@ -160,6 +178,17 @@ function readPlayerFromFile(id) {
   return result.player;
 }
 
+function readPlayerFromLocalStorage(id) {
+  if (!canUseLocalStorage()) return null;
+  const raw = window.localStorage.getItem(localStorageKeyForPlayer(id));
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
 function writePlayerToFileSync(player) {
   requestJsonSync("PUT", apiPathForPlayer(player.id), { player });
 }
@@ -168,8 +197,15 @@ async function writePlayerToFileAsync(player) {
   await requestJsonAsync("PUT", apiPathForPlayer(player.id), { player });
 }
 
+function writePlayerToLocalStorage(player) {
+  if (!canUseLocalStorage()) {
+    throw new Error("Browser localStorage is unavailable.");
+  }
+  window.localStorage.setItem(localStorageKeyForPlayer(player.id), JSON.stringify(player));
+}
+
 function makeStorageUnavailableError(cause) {
-  const error = new Error("Could not access local player storage. Start the game with `python server.py` and try again.");
+  const error = new Error("Could not access player storage. On GitHub Pages this game uses browser localStorage.");
   error.cause = cause;
   return error;
 }
@@ -181,13 +217,35 @@ export function getOrCreatePlayer(id) {
   }
 
   try {
-    const existing = readPlayerFromFile(key);
-    if (existing && typeof existing === "object") {
-      return normalizePlayer(existing);
+    if (storageMode !== "local") {
+      try {
+        const existing = readPlayerFromFile(key);
+        storageMode = "api";
+        if (existing && typeof existing === "object") {
+          return normalizePlayer(existing);
+        }
+
+        const created = createDefaultPlayer(key);
+        writePlayerToFileSync(created);
+        return normalizePlayer(created);
+      } catch {
+        // Fall back to browser storage when API-backed storage is unavailable
+        // (for example when running on GitHub Pages).
+      }
+    }
+
+    if (!canUseLocalStorage()) {
+      throw new Error("Neither API storage nor browser localStorage is available.");
+    }
+
+    storageMode = "local";
+    const localExisting = readPlayerFromLocalStorage(key);
+    if (localExisting && typeof localExisting === "object") {
+      return normalizePlayer(localExisting);
     }
 
     const created = createDefaultPlayer(key);
-    writePlayerToFileSync(created);
+    writePlayerToLocalStorage(created);
     return normalizePlayer(created);
   } catch (err) {
     throw makeStorageUnavailableError(err);
@@ -224,13 +282,29 @@ async function flushPendingSaves() {
     const [playerId, snapshot] = entry;
     pendingPlayerSaves.delete(playerId);
     try {
-      await writePlayerToFileAsync(snapshot);
+      if (storageMode === "local") {
+        writePlayerToLocalStorage(snapshot);
+      } else {
+        await writePlayerToFileAsync(snapshot);
+        storageMode = "api";
+      }
       didWarnSaveFailure = false;
     } catch (err) {
+      if (canUseLocalStorage()) {
+        try {
+          storageMode = "local";
+          writePlayerToLocalStorage(snapshot);
+          didWarnSaveFailure = false;
+          continue;
+        } catch {
+          // Keep existing retry behavior below when localStorage write fails.
+        }
+      }
+
       pendingPlayerSaves.set(playerId, snapshot);
       if (!didWarnSaveFailure) {
         didWarnSaveFailure = true;
-        console.error("Player save failed. Retrying in the background. Ensure `python server.py` is running.", err);
+        console.error("Player save failed. Retrying in the background.", err);
       }
       isSaveFlushRunning = false;
       scheduleSaveFlush(SAVE_RETRY_DELAY_MS);
@@ -245,9 +319,20 @@ function flushPendingSavesSynchronously() {
   if (pendingPlayerSaves.size === 0) return;
   for (const snapshot of pendingPlayerSaves.values()) {
     try {
-      writePlayerToFileSync(snapshot);
+      if (storageMode === "local") {
+        writePlayerToLocalStorage(snapshot);
+      } else {
+        writePlayerToFileSync(snapshot);
+      }
     } catch {
-      // Ignore unload-time save errors.
+      try {
+        if (canUseLocalStorage()) {
+          storageMode = "local";
+          writePlayerToLocalStorage(snapshot);
+        }
+      } catch {
+        // Ignore unload-time save errors.
+      }
     }
   }
   pendingPlayerSaves.clear();
