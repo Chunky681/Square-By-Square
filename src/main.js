@@ -388,7 +388,7 @@ const AEGIS_TREE_DEFINITION = [
   {
     id: "aegis_glassing",
     title: "Node 2 - Sky Glassing Combo",
-    desc: "Press C before shield collapse. Too early fails, slightly early gives a small beam, perfect timing gives full beam.",
+    desc: "Press C before shield collapse. Too early fails, slightly early gives a small beam, perfect timing gives full beam. Void Combo can also infuse this beam for major duration/radius/tracking boosts.",
     upgrades: [
       { key: "beamDamage", label: "Beam Damage", max: AEGIS_TREE_LIMITS.beamDamage, costBase: 66, costStep: 12, costCurve: 0.9 },
       { key: "beamRadius", label: "Beam Hit Radius", max: AEGIS_TREE_LIMITS.beamRadius, costBase: 62, costStep: 11, costCurve: 0.86 },
@@ -473,6 +473,12 @@ const SIEGE_SPIKES_TREE_DEFINITION = [
 const AEGIS_COMBO_BASE_BEAM_DURATION = 2.4;
 const AEGIS_COMBO_PERFECT_WINDOW = 0.2;
 const AEGIS_COMBO_EARLY_WINDOW = 0.7;
+const VOID_INFUSED_GLASSING_DURATION_BASE = 1.4;
+const VOID_INFUSED_GLASSING_DURATION_PER_POWER = 0.35;
+const VOID_INFUSED_GLASSING_RADIUS_BASE = 1.35;
+const VOID_INFUSED_GLASSING_RADIUS_PER_POWER = 0.4;
+const VOID_INFUSED_GLASSING_CONTROL_BASE = 1.55;
+const VOID_INFUSED_GLASSING_CONTROL_PER_POWER = 0.5;
 const LANCE_HITBOX_PAD = 6;
 const LANCE_COOLDOWN_MULT = 10;
 
@@ -1091,6 +1097,25 @@ function getWarpComboEnemyTarget(w, x, y) {
   return chosen;
 }
 
+function getWarpComboSkyGlassingBeamTarget(w, x, y) {
+  if (!Array.isArray(w?.azureBeams) || w.azureBeams.length <= 0) return null;
+  let chosen = null;
+  let best = Number.POSITIVE_INFINITY;
+
+  for (const beam of w.azureBeams) {
+    if (!beam || beam.voidInfused) continue;
+    if ((beam.life || 0) <= 0.001) continue;
+    const pickR = Math.max(28, (beam.radius || 64) * 0.85);
+    const d = Math.hypot((beam.x || 0) - x, (beam.y || 0) - y);
+    if (d <= pickR && d < best) {
+      best = d;
+      chosen = beam;
+    }
+  }
+
+  return chosen;
+}
+
 function infuseMineWithVoid(mine, mult = 2) {
   if (!mine || mine.voidInfused) return false;
   const amplify = Math.max(1, mult || 2);
@@ -1131,6 +1156,52 @@ function infuseMineWithVoid(mine, mult = 2) {
   return true;
 }
 
+function clearWarpComboState(p) {
+  if (!p) return;
+  p.warpComboT = 0;
+  p.warpComboDuration = 0;
+  p.warpComboChainCount = 0;
+  p.warpComboChainCap = 0;
+}
+
+function infuseAegisGlassingWithVoid(player, mult = 2) {
+  const stats = player?.aegisBeamStats;
+  if (!stats || !stats.comboPurchased || stats.voidInfused) return false;
+
+  const infusionPower = Math.max(1, Number(mult) || 2);
+  const durationMult = VOID_INFUSED_GLASSING_DURATION_BASE + infusionPower * VOID_INFUSED_GLASSING_DURATION_PER_POWER;
+  const radiusMult = VOID_INFUSED_GLASSING_RADIUS_BASE + infusionPower * VOID_INFUSED_GLASSING_RADIUS_PER_POWER;
+  const controlMult = VOID_INFUSED_GLASSING_CONTROL_BASE + infusionPower * VOID_INFUSED_GLASSING_CONTROL_PER_POWER;
+
+  stats.voidInfused = true;
+  stats.voidInfusePower = infusionPower;
+  stats.voidDurationMult = durationMult;
+  stats.voidRadiusMult = radiusMult;
+  stats.voidControlMult = controlMult;
+  stats.beamDuration = Math.max(0.2, (Number(stats.beamDuration) || AEGIS_COMBO_BASE_BEAM_DURATION) * durationMult);
+  stats.beamRadius = Math.max(18, (Number(stats.beamRadius) || 68) * radiusMult);
+  stats.beamControlSpeed = Math.max(20, (Number(stats.beamControlSpeed) || 84) * controlMult);
+  return true;
+}
+
+function infuseActiveAegisGlassingBeamWithVoid(beam, mult = 2) {
+  if (!beam || beam.voidInfused) return false;
+  if ((beam.life || 0) <= 0.001) return false;
+
+  const infusionPower = Math.max(1, Number(mult) || 2);
+  const durationMult = VOID_INFUSED_GLASSING_DURATION_BASE + infusionPower * VOID_INFUSED_GLASSING_DURATION_PER_POWER;
+  const radiusMult = VOID_INFUSED_GLASSING_RADIUS_BASE + infusionPower * VOID_INFUSED_GLASSING_RADIUS_PER_POWER;
+  const controlMult = VOID_INFUSED_GLASSING_CONTROL_BASE + infusionPower * VOID_INFUSED_GLASSING_CONTROL_PER_POWER;
+
+  beam.voidInfused = true;
+  beam.voidInfusePower = infusionPower;
+  beam.life = Math.max(0.15, (Number(beam.life) || 0.15) * durationMult);
+  beam.total = Math.max(beam.life, (Number(beam.total) || Number(beam.life) || 0.15) * durationMult);
+  beam.radius = Math.max(18, (Number(beam.radius) || 64) * radiusMult);
+  beam.controlSpeed = Math.max(20, (Number(beam.controlSpeed) || 84) * controlMult);
+  return true;
+}
+
 function tryHandleWarpComboSelection() {
   const w = state.world;
   if (!w || state.mode !== "game") return false;
@@ -1151,18 +1222,37 @@ function tryHandleWarpComboSelection() {
   if (mine) {
     const infused = infuseMineWithVoid(mine, stats.comboInfusionMult);
     if (infused) {
-      p.warpComboT = 0;
-      p.warpComboDuration = 0;
-      p.warpComboChainCount = 0;
-      p.warpComboChainCap = 0;
+      clearWarpComboState(p);
       splash(w, mine.x, mine.y, "#b78cff", 10, 1.4);
       audio.play("warp");
       return true;
     }
   }
 
+  const beam = getWarpComboSkyGlassingBeamTarget(w, mx, my);
+  if (beam) {
+    const infused = infuseActiveAegisGlassingBeamWithVoid(beam, stats.comboInfusionMult);
+    if (infused) {
+      clearWarpComboState(p);
+      splash(w, beam.x, beam.y, "#bc8fff", 14, 1.6);
+      audio.play("warp");
+      return true;
+    }
+  }
+
   const enemy = getWarpComboEnemyTarget(w, mx, my);
-  if (!enemy) return false;
+  if (!enemy) {
+    const skyGlassingInfused = infuseAegisGlassingWithVoid(p, stats.comboInfusionMult);
+    if (skyGlassingInfused) {
+      clearWarpComboState(p);
+      p.aegisFlash = Math.max(p.aegisFlash || 0, 0.24);
+      p.aegisComboRingSuppressed = false;
+      splash(w, p.x, p.y, "#bc8fff", 14, 1.6);
+      audio.play("warp");
+      return true;
+    }
+    return false;
+  }
   if (bulwarkLockAnchor && !isPointInsideBulwarkAnchor(bulwarkLockAnchor, enemy.x, enemy.y, -(enemy.r || 10) * 0.35)) {
     return false;
   }
@@ -1218,10 +1308,7 @@ function tryHandleWarpComboSelection() {
     const chainPitch = 1 + Math.min(1.1, Math.max(0, nextChainCount - 1) * 0.14);
     audio.play("warpComboChain", { pitch: chainPitch });
     if (nextChainCount >= chainCap) {
-      p.warpComboT = 0;
-      p.warpComboDuration = 0;
-      p.warpComboChainCount = 0;
-      p.warpComboChainCap = 0;
+      clearWarpComboState(p);
     } else {
       const nextWindow = Math.max(0.12, currentComboDuration * 0.7);
       p.warpComboDuration = nextWindow;
@@ -1231,10 +1318,7 @@ function tryHandleWarpComboSelection() {
       splash(w, p.x, p.y, "#ce9dff", 8, 1.1);
     }
   } else {
-    p.warpComboT = 0;
-    p.warpComboDuration = 0;
-    p.warpComboChainCount = 0;
-    p.warpComboChainCap = 0;
+    clearWarpComboState(p);
   }
 
   splash(w, p.x, p.y, "#b993ff", 12, 1.5);
@@ -3752,9 +3836,7 @@ function stepGame(dt) {
   p.altFireCd = Math.max(0, (p.altFireCd || 0) - dt);
   p.warpComboT = Math.max(0, p.warpComboT - dt);
   if ((p.warpComboT || 0) <= 0) {
-    p.warpComboDuration = 0;
-    p.warpComboChainCount = 0;
-    p.warpComboChainCap = 0;
+    clearWarpComboState(p);
   }
   stepAmberMineRecharge(w);
   stepMainGunComboState(w, dt);
@@ -4389,6 +4471,7 @@ function stepAegisShield(w, dt) {
 
 function spawnAegisGlassingBeam(w, stats, strongHit) {
   if (!w?.player || !stats) return;
+  const voidInfused = !!stats.voidInfused;
   const power = strongHit ? 1 : 0.34;
   const radiusScale = strongHit ? 1 : 0.62;
   const controlScale = strongHit ? 1 : 0.68;
@@ -4404,9 +4487,14 @@ function spawnAegisGlassingBeam(w, stats, strongHit) {
     dps: Math.max(12, stats.beamDamage * power),
     controlSpeed: Math.max(20, stats.beamControlSpeed * controlScale),
     strongHit: !!strongHit,
+    voidInfused,
   };
   w.azureBeams.push(beam);
-  splash(w, beam.x, beam.y, strongHit ? "#9ce6ff" : "#7ac9ff", strongHit ? 16 : 10, strongHit ? 1.9 : 1.35);
+  const burstColor = voidInfused ? (strongHit ? "#cdb2ff" : "#bc8fff") : (strongHit ? "#9ce6ff" : "#7ac9ff");
+  splash(w, beam.x, beam.y, burstColor, strongHit ? 16 : 10, strongHit ? 1.9 : 1.35);
+  if (voidInfused) {
+    splash(w, beam.x, beam.y, "#a868ff", strongHit ? 11 : 8, strongHit ? 1.35 : 1.15);
+  }
   audio.play(strongHit ? "crit" : "hit");
 }
 
@@ -4852,6 +4940,11 @@ function useAzureAbility(w) {
       beamControlSpeed: stats.beamControlSpeed,
       beamDuration: stats.beamDuration,
       comboPurchased: hasAegisSkyGlassingCombo(stats.tree),
+      voidInfused: false,
+      voidInfusePower: 0,
+      voidDurationMult: 1,
+      voidRadiusMult: 1,
+      voidControlMult: 1,
     };
     p.aegisComboAttempt = null;
     p.aegisComboFeedback = null;
@@ -9010,27 +9103,31 @@ function drawGame() {
       const radius = Math.max(16, beam.radius || 64);
       const alphaBase = beam.strongHit ? 0.34 : 0.24;
       const alpha = alphaBase * (0.5 + lifePct * 0.5) + pulse * 0.12;
+      const warmColor = beam.voidInfused ? "192,153,255" : "150,220,255";
+      const fillColor = beam.voidInfused ? "168,120,255" : "120,205,255";
+      const strokeColor = beam.voidInfused ? "220,194,255" : "182,236,255";
+      const columnColor = beam.voidInfused ? "205,168,255" : "168,231,255";
 
       if (warm > 0.001) {
-        ctx.fillStyle = `rgba(150,220,255,${0.14 + warm * 0.2})`;
+        ctx.fillStyle = `rgba(${warmColor},${0.14 + warm * 0.2})`;
         ctx.beginPath();
         ctx.arc(beam.x, beam.y, radius * (0.55 + (1 - warm) * 0.25), 0, Math.PI * 2);
         ctx.fill();
       } else {
-        ctx.fillStyle = `rgba(120,205,255,${alpha})`;
+        ctx.fillStyle = `rgba(${fillColor},${alpha})`;
         ctx.beginPath();
         ctx.arc(beam.x, beam.y, radius * (0.9 + pulse * 0.08), 0, Math.PI * 2);
         ctx.fill();
       }
 
-      ctx.strokeStyle = `rgba(182,236,255,${0.35 + pulse * 0.3})`;
+      ctx.strokeStyle = `rgba(${strokeColor},${0.35 + pulse * 0.3})`;
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(beam.x, beam.y, radius, 0, Math.PI * 2);
       ctx.stroke();
 
       const columnTop = beam.y - (warm > 0 ? (60 + warm * 140) : 230);
-      ctx.strokeStyle = `rgba(168,231,255,${0.22 + lifePct * 0.24})`;
+      ctx.strokeStyle = `rgba(${columnColor},${0.22 + lifePct * 0.24})`;
       ctx.lineWidth = Math.max(6, radius * (beam.strongHit ? 0.5 : 0.4));
       ctx.beginPath();
       ctx.moveTo(beam.x, columnTop);
@@ -9658,12 +9755,14 @@ function drawGame() {
 
     // Combo ring appears only when Sky Glassing Combo has been purchased.
     if (p.aegisBeamStats?.comboPurchased && !p.aegisComboRingSuppressed) {
-      const comboRingR = 18 + shieldPct * 52;
+      const voidInfused = !!p.aegisBeamStats?.voidInfused;
+      const comboRingR = (voidInfused ? 24 : 18) + shieldPct * 52;
       const comboPulse = (Math.sin(w.t * 10.2) + 1) * 0.5;
       const closePct = 1 - shieldPct;
       const comboAlpha = 0.14 + closePct * 0.62 + comboPulse * 0.08;
-      const ringLineWidth = 1.8 + closePct * 1.7;
-      ctx.strokeStyle = `rgba(118,208,255,${comboAlpha})`;
+      const ringLineWidth = (voidInfused ? 2.4 : 1.8) + closePct * 1.7;
+      const ringRgb = voidInfused ? "197,141,255" : "118,208,255";
+      ctx.strokeStyle = `rgba(${ringRgb},${comboAlpha})`;
       ctx.lineWidth = ringLineWidth;
       ctx.beginPath();
       ctx.arc(p.x, p.y, comboRingR, 0, Math.PI * 2);
@@ -10002,7 +10101,7 @@ function updateHud(w) {
   if ((p.aegisT || 0) > 0) {
     azureSnapshot.status = "cooldown";
     azureSnapshot.fillPct = clamp((p.aegisT || 0) / Math.max(0.001, p.aegisDuration || 1), 0, 1);
-    azureSnapshot.text = "Active";
+    azureSnapshot.text = p.aegisBeamStats?.voidInfused ? "Active (Void Infused)" : "Active";
   }
   setCooldownHud(ui.cdAzure, ui.cdAzureFill, ui.cdAzureText, azureSnapshot);
   setCooldownHud(ui.cdAmber, ui.cdAmberFill, ui.cdAmberText, getAbilityCooldownSnapshot("amber", p));
