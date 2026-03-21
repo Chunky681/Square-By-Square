@@ -11,6 +11,8 @@ const ITEM_TYPES = new Set([
   "combo_link",
   "warp",
   "mine",
+  "bulwark_anchor",
+  "siege_spikes",
   "rocket",
   "helper",
   "aegis",
@@ -30,6 +32,8 @@ const ITEM_DEFAULT_COSTS = {
   combo_link: { buyBase: 154, upgradeBase: 54 },
   warp: { buyBase: 140, upgradeBase: 55 },
   mine: { buyBase: 130, upgradeBase: 53 },
+  bulwark_anchor: { buyBase: 155, upgradeBase: 57 },
+  siege_spikes: { buyBase: 168, upgradeBase: 60 },
   rocket: { buyBase: 175, upgradeBase: 62 },
   helper: { buyBase: 190, upgradeBase: 64 },
   aegis: { buyBase: 210, upgradeBase: 68 },
@@ -80,10 +84,42 @@ const AEGIS_TREE_LIMITS = {
   beamControl: 8,
 };
 
+const BULWARK_ANCHOR_TREE_LIMITS = {
+  cooldown: 12,
+  radius: 12,
+  duration: 10,
+  reduction: 10,
+  pulseDamage: 12,
+  pulseRate: 10,
+  barrierWidth: 8,
+  trapDamage: 8,
+  turretUnlock: 1,
+  turretCount: 6,
+  turretDamage: 10,
+  turretRate: 10,
+  turretTurn: 8,
+  turretRange: 8,
+};
+
 const COMBO_LINK_TREE_LIMITS = {
   comboGain: 16,
   comboCap: 18,
   comboWindow: 16,
+};
+
+const SIEGE_SPIKES_TREE_LIMITS = {
+  cooldown: 12,
+  length: 12,
+  duration: 10,
+  touchDamage: 12,
+  hitRate: 8,
+  turretUnlock: 1,
+  turretCount: 6,
+  turretDamage: 10,
+  turretRate: 10,
+  turretTurn: 8,
+  turretRange: 8,
+  drawBoost: 8,
 };
 
 let didWarnSaveFailure = false;
@@ -465,9 +501,15 @@ function normalizePlayer(player) {
       } else if (raw.type === "aegis") {
         normalized.aegisTree = normalizeAegisSkillTree(raw.aegisTree, level);
         normalized.level = Math.min(MAX_LEVEL, getAegisTreeTotalLevel(normalized.aegisTree));
+      } else if (raw.type === "bulwark_anchor") {
+        normalized.bulwarkTree = normalizeBulwarkAnchorSkillTree(raw.bulwarkTree, level);
+        normalized.level = Math.min(MAX_LEVEL, getBulwarkAnchorTreeTotalLevel(normalized.bulwarkTree));
       } else if (raw.type === "combo_link") {
         normalized.comboTree = normalizeComboLinkSkillTree(raw.comboTree, level);
         normalized.level = Math.min(MAX_LEVEL, getComboLinkTreeTotalLevel(normalized.comboTree));
+      } else if (raw.type === "siege_spikes") {
+        normalized.siegeTree = normalizeSiegeSpikesSkillTree(raw.siegeTree, level);
+        normalized.level = Math.min(MAX_LEVEL, getSiegeSpikesTreeTotalLevel(normalized.siegeTree));
       }
       normalizedItems.push(normalized);
       maxId = Math.max(maxId, id);
@@ -742,6 +784,91 @@ function getAegisTreeTotalLevel(tree) {
   ].reduce((sum, value) => sum + clampInt(value, 0, MAX_LEVEL), 0);
 }
 
+function createDefaultBulwarkAnchorSkillTree() {
+  return {
+    cooldown: 0,
+    radius: 0,
+    duration: 0,
+    reduction: 0,
+    pulseDamage: 0,
+    pulseRate: 0,
+    barrierWidth: 0,
+    trapDamage: 0,
+    turretUnlock: 0,
+    turretCount: 0,
+    turretDamage: 0,
+    turretRate: 0,
+    turretTurn: 0,
+    turretRange: 0,
+  };
+}
+
+function normalizeBulwarkAnchorSkillTree(raw, fallbackLevel = 0) {
+  const tree = createDefaultBulwarkAnchorSkillTree();
+  const source = raw && typeof raw === "object" ? raw : null;
+  if (source) {
+    tree.cooldown = clampInt(source.cooldown, 0, BULWARK_ANCHOR_TREE_LIMITS.cooldown);
+    tree.radius = clampInt(source.radius, 0, BULWARK_ANCHOR_TREE_LIMITS.radius);
+    tree.duration = clampInt(source.duration, 0, BULWARK_ANCHOR_TREE_LIMITS.duration);
+    tree.reduction = clampInt(Number.isFinite(Number(source.reduction)) ? source.reduction : source.damageReduction, 0, BULWARK_ANCHOR_TREE_LIMITS.reduction);
+    tree.pulseDamage = clampInt(source.pulseDamage, 0, BULWARK_ANCHOR_TREE_LIMITS.pulseDamage);
+    tree.pulseRate = clampInt(Number.isFinite(Number(source.pulseRate)) ? source.pulseRate : source.pulseInterval, 0, BULWARK_ANCHOR_TREE_LIMITS.pulseRate);
+    tree.barrierWidth = clampInt(source.barrierWidth, 0, BULWARK_ANCHOR_TREE_LIMITS.barrierWidth);
+    tree.trapDamage = clampInt(Number.isFinite(Number(source.trapDamage)) ? source.trapDamage : source.trapDamageBonus, 0, BULWARK_ANCHOR_TREE_LIMITS.trapDamage);
+    tree.turretUnlock = clampInt(source.turretUnlock, 0, BULWARK_ANCHOR_TREE_LIMITS.turretUnlock);
+    tree.turretCount = clampInt(source.turretCount, 0, BULWARK_ANCHOR_TREE_LIMITS.turretCount);
+    tree.turretDamage = clampInt(source.turretDamage, 0, BULWARK_ANCHOR_TREE_LIMITS.turretDamage);
+    tree.turretRate = clampInt(source.turretRate, 0, BULWARK_ANCHOR_TREE_LIMITS.turretRate);
+    tree.turretTurn = clampInt(source.turretTurn, 0, BULWARK_ANCHOR_TREE_LIMITS.turretTurn);
+    tree.turretRange = clampInt(source.turretRange, 0, BULWARK_ANCHOR_TREE_LIMITS.turretRange);
+    if (tree.turretUnlock <= 0) {
+      tree.turretCount = 0;
+      tree.turretDamage = 0;
+      tree.turretRate = 0;
+      tree.turretTurn = 0;
+      tree.turretRange = 0;
+    }
+    return tree;
+  }
+
+  const legacy = clampInt(fallbackLevel, 0, MAX_LEVEL);
+  tree.cooldown = clampInt(Math.floor(legacy * 0.22), 0, BULWARK_ANCHOR_TREE_LIMITS.cooldown);
+  tree.radius = clampInt(Math.floor(legacy * 0.24), 0, BULWARK_ANCHOR_TREE_LIMITS.radius);
+  tree.duration = clampInt(Math.floor(legacy * 0.18), 0, BULWARK_ANCHOR_TREE_LIMITS.duration);
+  tree.reduction = clampInt(Math.floor(legacy * 0.14), 0, BULWARK_ANCHOR_TREE_LIMITS.reduction);
+  tree.pulseDamage = clampInt(Math.floor(legacy * 0.2), 0, BULWARK_ANCHOR_TREE_LIMITS.pulseDamage);
+  tree.pulseRate = clampInt(Math.floor(legacy * 0.14), 0, BULWARK_ANCHOR_TREE_LIMITS.pulseRate);
+  tree.barrierWidth = clampInt(Math.floor(legacy * 0.16), 0, BULWARK_ANCHOR_TREE_LIMITS.barrierWidth);
+  tree.trapDamage = clampInt(Math.floor(legacy * 0.12), 0, BULWARK_ANCHOR_TREE_LIMITS.trapDamage);
+  tree.turretUnlock = legacy >= 22 ? 1 : 0;
+  tree.turretCount = tree.turretUnlock ? clampInt(Math.floor((legacy - 22) * 0.18), 0, BULWARK_ANCHOR_TREE_LIMITS.turretCount) : 0;
+  tree.turretDamage = tree.turretUnlock ? clampInt(Math.floor((legacy - 24) * 0.2), 0, BULWARK_ANCHOR_TREE_LIMITS.turretDamage) : 0;
+  tree.turretRate = tree.turretUnlock ? clampInt(Math.floor((legacy - 26) * 0.18), 0, BULWARK_ANCHOR_TREE_LIMITS.turretRate) : 0;
+  tree.turretTurn = tree.turretUnlock ? clampInt(Math.floor((legacy - 26) * 0.14), 0, BULWARK_ANCHOR_TREE_LIMITS.turretTurn) : 0;
+  tree.turretRange = tree.turretUnlock ? clampInt(Math.floor((legacy - 28) * 0.12), 0, BULWARK_ANCHOR_TREE_LIMITS.turretRange) : 0;
+  return tree;
+}
+
+function getBulwarkAnchorTreeTotalLevel(tree) {
+  if (!tree) return 0;
+  return [
+    tree.cooldown,
+    tree.radius,
+    tree.duration,
+    tree.reduction,
+    tree.pulseDamage,
+    tree.pulseRate,
+    tree.barrierWidth,
+    tree.trapDamage,
+    tree.turretUnlock,
+    tree.turretCount,
+    tree.turretDamage,
+    tree.turretRate,
+    tree.turretTurn,
+    tree.turretRange,
+  ].reduce((sum, value) => sum + clampInt(value, 0, MAX_LEVEL), 0);
+}
+
 function createDefaultComboLinkSkillTree() {
   return {
     comboGain: 0,
@@ -773,6 +900,84 @@ function getComboLinkTreeTotalLevel(tree) {
     tree.comboGain,
     tree.comboCap,
     tree.comboWindow,
+  ].reduce((sum, value) => sum + clampInt(value, 0, MAX_LEVEL), 0);
+}
+
+function createDefaultSiegeSpikesSkillTree() {
+  return {
+    cooldown: 0,
+    length: 0,
+    duration: 0,
+    touchDamage: 0,
+    hitRate: 0,
+    turretUnlock: 0,
+    turretCount: 0,
+    turretDamage: 0,
+    turretRate: 0,
+    turretTurn: 0,
+    turretRange: 0,
+    drawBoost: 0,
+  };
+}
+
+function normalizeSiegeSpikesSkillTree(raw, fallbackLevel = 0) {
+  const tree = createDefaultSiegeSpikesSkillTree();
+  const source = raw && typeof raw === "object" ? raw : null;
+  if (source) {
+    tree.cooldown = clampInt(source.cooldown, 0, SIEGE_SPIKES_TREE_LIMITS.cooldown);
+    tree.length = clampInt(Number.isFinite(Number(source.length)) ? source.length : source.range, 0, SIEGE_SPIKES_TREE_LIMITS.length);
+    tree.duration = clampInt(source.duration, 0, SIEGE_SPIKES_TREE_LIMITS.duration);
+    tree.touchDamage = clampInt(Number.isFinite(Number(source.touchDamage)) ? source.touchDamage : source.damage, 0, SIEGE_SPIKES_TREE_LIMITS.touchDamage);
+    tree.hitRate = clampInt(Number.isFinite(Number(source.hitRate)) ? source.hitRate : source.hitInterval, 0, SIEGE_SPIKES_TREE_LIMITS.hitRate);
+    tree.turretUnlock = clampInt(source.turretUnlock, 0, SIEGE_SPIKES_TREE_LIMITS.turretUnlock);
+    tree.turretCount = clampInt(source.turretCount, 0, SIEGE_SPIKES_TREE_LIMITS.turretCount);
+    tree.turretDamage = clampInt(source.turretDamage, 0, SIEGE_SPIKES_TREE_LIMITS.turretDamage);
+    tree.turretRate = clampInt(source.turretRate, 0, SIEGE_SPIKES_TREE_LIMITS.turretRate);
+    tree.turretTurn = clampInt(source.turretTurn, 0, SIEGE_SPIKES_TREE_LIMITS.turretTurn);
+    tree.turretRange = clampInt(source.turretRange, 0, SIEGE_SPIKES_TREE_LIMITS.turretRange);
+    tree.drawBoost = clampInt(source.drawBoost, 0, SIEGE_SPIKES_TREE_LIMITS.drawBoost);
+    if (tree.turretUnlock <= 0) {
+      tree.turretCount = 0;
+      tree.turretDamage = 0;
+      tree.turretRate = 0;
+      tree.turretTurn = 0;
+      tree.turretRange = 0;
+      tree.drawBoost = 0;
+    }
+    return tree;
+  }
+
+  const legacy = clampInt(fallbackLevel, 0, MAX_LEVEL);
+  tree.cooldown = clampInt(Math.floor(legacy * 0.24), 0, SIEGE_SPIKES_TREE_LIMITS.cooldown);
+  tree.length = clampInt(Math.floor(legacy * 0.24), 0, SIEGE_SPIKES_TREE_LIMITS.length);
+  tree.duration = clampInt(Math.floor(legacy * 0.2), 0, SIEGE_SPIKES_TREE_LIMITS.duration);
+  tree.touchDamage = clampInt(Math.floor(legacy * 0.24), 0, SIEGE_SPIKES_TREE_LIMITS.touchDamage);
+  tree.hitRate = clampInt(Math.floor(legacy * 0.16), 0, SIEGE_SPIKES_TREE_LIMITS.hitRate);
+  tree.turretUnlock = legacy >= 22 ? 1 : 0;
+  tree.turretCount = tree.turretUnlock ? clampInt(Math.floor((legacy - 22) * 0.16), 0, SIEGE_SPIKES_TREE_LIMITS.turretCount) : 0;
+  tree.turretDamage = tree.turretUnlock ? clampInt(Math.floor((legacy - 24) * 0.2), 0, SIEGE_SPIKES_TREE_LIMITS.turretDamage) : 0;
+  tree.turretRate = tree.turretUnlock ? clampInt(Math.floor((legacy - 26) * 0.16), 0, SIEGE_SPIKES_TREE_LIMITS.turretRate) : 0;
+  tree.turretTurn = tree.turretUnlock ? clampInt(Math.floor((legacy - 26) * 0.14), 0, SIEGE_SPIKES_TREE_LIMITS.turretTurn) : 0;
+  tree.turretRange = tree.turretUnlock ? clampInt(Math.floor((legacy - 28) * 0.12), 0, SIEGE_SPIKES_TREE_LIMITS.turretRange) : 0;
+  tree.drawBoost = tree.turretUnlock ? clampInt(Math.floor((legacy - 24) * 0.18), 0, SIEGE_SPIKES_TREE_LIMITS.drawBoost) : 0;
+  return tree;
+}
+
+function getSiegeSpikesTreeTotalLevel(tree) {
+  if (!tree) return 0;
+  return [
+    tree.cooldown,
+    tree.length,
+    tree.duration,
+    tree.touchDamage,
+    tree.hitRate,
+    tree.turretUnlock,
+    tree.turretCount,
+    tree.turretDamage,
+    tree.turretRate,
+    tree.turretTurn,
+    tree.turretRange,
+    tree.drawBoost,
   ].reduce((sum, value) => sum + clampInt(value, 0, MAX_LEVEL), 0);
 }
 

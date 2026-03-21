@@ -45,6 +45,8 @@ const SPECIAL_AFFINITY_BY_TYPE = {
   rocket: "azure",
   aegis: "azure",
   mine: "amber",
+  bulwark_anchor: "amber",
+  siege_spikes: "amber",
 };
 
 const ITEM_CATALOG = {
@@ -116,6 +118,26 @@ const ITEM_CATALOG = {
     upgradeBase: 53,
     color: "#ffbf7a",
     desc: "E key deployable mine.",
+  },
+  bulwark_anchor: {
+    name: "Bulwark Anchor",
+    kind: "ability",
+    trigger: "amber",
+    buyBase: 155,
+    buyScale: 1.43,
+    upgradeBase: 57,
+    color: "#ffd48f",
+    desc: "E key fortified zone: reduce incoming damage and pulse nearby enemies.",
+  },
+  siege_spikes: {
+    name: "Siege Spikes",
+    kind: "ability",
+    trigger: "amber",
+    buyBase: 168,
+    buyScale: 1.45,
+    upgradeBase: 60,
+    color: "#ffc978",
+    desc: "E key spike barricade: repel enemies, deal touch damage, and block hostile shots.",
   },
   rocket: {
     name: "Rocket Pod",
@@ -250,10 +272,42 @@ const AEGIS_TREE_LIMITS = {
   beamControl: 8,
 };
 
+const BULWARK_ANCHOR_TREE_LIMITS = {
+  cooldown: 12,
+  radius: 12,
+  duration: 10,
+  reduction: 10,
+  pulseDamage: 12,
+  pulseRate: 10,
+  barrierWidth: 8,
+  trapDamage: 8,
+  turretUnlock: 1,
+  turretCount: 6,
+  turretDamage: 10,
+  turretRate: 10,
+  turretTurn: 8,
+  turretRange: 8,
+};
+
 const COMBO_LINK_TREE_LIMITS = {
   comboGain: 16,
   comboCap: 18,
   comboWindow: 16,
+};
+
+const SIEGE_SPIKES_TREE_LIMITS = {
+  cooldown: 12,
+  length: 12,
+  duration: 10,
+  touchDamage: 12,
+  hitRate: 8,
+  turretUnlock: 1,
+  turretCount: 6,
+  turretDamage: 10,
+  turretRate: 10,
+  turretTurn: 8,
+  turretRange: 8,
+  drawBoost: 8,
 };
 
 const MINE_TREE_DEFINITION = [
@@ -343,6 +397,37 @@ const AEGIS_TREE_DEFINITION = [
   },
 ];
 
+const BULWARK_ANCHOR_TREE_DEFINITION = [
+  {
+    id: "bulwark_anchor_core",
+    title: "Bulwark Anchor Upgrades",
+    desc: "Upgrade each Bulwark Anchor component independently.",
+    upgrades: [
+      { key: "cooldown", label: "Ability Cooldown", max: BULWARK_ANCHOR_TREE_LIMITS.cooldown, costBase: 64, costStep: 11, costCurve: 0.88 },
+      { key: "radius", label: "Zone Radius", max: BULWARK_ANCHOR_TREE_LIMITS.radius, costBase: 58, costStep: 10, costCurve: 0.82 },
+      { key: "duration", label: "Duration", max: BULWARK_ANCHOR_TREE_LIMITS.duration, costBase: 56, costStep: 10, costCurve: 0.8 },
+      { key: "reduction", label: "Damage Reduction", max: BULWARK_ANCHOR_TREE_LIMITS.reduction, costBase: 62, costStep: 11, costCurve: 0.86 },
+      { key: "pulseDamage", label: "Pulse Damage", max: BULWARK_ANCHOR_TREE_LIMITS.pulseDamage, costBase: 60, costStep: 11, costCurve: 0.84 },
+      { key: "pulseRate", label: "Pulse Rate", max: BULWARK_ANCHOR_TREE_LIMITS.pulseRate, costBase: 54, costStep: 10, costCurve: 0.78 },
+      { key: "barrierWidth", label: "Barrier Width", max: BULWARK_ANCHOR_TREE_LIMITS.barrierWidth, costBase: 56, costStep: 10, costCurve: 0.8 },
+      { key: "trapDamage", label: "Trapped Damage Bonus", max: BULWARK_ANCHOR_TREE_LIMITS.trapDamage, costBase: 60, costStep: 11, costCurve: 0.84 },
+    ],
+  },
+  {
+    id: "bulwark_anchor_turrets",
+    title: "Node 2 - Outer Sentry Array",
+    desc: "Turrets deploy on the outside ring and fire tracking shots at enemies outside the Bulwark.",
+    upgrades: [
+      { key: "turretUnlock", label: "Sentry Activation", max: BULWARK_ANCHOR_TREE_LIMITS.turretUnlock, costBase: 132, costStep: 0, costCurve: 0 },
+      { key: "turretCount", label: "Turret Count", max: BULWARK_ANCHOR_TREE_LIMITS.turretCount, costBase: 64, costStep: 11, costCurve: 0.86, requires: "turretUnlock" },
+      { key: "turretDamage", label: "Turret Damage", max: BULWARK_ANCHOR_TREE_LIMITS.turretDamage, costBase: 66, costStep: 12, costCurve: 0.9, requires: "turretUnlock" },
+      { key: "turretRate", label: "Fire Rate", max: BULWARK_ANCHOR_TREE_LIMITS.turretRate, costBase: 60, costStep: 11, costCurve: 0.84, requires: "turretUnlock" },
+      { key: "turretTurn", label: "Tracking Turn", max: BULWARK_ANCHOR_TREE_LIMITS.turretTurn, costBase: 58, costStep: 10, costCurve: 0.8, requires: "turretUnlock" },
+      { key: "turretRange", label: "Target Range", max: BULWARK_ANCHOR_TREE_LIMITS.turretRange, costBase: 56, costStep: 10, costCurve: 0.78, requires: "turretUnlock" },
+    ],
+  },
+];
+
 const COMBO_LINK_TREE_DEFINITION = [
   {
     id: "combo_link_core",
@@ -352,6 +437,35 @@ const COMBO_LINK_TREE_DEFINITION = [
       { key: "comboGain", label: "Per-Hit Multiplier Gain", max: COMBO_LINK_TREE_LIMITS.comboGain, costBase: 54, costStep: 9, costCurve: 0.78 },
       { key: "comboCap", label: "Max Combo Effect", max: COMBO_LINK_TREE_LIMITS.comboCap, costBase: 60, costStep: 10, costCurve: 0.84 },
       { key: "comboWindow", label: "Combo Time Window", max: COMBO_LINK_TREE_LIMITS.comboWindow, costBase: 52, costStep: 9, costCurve: 0.76 },
+    ],
+  },
+];
+
+const SIEGE_SPIKES_TREE_DEFINITION = [
+  {
+    id: "siege_spikes_core",
+    title: "Node 1 - Siege Spikes Core",
+    desc: "Upgrade core wall stats for cooldown, range, duration, touch damage, and tick rate.",
+    upgrades: [
+      { key: "cooldown", label: "Ability Cooldown", max: SIEGE_SPIKES_TREE_LIMITS.cooldown, costBase: 56, costStep: 10, costCurve: 0.82 },
+      { key: "length", label: "Wall Range", max: SIEGE_SPIKES_TREE_LIMITS.length, costBase: 54, costStep: 10, costCurve: 0.8 },
+      { key: "duration", label: "Wall Duration", max: SIEGE_SPIKES_TREE_LIMITS.duration, costBase: 52, costStep: 9, costCurve: 0.78 },
+      { key: "touchDamage", label: "Touch Damage", max: SIEGE_SPIKES_TREE_LIMITS.touchDamage, costBase: 58, costStep: 11, costCurve: 0.86 },
+      { key: "hitRate", label: "Damage Tick Rate", max: SIEGE_SPIKES_TREE_LIMITS.hitRate, costBase: 54, costStep: 10, costCurve: 0.8 },
+    ],
+  },
+  {
+    id: "siege_spikes_turrets",
+    title: "Node 2 - Spine Turret Array",
+    desc: "Turrets mount along the drawn wall and fire tracking shots. Also unlocks extra draw-range scaling.",
+    upgrades: [
+      { key: "turretUnlock", label: "Array Activation", max: SIEGE_SPIKES_TREE_LIMITS.turretUnlock, costBase: 124, costStep: 0, costCurve: 0 },
+      { key: "turretCount", label: "Turret Count", max: SIEGE_SPIKES_TREE_LIMITS.turretCount, costBase: 62, costStep: 11, costCurve: 0.86, requires: "turretUnlock" },
+      { key: "turretDamage", label: "Turret Damage", max: SIEGE_SPIKES_TREE_LIMITS.turretDamage, costBase: 64, costStep: 12, costCurve: 0.9, requires: "turretUnlock" },
+      { key: "turretRate", label: "Fire Rate", max: SIEGE_SPIKES_TREE_LIMITS.turretRate, costBase: 58, costStep: 10, costCurve: 0.82, requires: "turretUnlock" },
+      { key: "turretTurn", label: "Tracking Turn", max: SIEGE_SPIKES_TREE_LIMITS.turretTurn, costBase: 56, costStep: 10, costCurve: 0.8, requires: "turretUnlock" },
+      { key: "turretRange", label: "Target Range", max: SIEGE_SPIKES_TREE_LIMITS.turretRange, costBase: 54, costStep: 9, costCurve: 0.78, requires: "turretUnlock" },
+      { key: "drawBoost", label: "Draw Range Boost", max: SIEGE_SPIKES_TREE_LIMITS.drawBoost, costBase: 52, costStep: 9, costCurve: 0.76, requires: "turretUnlock" },
     ],
   },
 ];
@@ -452,6 +566,8 @@ const DROP_COLORS = {
 const SPECIAL_CURRENCY_BY_KILL = {
   warp: "void",
   mine: "amber",
+  amber_anchor: "amber",
+  siege_spikes: "amber",
   helper: "azure",
   rocket: "azure",
   azure_beam: "azure",
@@ -608,7 +724,25 @@ const state = {
   testDifficulty: 1,
   testInvincible: false,
   marathonTestTuning: cloneMarathonTestTuning(DEFAULT_MARATHON_TEST_TUNING),
-  input: { up: false, down: false, left: false, right: false, firing: false, altFiring: false, void: false, voidCursor: false, azure: false, amber: false, aegisCombo: false },
+  input: {
+    up: false,
+    down: false,
+    left: false,
+    right: false,
+    firing: false,
+    altFiring: false,
+    void: false,
+    voidCursor: false,
+    azure: false,
+    amber: false,
+    aegisCombo: false,
+    amberDown: false,
+    amberDrawActive: false,
+    amberDrawCommit: false,
+    amberDrawPoints: [],
+    amberDrawLength: 0,
+    amberDrawMaxLength: 0,
+  },
   mouse: { x: 0, y: 0 },
   world: null,
   raf: 0,
@@ -729,6 +863,70 @@ function submitPlayerId() {
   }
 }
 
+function resetAmberDrawInputState() {
+  state.input.amberDown = false;
+  state.input.amberDrawActive = false;
+  state.input.amberDrawCommit = false;
+  state.input.amberDrawPoints = [];
+  state.input.amberDrawLength = 0;
+  state.input.amberDrawMaxLength = 0;
+}
+
+function getActiveSiegeSpikesData() {
+  if (state.mode !== "game" || !state.world || !state.player) return null;
+  const module = pickAbility("amber");
+  if (!module || module.type !== "siege_spikes") return null;
+  const stacks = countSlottedByType(module.type);
+  const stats = getSiegeSpikesStats(module, stacks);
+  return { module, stacks, stats, world: state.world, player: state.world.player };
+}
+
+function isSiegeSpikesAmberEquipped() {
+  return !!getActiveSiegeSpikesData();
+}
+
+function beginSiegeSpikesDrawAtMouse(maxLength) {
+  const x = Number(state.mouse.x);
+  const y = Number(state.mouse.y);
+  const startX = Number.isFinite(x) ? clamp(x, 0, canvas.width) : canvas.width * 0.5;
+  const startY = Number.isFinite(y) ? clamp(y, 0, canvas.height) : canvas.height * 0.5;
+  state.input.amberDrawActive = true;
+  state.input.amberDrawCommit = false;
+  state.input.amberDrawPoints = [{ x: startX, y: startY }];
+  state.input.amberDrawLength = 0;
+  state.input.amberDrawMaxLength = Math.max(24, Number(maxLength) || 24);
+}
+
+function appendSiegeSpikesDrawPoint(x, y, force = false) {
+  if (!state.input.amberDrawActive) return;
+  if (!Array.isArray(state.input.amberDrawPoints) || state.input.amberDrawPoints.length <= 0) {
+    beginSiegeSpikesDrawAtMouse(state.input.amberDrawMaxLength || 24);
+  }
+
+  const targetX = clamp(Number.isFinite(x) ? x : 0, 0, canvas.width);
+  const targetY = clamp(Number.isFinite(y) ? y : 0, 0, canvas.height);
+  const points = state.input.amberDrawPoints;
+  const last = points[points.length - 1];
+  if (!last) return;
+
+  const dx = targetX - last.x;
+  const dy = targetY - last.y;
+  const dist = Math.hypot(dx, dy);
+  const minStep = force ? 0.2 : 2.5;
+  if (dist < minStep) return;
+
+  const maxLen = Math.max(1, Number(state.input.amberDrawMaxLength) || 1);
+  const used = Math.max(0, Number(state.input.amberDrawLength) || 0);
+  const remaining = maxLen - used;
+  if (remaining <= 0.001) return;
+
+  const step = Math.min(dist, remaining);
+  const nx = last.x + (dx / dist) * step;
+  const ny = last.y + (dy / dist) * step;
+  points.push({ x: nx, y: ny });
+  state.input.amberDrawLength = used + step;
+}
+
 function bindInput() {
   const clearInputState = () => {
     state.input.up = false;
@@ -742,6 +940,7 @@ function bindInput() {
     state.input.azure = false;
     state.input.amber = false;
     state.input.aegisCombo = false;
+    resetAmberDrawInputState();
   };
 
   window.addEventListener("keydown", (e) => {
@@ -773,7 +972,20 @@ function bindInput() {
         state.input.azure = true;
       }
     }
-    if (k === "e") state.input.amber = true;
+    if (k === "e") {
+      if (isSiegeSpikesAmberEquipped()) {
+        if (!state.input.amberDown) {
+          const siegeData = getActiveSiegeSpikesData();
+          if (!siegeData || (siegeData.player?.amberCd || 0) > 0.001) {
+            return;
+          }
+          state.input.amberDown = true;
+          beginSiegeSpikesDrawAtMouse(siegeData.stats.drawLength);
+        }
+      } else {
+        state.input.amber = true;
+      }
+    }
   });
 
   window.addEventListener("keyup", (e) => {
@@ -782,6 +994,19 @@ function bindInput() {
     if (k === "s" || k === "arrowdown") state.input.down = false;
     if (k === "a" || k === "arrowleft") state.input.left = false;
     if (k === "d" || k === "arrowright") state.input.right = false;
+    if (k === "e" && state.input.amberDown) {
+      if (state.input.amberDrawActive) {
+        appendSiegeSpikesDrawPoint(state.mouse.x, state.mouse.y, true);
+        const hasDrawablePath = (state.input.amberDrawLength || 0) >= 12
+          && Array.isArray(state.input.amberDrawPoints)
+          && state.input.amberDrawPoints.length >= 2;
+        state.input.amberDrawActive = false;
+        if (hasDrawablePath) {
+          state.input.amberDrawCommit = true;
+        }
+      }
+      state.input.amberDown = false;
+    }
   });
 
   window.addEventListener("blur", clearInputState);
@@ -802,6 +1027,9 @@ function bindInput() {
     const r = canvas.getBoundingClientRect();
     state.mouse.x = ((e.clientX - r.left) / Math.max(1, r.width)) * canvas.width;
     state.mouse.y = ((e.clientY - r.top) / Math.max(1, r.height)) * canvas.height;
+    if (state.input.amberDown && state.input.amberDrawActive) {
+      appendSiegeSpikesDrawPoint(state.mouse.x, state.mouse.y);
+    }
   });
   canvas.addEventListener("pointerdown", (e) => {
     const r = canvas.getBoundingClientRect();
@@ -906,6 +1134,7 @@ function infuseMineWithVoid(mine, mult = 2) {
 function tryHandleWarpComboSelection() {
   const w = state.world;
   if (!w || state.mode !== "game") return false;
+  const bulwarkLockAnchor = findPlayerBulwarkLockAnchor(w);
   const p = w.player;
   if (!p || (p.warpComboT || 0) <= 0) return false;
 
@@ -934,6 +1163,9 @@ function tryHandleWarpComboSelection() {
 
   const enemy = getWarpComboEnemyTarget(w, mx, my);
   if (!enemy) return false;
+  if (bulwarkLockAnchor && !isPointInsideBulwarkAnchor(bulwarkLockAnchor, enemy.x, enemy.y, -(enemy.r || 10) * 0.35)) {
+    return false;
+  }
   const currentComboDuration = Math.max(0.001, Number(p.warpComboDuration) || Number(p.warpComboT) || Number(stats.comboWindow) || 0.001);
   const chainCount = Math.max(0, Math.floor(Number(p.warpComboChainCount) || 0));
   const chainCap = Math.max(
@@ -959,6 +1191,11 @@ function tryHandleWarpComboSelection() {
     p.y = clamp(enemy.y, 14, canvas.height - 14);
     enemy.x = clamp(px, enemy.r || 10, canvas.width - (enemy.r || 10));
     enemy.y = clamp(py, enemy.r || 10, canvas.height - (enemy.r || 10));
+  }
+  if (bulwarkLockAnchor) {
+    const clamped = clampPointInsideBulwarkAnchor(bulwarkLockAnchor, p.x, p.y, 12);
+    p.x = clamped.x;
+    p.y = clamped.y;
   }
   enemy.hitFlash = Math.max(enemy.hitFlash || 0, 0.2);
 
@@ -1685,6 +1922,289 @@ function getWarpAbilityStats(module, stacks = 1) {
   };
 }
 
+function createDefaultBulwarkAnchorSkillTree() {
+  return {
+    cooldown: 0,
+    radius: 0,
+    duration: 0,
+    reduction: 0,
+    pulseDamage: 0,
+    pulseRate: 0,
+    barrierWidth: 0,
+    trapDamage: 0,
+    turretUnlock: 0,
+    turretCount: 0,
+    turretDamage: 0,
+    turretRate: 0,
+    turretTurn: 0,
+    turretRange: 0,
+  };
+}
+
+function normalizeBulwarkAnchorSkillTree(raw, fallbackLevel = 0) {
+  const tree = createDefaultBulwarkAnchorSkillTree();
+  const source = raw && typeof raw === "object" ? raw : null;
+  if (source) {
+    tree.cooldown = clampInt(source.cooldown, 0, BULWARK_ANCHOR_TREE_LIMITS.cooldown);
+    tree.radius = clampInt(source.radius, 0, BULWARK_ANCHOR_TREE_LIMITS.radius);
+    tree.duration = clampInt(source.duration, 0, BULWARK_ANCHOR_TREE_LIMITS.duration);
+    tree.reduction = clampInt(Number.isFinite(Number(source.reduction)) ? source.reduction : source.damageReduction, 0, BULWARK_ANCHOR_TREE_LIMITS.reduction);
+    tree.pulseDamage = clampInt(source.pulseDamage, 0, BULWARK_ANCHOR_TREE_LIMITS.pulseDamage);
+    tree.pulseRate = clampInt(Number.isFinite(Number(source.pulseRate)) ? source.pulseRate : source.pulseInterval, 0, BULWARK_ANCHOR_TREE_LIMITS.pulseRate);
+    tree.barrierWidth = clampInt(source.barrierWidth, 0, BULWARK_ANCHOR_TREE_LIMITS.barrierWidth);
+    tree.trapDamage = clampInt(Number.isFinite(Number(source.trapDamage)) ? source.trapDamage : source.trapDamageBonus, 0, BULWARK_ANCHOR_TREE_LIMITS.trapDamage);
+    tree.turretUnlock = clampInt(source.turretUnlock, 0, BULWARK_ANCHOR_TREE_LIMITS.turretUnlock);
+    tree.turretCount = clampInt(source.turretCount, 0, BULWARK_ANCHOR_TREE_LIMITS.turretCount);
+    tree.turretDamage = clampInt(source.turretDamage, 0, BULWARK_ANCHOR_TREE_LIMITS.turretDamage);
+    tree.turretRate = clampInt(source.turretRate, 0, BULWARK_ANCHOR_TREE_LIMITS.turretRate);
+    tree.turretTurn = clampInt(source.turretTurn, 0, BULWARK_ANCHOR_TREE_LIMITS.turretTurn);
+    tree.turretRange = clampInt(source.turretRange, 0, BULWARK_ANCHOR_TREE_LIMITS.turretRange);
+    if (tree.turretUnlock <= 0) {
+      tree.turretCount = 0;
+      tree.turretDamage = 0;
+      tree.turretRate = 0;
+      tree.turretTurn = 0;
+      tree.turretRange = 0;
+    }
+    return tree;
+  }
+
+  const legacy = clampInt(fallbackLevel, 0, MAX_UPGRADE_LEVEL);
+  tree.cooldown = clampInt(Math.floor(legacy * 0.22), 0, BULWARK_ANCHOR_TREE_LIMITS.cooldown);
+  tree.radius = clampInt(Math.floor(legacy * 0.24), 0, BULWARK_ANCHOR_TREE_LIMITS.radius);
+  tree.duration = clampInt(Math.floor(legacy * 0.18), 0, BULWARK_ANCHOR_TREE_LIMITS.duration);
+  tree.reduction = clampInt(Math.floor(legacy * 0.14), 0, BULWARK_ANCHOR_TREE_LIMITS.reduction);
+  tree.pulseDamage = clampInt(Math.floor(legacy * 0.2), 0, BULWARK_ANCHOR_TREE_LIMITS.pulseDamage);
+  tree.pulseRate = clampInt(Math.floor(legacy * 0.14), 0, BULWARK_ANCHOR_TREE_LIMITS.pulseRate);
+  tree.barrierWidth = clampInt(Math.floor(legacy * 0.16), 0, BULWARK_ANCHOR_TREE_LIMITS.barrierWidth);
+  tree.trapDamage = clampInt(Math.floor(legacy * 0.12), 0, BULWARK_ANCHOR_TREE_LIMITS.trapDamage);
+  tree.turretUnlock = legacy >= 22 ? 1 : 0;
+  tree.turretCount = tree.turretUnlock ? clampInt(Math.floor((legacy - 22) * 0.18), 0, BULWARK_ANCHOR_TREE_LIMITS.turretCount) : 0;
+  tree.turretDamage = tree.turretUnlock ? clampInt(Math.floor((legacy - 24) * 0.2), 0, BULWARK_ANCHOR_TREE_LIMITS.turretDamage) : 0;
+  tree.turretRate = tree.turretUnlock ? clampInt(Math.floor((legacy - 26) * 0.18), 0, BULWARK_ANCHOR_TREE_LIMITS.turretRate) : 0;
+  tree.turretTurn = tree.turretUnlock ? clampInt(Math.floor((legacy - 26) * 0.14), 0, BULWARK_ANCHOR_TREE_LIMITS.turretTurn) : 0;
+  tree.turretRange = tree.turretUnlock ? clampInt(Math.floor((legacy - 28) * 0.12), 0, BULWARK_ANCHOR_TREE_LIMITS.turretRange) : 0;
+  return tree;
+}
+
+function getBulwarkAnchorTreeTotalLevel(tree) {
+  if (!tree) return 0;
+  return [
+    tree.cooldown,
+    tree.radius,
+    tree.duration,
+    tree.reduction,
+    tree.pulseDamage,
+    tree.pulseRate,
+    tree.barrierWidth,
+    tree.trapDamage,
+    tree.turretUnlock,
+    tree.turretCount,
+    tree.turretDamage,
+    tree.turretRate,
+    tree.turretTurn,
+    tree.turretRange,
+  ].reduce((sum, value) => sum + clampInt(value, 0, MAX_UPGRADE_LEVEL), 0);
+}
+
+function syncBulwarkAnchorItemLevel(item) {
+  if (!item || item.type !== "bulwark_anchor") return;
+  const normalized = normalizeBulwarkAnchorSkillTree(item.bulwarkTree, item.level || 0);
+  if (item.bulwarkTree && typeof item.bulwarkTree === "object") {
+    Object.assign(item.bulwarkTree, normalized);
+  } else {
+    item.bulwarkTree = normalized;
+  }
+  item.level = clampInt(getBulwarkAnchorTreeTotalLevel(item.bulwarkTree), 0, MAX_UPGRADE_LEVEL);
+}
+
+function ensureBulwarkAnchorSkillTree(item) {
+  if (!item || item.type !== "bulwark_anchor") return null;
+  syncBulwarkAnchorItemLevel(item);
+  return item.bulwarkTree;
+}
+
+function getBulwarkAnchorTreeUpgradeDefinition(upgradeKey) {
+  for (const node of BULWARK_ANCHOR_TREE_DEFINITION) {
+    const found = node.upgrades.find((upgrade) => upgrade.key === upgradeKey);
+    if (found) return { node, upgrade: found };
+  }
+  return null;
+}
+
+function calculateBulwarkAnchorTreeUpgradeCost(item, upgradeKey) {
+  const found = getBulwarkAnchorTreeUpgradeDefinition(upgradeKey);
+  if (!found) return Number.POSITIVE_INFINITY;
+  const { upgrade } = found;
+  if (!item || item.type !== "bulwark_anchor") return Number.POSITIVE_INFINITY;
+  const tree = normalizeBulwarkAnchorSkillTree(item.bulwarkTree, item.level || 0);
+  const current = clampInt(tree[upgrade.key], 0, upgrade.max);
+  const owned = countOwnedType(item.type);
+  return Math.floor((upgrade.costBase + current * upgrade.costStep + current * current * upgrade.costCurve) * (1 + (owned - 1) * 0.2));
+}
+
+function getBulwarkAnchorStats(module, stacks = 1) {
+  const tree = normalizeBulwarkAnchorSkillTree(module?.bulwarkTree, module?.level || 0);
+  const stackScale = getAbilityStackScale(stacks);
+  const radius = 224 + tree.radius * 11.5;
+  const duration = 4.4 + tree.duration * 0.22;
+  const cooldown = Math.max(40.8 - tree.cooldown * 1.9, 18.4) * stackScale;
+  const damageReduction = clamp(0.24 + tree.reduction * 0.033, 0.24, 0.72);
+  const pulseDamage = 20 + tree.pulseDamage * 5.2;
+  const pulseInterval = Math.max(0.26, 1.15 - tree.pulseRate * 0.08);
+  const barrierWidth = 12 + tree.barrierWidth * 1.35;
+  const trapDamageMult = 1 + tree.trapDamage * 0.1;
+  const turretEnabled = tree.turretUnlock > 0;
+  const turretCount = turretEnabled ? 2 + tree.turretCount : 0;
+  const turretDamage = turretEnabled ? 14 + tree.turretDamage * 3.6 : 0;
+  const turretFireInterval = turretEnabled ? Math.max(0.22, 1.25 - tree.turretRate * 0.09) : 0;
+  const turretSeekTurn = turretEnabled ? 2.6 + tree.turretTurn * 0.45 : 0;
+  const turretRange = turretEnabled ? radius + 120 + tree.turretRange * 28 : 0;
+  const turretProjectileSpeed = turretEnabled ? 260 + tree.turretTurn * 10 : 0;
+  const maxAnchors = 1;
+  return {
+    radius,
+    duration,
+    cooldown,
+    damageReduction,
+    pulseDamage,
+    pulseInterval,
+    barrierWidth,
+    trapDamageMult,
+    turretEnabled,
+    turretCount,
+    turretDamage,
+    turretFireInterval,
+    turretSeekTurn,
+    turretRange,
+    turretProjectileSpeed,
+    maxAnchors,
+    tree,
+  };
+}
+
+function isPointInsideBulwarkAnchor(anchor, x, y, radiusPad = 0) {
+  if (!anchor) return false;
+  const baseRadius = Math.max(24, Number(anchor.radius) || 120);
+  const barrierWidth = Math.max(4, Number(anchor.barrierWidth) || 10);
+  const effectiveRadius = Math.max(8, baseRadius - barrierWidth * 0.5 + radiusPad);
+  return Math.hypot(x - anchor.x, y - anchor.y) <= effectiveRadius;
+}
+
+function findPlayerBulwarkLockAnchor(w) {
+  if (!w?.player || !Array.isArray(w?.bulwarkAnchors)) return null;
+  let chosen = null;
+  for (const anchor of w.bulwarkAnchors) {
+    if (!anchor || (anchor.life || 0) <= 0.001) continue;
+    if (!anchor.lockPlayer) continue;
+    if (!chosen || (anchor.spawnT || 0) >= (chosen.spawnT || 0)) chosen = anchor;
+  }
+  return chosen;
+}
+
+function isPlayerBulwarkLocked(w) {
+  return !!findPlayerBulwarkLockAnchor(w);
+}
+
+function getBulwarkTrapDamageMultiplier(w, enemy) {
+  if (!enemy || enemy.hp <= 0) return 1;
+  if (!w?.player || !Array.isArray(w?.bulwarkAnchors) || w.bulwarkAnchors.length <= 0) return 1;
+  const p = w.player;
+  if (p.hp <= 0) return 1;
+  let mult = 1;
+  for (const anchor of w.bulwarkAnchors) {
+    if (!anchor || (anchor.life || 0) <= 0.001) continue;
+    if (!isPointInsideBulwarkAnchor(anchor, p.x, p.y, 0)) continue;
+    if (!isPointInsideBulwarkAnchor(anchor, enemy.x, enemy.y, 0)) continue;
+    mult = Math.max(mult, Math.max(1, Number(anchor.trapDamageMult) || 1));
+  }
+  return mult;
+}
+
+function applyBulwarkTrapDamageBonus(w, enemy, baseDamage) {
+  const damage = Math.max(0, Number(baseDamage) || 0);
+  if (damage <= 0) return 0;
+  const mult = getBulwarkTrapDamageMultiplier(w, enemy);
+  return damage * mult;
+}
+
+function clampPointInsideBulwarkAnchor(anchor, x, y, pad = 0) {
+  if (!anchor) return { x, y };
+  const baseRadius = Math.max(24, Number(anchor.radius) || 120);
+  const barrierWidth = Math.max(4, Number(anchor.barrierWidth) || 10);
+  const limit = Math.max(8, baseRadius - barrierWidth - Math.max(0, pad));
+  const dx = x - anchor.x;
+  const dy = y - anchor.y;
+  const dist = Math.hypot(dx, dy);
+  if (dist <= limit || dist <= 0.001) return { x, y };
+  return {
+    x: anchor.x + (dx / dist) * limit,
+    y: anchor.y + (dy / dist) * limit,
+  };
+}
+
+function createBulwarkAnchorTurretRing(anchorX, anchorY, radius, count) {
+  const total = Math.max(0, Math.floor(count || 0));
+  if (total <= 0) return [];
+  const ringRadius = Math.max(24, radius + 14);
+  const turrets = [];
+  for (let i = 0; i < total; i += 1) {
+    const a = (i / total) * Math.PI * 2;
+    turrets.push({
+      x: anchorX + Math.cos(a) * ringRadius,
+      y: anchorY + Math.sin(a) * ringRadius,
+      angle: a + Math.PI,
+      cd: Math.random() * 0.45,
+      pulse: Math.random() * Math.PI * 2,
+    });
+  }
+  return turrets;
+}
+
+function getSiegeSpikesStats(module, stacks = 1) {
+  const tree = normalizeSiegeSpikesSkillTree(module?.siegeTree, module?.level || 0);
+  const stackScale = getAbilityStackScale(stacks);
+  const duration = 4.8 + tree.duration * 0.16;
+  const cooldown = Math.max(10.6 - tree.cooldown * 0.34, 5.8) * stackScale;
+  const length = 148 + tree.length * 9 + tree.length * tree.length * 0.26;
+  const turretEnabled = (tree.turretUnlock || 0) > 0;
+  const drawRangeBonus = turretEnabled ? tree.drawBoost * 26 : 0;
+  const drawLength = length * (1.1 + tree.length * 0.02) + drawRangeBonus;
+  const thickness = 11 + tree.length * 0.18;
+  const touchDamage = 22 + tree.touchDamage * 3.1;
+  const hitInterval = Math.max(0.18, 0.5 - tree.hitRate * 0.03);
+  const pushForce = 13 + tree.length * 0.8;
+  const blockWidth = 8 + tree.length * 0.45;
+  const turretCount = turretEnabled ? 1 + tree.turretCount : 0;
+  const turretDamage = turretEnabled ? 12 + tree.turretDamage * 2.9 : 0;
+  const turretFireInterval = turretEnabled ? Math.max(0.22, 1.08 - tree.turretRate * 0.07) : 0;
+  const turretSeekTurn = turretEnabled ? 2.4 + tree.turretTurn * 0.42 : 0;
+  const turretRange = turretEnabled ? 168 + tree.turretRange * 26 : 0;
+  const turretProjectileSpeed = turretEnabled ? 250 + tree.turretTurn * 9 : 0;
+  const maxWalls = 1;
+  return {
+    duration,
+    cooldown,
+    length,
+    drawLength,
+    drawRangeBonus,
+    thickness,
+    touchDamage,
+    hitInterval,
+    pushForce,
+    blockWidth,
+    turretEnabled,
+    turretCount,
+    turretDamage,
+    turretFireInterval,
+    turretSeekTurn,
+    turretRange,
+    turretProjectileSpeed,
+    maxWalls,
+    tree,
+  };
+}
+
 function getWarpTreeUpgradeDefinition(upgradeKey) {
   for (const node of WARP_TREE_DEFINITION) {
     const found = node.upgrades.find((upgrade) => upgrade.key === upgradeKey);
@@ -1884,6 +2404,120 @@ function calculateComboLinkTreeUpgradeCost(item, upgradeKey) {
   return Math.floor((upgrade.costBase + current * upgrade.costStep + current * current * upgrade.costCurve) * (1 + (owned - 1) * 0.2));
 }
 
+function createDefaultSiegeSpikesSkillTree() {
+  return {
+    cooldown: 0,
+    length: 0,
+    duration: 0,
+    touchDamage: 0,
+    hitRate: 0,
+    turretUnlock: 0,
+    turretCount: 0,
+    turretDamage: 0,
+    turretRate: 0,
+    turretTurn: 0,
+    turretRange: 0,
+    drawBoost: 0,
+  };
+}
+
+function normalizeSiegeSpikesSkillTree(raw, fallbackLevel = 0) {
+  const tree = createDefaultSiegeSpikesSkillTree();
+  const source = raw && typeof raw === "object" ? raw : null;
+  if (source) {
+    tree.cooldown = clampInt(source.cooldown, 0, SIEGE_SPIKES_TREE_LIMITS.cooldown);
+    tree.length = clampInt(Number.isFinite(Number(source.length)) ? source.length : source.range, 0, SIEGE_SPIKES_TREE_LIMITS.length);
+    tree.duration = clampInt(source.duration, 0, SIEGE_SPIKES_TREE_LIMITS.duration);
+    tree.touchDamage = clampInt(Number.isFinite(Number(source.touchDamage)) ? source.touchDamage : source.damage, 0, SIEGE_SPIKES_TREE_LIMITS.touchDamage);
+    tree.hitRate = clampInt(Number.isFinite(Number(source.hitRate)) ? source.hitRate : source.hitInterval, 0, SIEGE_SPIKES_TREE_LIMITS.hitRate);
+    tree.turretUnlock = clampInt(source.turretUnlock, 0, SIEGE_SPIKES_TREE_LIMITS.turretUnlock);
+    tree.turretCount = clampInt(source.turretCount, 0, SIEGE_SPIKES_TREE_LIMITS.turretCount);
+    tree.turretDamage = clampInt(source.turretDamage, 0, SIEGE_SPIKES_TREE_LIMITS.turretDamage);
+    tree.turretRate = clampInt(source.turretRate, 0, SIEGE_SPIKES_TREE_LIMITS.turretRate);
+    tree.turretTurn = clampInt(source.turretTurn, 0, SIEGE_SPIKES_TREE_LIMITS.turretTurn);
+    tree.turretRange = clampInt(source.turretRange, 0, SIEGE_SPIKES_TREE_LIMITS.turretRange);
+    tree.drawBoost = clampInt(source.drawBoost, 0, SIEGE_SPIKES_TREE_LIMITS.drawBoost);
+    if (tree.turretUnlock <= 0) {
+      tree.turretCount = 0;
+      tree.turretDamage = 0;
+      tree.turretRate = 0;
+      tree.turretTurn = 0;
+      tree.turretRange = 0;
+      tree.drawBoost = 0;
+    }
+    return tree;
+  }
+
+  const legacy = clampInt(fallbackLevel, 0, MAX_UPGRADE_LEVEL);
+  tree.cooldown = clampInt(Math.floor(legacy * 0.24), 0, SIEGE_SPIKES_TREE_LIMITS.cooldown);
+  tree.length = clampInt(Math.floor(legacy * 0.24), 0, SIEGE_SPIKES_TREE_LIMITS.length);
+  tree.duration = clampInt(Math.floor(legacy * 0.2), 0, SIEGE_SPIKES_TREE_LIMITS.duration);
+  tree.touchDamage = clampInt(Math.floor(legacy * 0.24), 0, SIEGE_SPIKES_TREE_LIMITS.touchDamage);
+  tree.hitRate = clampInt(Math.floor(legacy * 0.16), 0, SIEGE_SPIKES_TREE_LIMITS.hitRate);
+  tree.turretUnlock = legacy >= 22 ? 1 : 0;
+  tree.turretCount = tree.turretUnlock ? clampInt(Math.floor((legacy - 22) * 0.16), 0, SIEGE_SPIKES_TREE_LIMITS.turretCount) : 0;
+  tree.turretDamage = tree.turretUnlock ? clampInt(Math.floor((legacy - 24) * 0.2), 0, SIEGE_SPIKES_TREE_LIMITS.turretDamage) : 0;
+  tree.turretRate = tree.turretUnlock ? clampInt(Math.floor((legacy - 26) * 0.16), 0, SIEGE_SPIKES_TREE_LIMITS.turretRate) : 0;
+  tree.turretTurn = tree.turretUnlock ? clampInt(Math.floor((legacy - 26) * 0.14), 0, SIEGE_SPIKES_TREE_LIMITS.turretTurn) : 0;
+  tree.turretRange = tree.turretUnlock ? clampInt(Math.floor((legacy - 28) * 0.12), 0, SIEGE_SPIKES_TREE_LIMITS.turretRange) : 0;
+  tree.drawBoost = tree.turretUnlock ? clampInt(Math.floor((legacy - 24) * 0.18), 0, SIEGE_SPIKES_TREE_LIMITS.drawBoost) : 0;
+  return tree;
+}
+
+function getSiegeSpikesTreeTotalLevel(tree) {
+  if (!tree) return 0;
+  return [
+    tree.cooldown,
+    tree.length,
+    tree.duration,
+    tree.touchDamage,
+    tree.hitRate,
+    tree.turretUnlock,
+    tree.turretCount,
+    tree.turretDamage,
+    tree.turretRate,
+    tree.turretTurn,
+    tree.turretRange,
+    tree.drawBoost,
+  ].reduce((sum, value) => sum + clampInt(value, 0, MAX_UPGRADE_LEVEL), 0);
+}
+
+function syncSiegeSpikesItemLevel(item) {
+  if (!item || item.type !== "siege_spikes") return;
+  const normalized = normalizeSiegeSpikesSkillTree(item.siegeTree, item.level || 0);
+  if (item.siegeTree && typeof item.siegeTree === "object") {
+    Object.assign(item.siegeTree, normalized);
+  } else {
+    item.siegeTree = normalized;
+  }
+  item.level = clampInt(getSiegeSpikesTreeTotalLevel(item.siegeTree), 0, MAX_UPGRADE_LEVEL);
+}
+
+function ensureSiegeSpikesSkillTree(item) {
+  if (!item || item.type !== "siege_spikes") return null;
+  syncSiegeSpikesItemLevel(item);
+  return item.siegeTree;
+}
+
+function getSiegeSpikesTreeUpgradeDefinition(upgradeKey) {
+  for (const node of SIEGE_SPIKES_TREE_DEFINITION) {
+    const found = node.upgrades.find((upgrade) => upgrade.key === upgradeKey);
+    if (found) return { node, upgrade: found };
+  }
+  return null;
+}
+
+function calculateSiegeSpikesTreeUpgradeCost(item, upgradeKey) {
+  const found = getSiegeSpikesTreeUpgradeDefinition(upgradeKey);
+  if (!found) return Number.POSITIVE_INFINITY;
+  const { upgrade } = found;
+  if (!item || item.type !== "siege_spikes") return Number.POSITIVE_INFINITY;
+  const tree = normalizeSiegeSpikesSkillTree(item.siegeTree, item.level || 0);
+  const current = clampInt(tree[upgrade.key], 0, upgrade.max);
+  const owned = countOwnedType(item.type);
+  return Math.floor((upgrade.costBase + current * upgrade.costStep + current * current * upgrade.costCurve) * (1 + (owned - 1) * 0.2));
+}
+
 function isMineUpgradePathBlocked(tree, upgrade) {
   if (!tree || !upgrade) return false;
   if (upgrade.key === "chainUnlock") return (tree.gooUnlock || 0) > 0;
@@ -2024,6 +2658,54 @@ function getItemStatLines(item) {
     ];
   }
 
+  if (item.type === "bulwark_anchor") {
+    const stats = getBulwarkAnchorStats(item, countSlottedByType(item.type));
+    const lines = [
+      `Zone Radius ${stats.radius.toFixed(0)}`,
+      `Duration ${stats.duration.toFixed(2)}s`,
+      `Cooldown ${stats.cooldown.toFixed(2)}s`,
+      `Damage Reduction ${(stats.damageReduction * 100).toFixed(0)}%`,
+      `Pulse Damage ${stats.pulseDamage.toFixed(1)}`,
+      `Pulse Interval ${stats.pulseInterval.toFixed(2)}s`,
+      `Barrier Width ${stats.barrierWidth.toFixed(1)}`,
+      `Trapped Enemy Damage +${((stats.trapDamageMult - 1) * 100).toFixed(0)}%`,
+      `Max Anchors ${stats.maxAnchors}`,
+    ];
+    if (stats.turretEnabled) {
+      lines.push(`Outer Turrets ${Math.max(0, Math.floor(stats.turretCount || 0))}`);
+      lines.push(`Turret Damage ${stats.turretDamage.toFixed(1)}`);
+      lines.push(`Turret Fire Interval ${stats.turretFireInterval.toFixed(2)}s`);
+      lines.push(`Turret Tracking ${stats.turretSeekTurn.toFixed(2)}`);
+      lines.push(`Turret Target Range ${stats.turretRange.toFixed(0)}`);
+    } else {
+      lines.push("Outer Sentry Array Inactive");
+    }
+    return lines;
+  }
+
+  if (item.type === "siege_spikes") {
+    const stats = getSiegeSpikesStats(item, countSlottedByType(item.type));
+    const lines = [
+      `Wall/Draw Range ${stats.drawLength.toFixed(0)}`,
+      `Duration ${stats.duration.toFixed(2)}s`,
+      `Cooldown ${stats.cooldown.toFixed(2)}s`,
+      `Touch Damage ${stats.touchDamage.toFixed(1)}`,
+      `Hit Interval ${stats.hitInterval.toFixed(2)}s`,
+      `Max Walls ${stats.maxWalls}`,
+    ];
+    if (stats.turretEnabled) {
+      lines.push(`Wall Turrets ${Math.max(0, Math.floor(stats.turretCount || 0))}`);
+      lines.push(`Turret Damage ${stats.turretDamage.toFixed(1)}`);
+      lines.push(`Turret Fire Interval ${stats.turretFireInterval.toFixed(2)}s`);
+      lines.push(`Turret Tracking ${stats.turretSeekTurn.toFixed(2)}`);
+      lines.push(`Turret Target Range ${stats.turretRange.toFixed(0)}`);
+      lines.push(`Draw Range Bonus +${stats.drawRangeBonus.toFixed(0)}`);
+    } else {
+      lines.push("Spine Turret Array Inactive");
+    }
+    return lines;
+  }
+
   if (item.type === "quantum_bound") {
     const stats = getQuantumBoundStats([item]);
     if (!stats) return ["No active guidance"];
@@ -2077,7 +2759,9 @@ function renderLoadoutPanel() {
   if (occupied?.type === "mine") syncMineItemLevel(occupied);
   if (occupied?.type === "warp") syncWarpItemLevel(occupied);
   if (occupied?.type === "aegis") syncAegisItemLevel(occupied);
+  if (occupied?.type === "bulwark_anchor") syncBulwarkAnchorItemLevel(occupied);
   if (occupied?.type === "combo_link") syncComboLinkItemLevel(occupied);
+  if (occupied?.type === "siege_spikes") syncSiegeSpikesItemLevel(occupied);
   ui.upgradePartLabel.textContent = occupied
     ? `Selected Slot: ${getSlotLabel(slot)} (${ITEM_CATALOG[occupied.type]?.name || occupied.type}, Lv ${occupied.level})`
     : `Selected Slot: ${getSlotLabel(slot)} (Empty)`;
@@ -2159,7 +2843,9 @@ function renderSlotActions(slot, occupied) {
   if (occupied.type === "mine") ensureMineSkillTree(occupied);
   if (occupied.type === "warp") ensureWarpSkillTree(occupied);
   if (occupied.type === "aegis") ensureAegisSkillTree(occupied);
+  if (occupied.type === "bulwark_anchor") ensureBulwarkAnchorSkillTree(occupied);
   if (occupied.type === "combo_link") ensureComboLinkSkillTree(occupied);
+  if (occupied.type === "siege_spikes") ensureSiegeSpikesSkillTree(occupied);
 
   const row = document.createElement("div");
   row.className = "slot-action-item";
@@ -2168,7 +2854,14 @@ function renderSlotActions(slot, occupied) {
   const controls = document.createElement("div");
   controls.className = "slot-action-controls";
 
-  if (occupied.type !== "mine" && occupied.type !== "warp" && occupied.type !== "aegis" && occupied.type !== "combo_link") {
+  if (
+    occupied.type !== "mine"
+    && occupied.type !== "warp"
+    && occupied.type !== "aegis"
+    && occupied.type !== "bulwark_anchor"
+    && occupied.type !== "combo_link"
+    && occupied.type !== "siege_spikes"
+  ) {
     const upgradeCost = calculateUpgradeCost(occupied);
     const upgradeBtn = document.createElement("button");
     upgradeBtn.type = "button";
@@ -2315,6 +3008,46 @@ function renderSlotActions(slot, occupied) {
     }
   }
 
+  if (occupied.type === "bulwark_anchor") {
+    const tree = ensureBulwarkAnchorSkillTree(occupied);
+    for (const node of BULWARK_ANCHOR_TREE_DEFINITION) {
+      const nodeCard = document.createElement("div");
+      nodeCard.className = "slot-skill-node";
+      nodeCard.innerHTML = `<h4>${node.title}</h4><p>${node.desc}</p>`;
+
+      for (const upgrade of node.upgrades) {
+        const current = clampInt(tree[upgrade.key], 0, upgrade.max);
+        const unlocked = !upgrade.requires || (tree[upgrade.requires] || 0) > 0;
+        const atMax = current >= upgrade.max;
+        const cost = atMax ? 0 : calculateBulwarkAnchorTreeUpgradeCost(occupied, upgrade.key);
+        const isUnlockUpgrade = upgrade.key === "turretUnlock";
+
+        const upgradeRow = document.createElement("div");
+        upgradeRow.className = "slot-skill-upgrade";
+        upgradeRow.innerHTML = `<div><strong>${upgrade.label}</strong><p>Lv ${current}/${upgrade.max}</p></div>`;
+
+        const btn = document.createElement("button");
+        btn.type = "button";
+        if (atMax) {
+          btn.textContent = "Maxed";
+          btn.disabled = true;
+        } else if (!unlocked) {
+          btn.textContent = "Locked";
+          btn.disabled = true;
+        } else {
+          btn.textContent = current <= 0 && isUnlockUpgrade ? `Unlock (${cost} Essence)` : `Upgrade (${cost} Essence)`;
+          btn.disabled = false;
+          btn.addEventListener("click", () => upgradeBulwarkAnchorSkillTreeNode(slot.key, upgrade.key));
+        }
+
+        upgradeRow.appendChild(btn);
+        nodeCard.appendChild(upgradeRow);
+      }
+
+      ui.slotActions.appendChild(nodeCard);
+    }
+  }
+
   if (occupied.type === "combo_link") {
     const tree = ensureComboLinkSkillTree(occupied);
     for (const node of COMBO_LINK_TREE_DEFINITION) {
@@ -2340,6 +3073,46 @@ function renderSlotActions(slot, occupied) {
           btn.textContent = `Upgrade (${cost} Essence)`;
           btn.disabled = false;
           btn.addEventListener("click", () => upgradeComboLinkSkillTreeNode(slot.key, upgrade.key));
+        }
+
+        upgradeRow.appendChild(btn);
+        nodeCard.appendChild(upgradeRow);
+      }
+
+      ui.slotActions.appendChild(nodeCard);
+    }
+  }
+
+  if (occupied.type === "siege_spikes") {
+    const tree = ensureSiegeSpikesSkillTree(occupied);
+    for (const node of SIEGE_SPIKES_TREE_DEFINITION) {
+      const nodeCard = document.createElement("div");
+      nodeCard.className = "slot-skill-node";
+      nodeCard.innerHTML = `<h4>${node.title}</h4><p>${node.desc}</p>`;
+
+      for (const upgrade of node.upgrades) {
+        const current = clampInt(tree[upgrade.key], 0, upgrade.max);
+        const unlocked = !upgrade.requires || (tree[upgrade.requires] || 0) > 0;
+        const atMax = current >= upgrade.max;
+        const cost = atMax ? 0 : calculateSiegeSpikesTreeUpgradeCost(occupied, upgrade.key);
+        const isUnlockUpgrade = upgrade.key === "turretUnlock";
+
+        const upgradeRow = document.createElement("div");
+        upgradeRow.className = "slot-skill-upgrade";
+        upgradeRow.innerHTML = `<div><strong>${upgrade.label}</strong><p>Lv ${current}/${upgrade.max}</p></div>`;
+
+        const btn = document.createElement("button");
+        btn.type = "button";
+        if (atMax) {
+          btn.textContent = "Maxed";
+          btn.disabled = true;
+        } else if (!unlocked) {
+          btn.textContent = "Locked";
+          btn.disabled = true;
+        } else {
+          btn.textContent = current <= 0 && isUnlockUpgrade ? `Unlock (${cost} Essence)` : `Upgrade (${cost} Essence)`;
+          btn.disabled = false;
+          btn.addEventListener("click", () => upgradeSiegeSpikesSkillTreeNode(slot.key, upgrade.key));
         }
 
         upgradeRow.appendChild(btn);
@@ -2491,6 +3264,52 @@ function upgradeAegisSkillTreeNode(slotKey, upgradeKey) {
   renderLoadoutPanel();
 }
 
+function upgradeBulwarkAnchorSkillTreeNode(slotKey, upgradeKey) {
+  if (!state.player) return;
+  const item = getItemInSlot(slotKey);
+  if (!item || item.type !== "bulwark_anchor") {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = "Bulwark Anchor upgrade failed: Bulwark Anchor is not installed in this slot.";
+    return;
+  }
+
+  const found = getBulwarkAnchorTreeUpgradeDefinition(upgradeKey);
+  if (!found) {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = "Bulwark Anchor upgrade failed: unknown upgrade node.";
+    return;
+  }
+  const { upgrade } = found;
+  const tree = ensureBulwarkAnchorSkillTree(item);
+  if (!tree) {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = "Bulwark Anchor upgrade failed: unable to initialize Bulwark skill tree.";
+    return;
+  }
+  if (upgrade.requires && (tree[upgrade.requires] || 0) <= 0) {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = "This enhancement is locked. Unlock Outer Sentry Array first.";
+    return;
+  }
+
+  const current = clampInt(tree[upgrade.key], 0, upgrade.max);
+  if (current >= upgrade.max) {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = `${upgrade.label} is already maxed.`;
+    return;
+  }
+
+  const cost = calculateBulwarkAnchorTreeUpgradeCost(item, upgrade.key);
+  if (state.player.xpBank < cost) {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = `Need ${cost} Essence for ${upgrade.label}.`;
+    return;
+  }
+
+  state.player.xpBank -= cost;
+  tree[upgrade.key] = current + 1;
+  syncBulwarkAnchorItemLevel(item);
+  item.spentXp = Math.max(0, Math.floor(Number(item.spentXp) || 0)) + cost;
+  savePlayer(state.player);
+  audio.play("upgrade");
+  if (ui.upgradeMsg) ui.upgradeMsg.textContent = `${upgrade.label} upgraded to Lv ${tree[upgrade.key]}/${upgrade.max}.`;
+  renderLoadoutPanel();
+}
+
 function upgradeComboLinkSkillTreeNode(slotKey, upgradeKey) {
   if (!state.player) return;
   const item = getItemInSlot(slotKey);
@@ -2533,6 +3352,52 @@ function upgradeComboLinkSkillTreeNode(slotKey, upgradeKey) {
   renderLoadoutPanel();
 }
 
+function upgradeSiegeSpikesSkillTreeNode(slotKey, upgradeKey) {
+  if (!state.player) return;
+  const item = getItemInSlot(slotKey);
+  if (!item || item.type !== "siege_spikes") {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = "Siege Spikes upgrade failed: Siege Spikes is not installed in this slot.";
+    return;
+  }
+
+  const found = getSiegeSpikesTreeUpgradeDefinition(upgradeKey);
+  if (!found) {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = "Siege Spikes upgrade failed: unknown upgrade node.";
+    return;
+  }
+  const { upgrade } = found;
+  const tree = ensureSiegeSpikesSkillTree(item);
+  if (!tree) {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = "Siege Spikes upgrade failed: unable to initialize siege skill tree.";
+    return;
+  }
+  if (upgrade.requires && (tree[upgrade.requires] || 0) <= 0) {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = "This enhancement is locked. Unlock Spine Turret Array first.";
+    return;
+  }
+
+  const current = clampInt(tree[upgrade.key], 0, upgrade.max);
+  if (current >= upgrade.max) {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = `${upgrade.label} is already maxed.`;
+    return;
+  }
+
+  const cost = calculateSiegeSpikesTreeUpgradeCost(item, upgrade.key);
+  if (state.player.xpBank < cost) {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = `Need ${cost} Essence for ${upgrade.label}.`;
+    return;
+  }
+
+  state.player.xpBank -= cost;
+  tree[upgrade.key] = current + 1;
+  syncSiegeSpikesItemLevel(item);
+  item.spentXp = Math.max(0, Math.floor(Number(item.spentXp) || 0)) + cost;
+  savePlayer(state.player);
+  audio.play("upgrade");
+  if (ui.upgradeMsg) ui.upgradeMsg.textContent = `${upgrade.label} upgraded to Lv ${tree[upgrade.key]}/${upgrade.max}.`;
+  renderLoadoutPanel();
+}
+
 function buyItemForSlot(slotKey, type) {
   if (!state.player) return;
   if (getItemInSlot(slotKey)) return;
@@ -2558,9 +3423,15 @@ function buyItemForSlot(slotKey, type) {
   } else if (type === "aegis") {
     newItem.aegisTree = createDefaultAegisSkillTree();
     syncAegisItemLevel(newItem);
+  } else if (type === "bulwark_anchor") {
+    newItem.bulwarkTree = createDefaultBulwarkAnchorSkillTree();
+    syncBulwarkAnchorItemLevel(newItem);
   } else if (type === "combo_link") {
     newItem.comboTree = createDefaultComboLinkSkillTree();
     syncComboLinkItemLevel(newItem);
+  } else if (type === "siege_spikes") {
+    newItem.siegeTree = createDefaultSiegeSpikesSkillTree();
+    syncSiegeSpikesItemLevel(newItem);
   }
   state.player.items.push(newItem);
   state.player.nextItemId += 1;
@@ -2573,7 +3444,7 @@ function upgradeItemInSlot(slotKey) {
   if (!state.player) return;
   const item = getItemInSlot(slotKey);
   if (!item || item.level >= MAX_UPGRADE_LEVEL) return;
-  if (item.type === "mine" || item.type === "warp" || item.type === "aegis" || item.type === "combo_link") return;
+  if (item.type === "mine" || item.type === "warp" || item.type === "aegis" || item.type === "bulwark_anchor" || item.type === "combo_link" || item.type === "siege_spikes") return;
 
   const cost = calculateUpgradeCost(item);
   if (state.player.xpBank < cost) return;
@@ -2661,6 +3532,8 @@ function shortItemLabel(type) {
   if (type === "combo_link") return "CL";
   if (type === "warp") return "WP";
   if (type === "mine") return "MN";
+  if (type === "bulwark_anchor") return "BA";
+  if (type === "siege_spikes") return "SS";
   if (type === "rocket") return "RK";
   if (type === "helper") return "HP";
   if (type === "aegis") return "AG";
@@ -2696,6 +3569,8 @@ function startRun() {
   const hadMigration = assignUnslottedItemsToOpenSlots();
   if (hadMigration) savePlayer(state.player);
 
+  resetAmberDrawInputState();
+  state.input.amber = false;
   audio.unlock();
   state.playerAtRunStart = clonePlayer(state.player);
   state.world = makeWorld(state.player, state.selectedDifficulty);
@@ -2758,6 +3633,8 @@ function makeWorld(profile, difficulty) {
     enemies: [],
     drops: [],
     mines: [],
+    bulwarkAnchors: [],
+    siegeSpikes: [],
     enemyMines: [],
     bossBursts: [],
     azureBeams: [],
@@ -2814,8 +3691,10 @@ function makeWorld(profile, difficulty) {
       voidCd: 0,
       azureCd: 0,
       amberCd: 0,
+      siegeSpikeHitCd: 0,
       amberCharges: 0,
       amberChargeCap: 0,
+      amberFortifyReduction: 0,
       warpComboT: 0,
       warpComboDuration: 0,
       warpComboChainCount: 0,
@@ -2868,6 +3747,8 @@ function stepGame(dt) {
   }
   p.azureCd = Math.max(0, p.azureCd - dt);
   p.amberCd = Math.max(0, p.amberCd - dt * getVoidMineChargeRateMultiplier(w));
+  p.siegeSpikeHitCd = Math.max(0, (p.siegeSpikeHitCd || 0) - dt);
+  p.amberFortifyReduction = 0;
   p.altFireCd = Math.max(0, (p.altFireCd || 0) - dt);
   p.warpComboT = Math.max(0, p.warpComboT - dt);
   if ((p.warpComboT || 0) <= 0) {
@@ -2915,6 +3796,20 @@ function stepGame(dt) {
   if (state.input.azure) {
     useAzureAbility(w);
     state.input.azure = false;
+  }
+
+  if (state.input.amberDown && state.input.amberDrawActive && pickAbility("amber")?.type === "siege_spikes") {
+    appendSiegeSpikesDrawPoint(state.mouse.x, state.mouse.y);
+  }
+
+  if (state.input.amberDrawCommit) {
+    useAmberAbility(w, {
+      drawn: true,
+      drawPoints: Array.isArray(state.input.amberDrawPoints)
+        ? state.input.amberDrawPoints.map((pt) => ({ x: pt.x, y: pt.y }))
+        : [],
+    });
+    resetAmberDrawInputState();
   }
 
   if (state.input.amber) {
@@ -2968,6 +3863,8 @@ function stepGame(dt) {
   stepBossBursts(w, dt);
   stepHelper(w, dt);
   stepEnemies(w, dt);
+  stepSiegeSpikes(w, dt);
+  stepBulwarkAnchors(w, dt);
   stepAzureBeams(w, dt);
   stepLanceBeams(w, dt);
   stepLanceTrails(w, dt);
@@ -3380,10 +4277,13 @@ function applyPlayerDamage(w, damage, opts = {}) {
   const hit = Math.max(0, damage || 0);
   if (hit <= 0) return false;
   if ((w?.isTestMode || w?.isMarathonTestMode) && w.testPlayerInvincible) return false;
+  const fortifyReduction = clamp(p.amberFortifyReduction || 0, 0, 0.85);
+  const adjustedHit = hit * (1 - fortifyReduction);
+  if (adjustedHit <= 0.001) return false;
 
   if ((p.aegisT || 0) > 0) {
-    p.aegisStoredDamage = Math.min(p.aegisStoreCap || Number.POSITIVE_INFINITY, (p.aegisStoredDamage || 0) + hit);
-    const timeBurn = hit * getAegisTimeBurnPerDamage(p.aegisLevel || 0);
+    p.aegisStoredDamage = Math.min(p.aegisStoreCap || Number.POSITIVE_INFINITY, (p.aegisStoredDamage || 0) + adjustedHit);
+    const timeBurn = adjustedHit * getAegisTimeBurnPerDamage(p.aegisLevel || 0);
     p.aegisT = Math.max(0, (p.aegisT || 0) - timeBurn);
     p.aegisFlash = Math.max(p.aegisFlash || 0, 0.2);
     if (opts.absorbSplash !== false) {
@@ -3396,7 +4296,7 @@ function applyPlayerDamage(w, damage, opts = {}) {
   }
   if ((p.dashIFrames || 0) > 0) return false;
 
-  p.hp -= hit;
+  p.hp -= adjustedHit;
   p.hitFlash = Math.max(p.hitFlash || 0, opts.hitFlash || 0.12);
   if (opts.splashColor) {
     splash(w, p.x, p.y, opts.splashColor, opts.splashCount || 8, opts.splashForce || 1.2);
@@ -3605,6 +4505,7 @@ function stepAzureBeams(w, dt) {
           const guard = Math.max(0, Math.min(0.9, e.guard || 0));
           dealt *= (1 - guard);
         }
+        dealt = applyBulwarkTrapDamageBonus(w, e, dealt);
         e.hp -= dealt;
         registerSiphonOverlordHit(w, e, dealt);
         e.lastHitKind = "azure_beam";
@@ -3658,6 +4559,7 @@ function stepLanceTrails(w, dt) {
         const guard = Math.max(0, Math.min(0.9, e.guard || 0));
         dealt *= (1 - guard);
       }
+      dealt = applyBulwarkTrapDamageBonus(w, e, dealt);
       e.hp -= dealt;
       registerSiphonOverlordHit(w, e, dealt);
       e.lastHitKind = "lance_trail";
@@ -3677,6 +4579,8 @@ function getAbilityCooldownTotal(module, stacks) {
   if (module.type === "helper") return Math.max(8 - module.level * 0.05, 2.0) * stackScale;
   if (module.type === "aegis") return getAegisAbilityStats(module, stacks).cooldown;
   if (module.type === "mine") return getMineAbilityStats(module, stacks).cooldown;
+  if (module.type === "bulwark_anchor") return getBulwarkAnchorStats(module, stacks).cooldown;
+  if (module.type === "siege_spikes") return getSiegeSpikesStats(module, stacks).cooldown;
   return 0;
 }
 
@@ -3841,6 +4745,7 @@ function applyWarpBurstDamage(w, x, y, warpStats, opts = {}) {
       const guard = Math.max(0, Math.min(0.9, e.guard || 0));
       dealt *= (1 - guard);
     }
+    dealt = applyBulwarkTrapDamageBonus(w, e, dealt);
 
     e.hp -= dealt;
     registerSiphonOverlordHit(w, e, dealt);
@@ -3855,6 +4760,7 @@ function applyWarpBurstDamage(w, x, y, warpStats, opts = {}) {
 function useVoidAbility(w, mode = "movement") {
   const p = w.player;
   if (p.voidCd > 0) return;
+  const bulwarkLockAnchor = findPlayerBulwarkLockAnchor(w);
 
   const module = pickAbility("void");
   if (!module) return;
@@ -3880,8 +4786,15 @@ function useVoidAbility(w, mode = "movement") {
       if (!dir) return;
     }
 
-    p.x += dir.x * distance;
-    p.y += dir.y * distance;
+    let nextX = p.x + dir.x * distance;
+    let nextY = p.y + dir.y * distance;
+    if (bulwarkLockAnchor) {
+      const clamped = clampPointInsideBulwarkAnchor(bulwarkLockAnchor, nextX, nextY, 12);
+      nextX = clamped.x;
+      nextY = clamped.y;
+    }
+    p.x = nextX;
+    p.y = nextY;
     clampPlayer(p);
     const kills = applyWarpBurstDamage(w, p.x, p.y, stats, { sourceKind: "warp" });
     if (stats.comboEnabled && kills >= 1) {
@@ -3950,7 +4863,7 @@ function useAzureAbility(w) {
   }
 }
 
-function useAmberAbility(w) {
+function useAmberAbility(w, opts = null) {
   const p = w.player;
 
   const module = pickAbility("amber");
@@ -4011,6 +4924,60 @@ function useAmberAbility(w) {
     });
     p.amberCharges = Math.max(0, p.amberCharges - 1);
     p.amberCd = p.amberCharges < maxStored && p.amberCd <= 0.001 ? stats.cooldown : p.amberCd;
+    audio.play("minePlace");
+    return;
+  }
+
+  if (module.type === "bulwark_anchor") {
+    if (p.amberCd > 0) return;
+    const stats = getBulwarkAnchorStats(module, stacks);
+    if (w.bulwarkAnchors.length >= stats.maxAnchors) {
+      w.bulwarkAnchors.sort((a, b) => (a.spawnT || 0) - (b.spawnT || 0));
+      w.bulwarkAnchors.splice(0, w.bulwarkAnchors.length - stats.maxAnchors + 1);
+    }
+    w.bulwarkAnchors.push({
+      x: p.x,
+      y: p.y,
+      radius: stats.radius,
+      life: stats.duration,
+      duration: stats.duration,
+      damageReduction: stats.damageReduction,
+      pulseDamage: stats.pulseDamage,
+      pulseInterval: stats.pulseInterval,
+      barrierWidth: stats.barrierWidth,
+      trapDamageMult: stats.trapDamageMult,
+      lockPlayer: true,
+      turretEnabled: stats.turretEnabled,
+      turretDamage: stats.turretDamage,
+      turretFireInterval: stats.turretFireInterval,
+      turretSeekTurn: stats.turretSeekTurn,
+      turretRange: stats.turretRange,
+      turretProjectileSpeed: stats.turretProjectileSpeed,
+      turrets: createBulwarkAnchorTurretRing(p.x, p.y, stats.radius, stats.turretCount),
+      pulseCd: 0.05,
+      pulse: Math.random() * Math.PI * 2,
+      spawnT: w.t,
+    });
+    p.amberCd = stats.cooldown;
+    splash(w, p.x, p.y, "#ffd08a", 14, 1.55);
+    audio.play("helperSpawn");
+    return;
+  }
+
+  if (module.type === "siege_spikes") {
+    if (p.amberCd > 0) return;
+    const stats = getSiegeSpikesStats(module, stacks);
+    if (!opts?.drawn || !Array.isArray(opts.drawPoints) || opts.drawPoints.length < 2) return;
+    const wall = createSiegeSpikeWallFromPoints(opts.drawPoints, stats, w.t);
+    if (!wall) return;
+
+    if (w.siegeSpikes.length >= stats.maxWalls) {
+      w.siegeSpikes.sort((a, b) => (a.spawnT || 0) - (b.spawnT || 0));
+      w.siegeSpikes.splice(0, w.siegeSpikes.length - stats.maxWalls + 1);
+    }
+    w.siegeSpikes.push(wall);
+    p.amberCd = stats.cooldown;
+    splash(w, wall.x, wall.y, "#ffbf7a", 13, 1.5);
     audio.play("minePlace");
     return;
   }
@@ -5007,6 +5974,9 @@ function stepBullets(w, dt) {
       let best = b.seekRange || 0;
       for (const e of w.enemies) {
         if (e.hp <= 0) continue;
+        if (b.bulwarkTurretShot && b.bulwarkAnchor && isPointInsideBulwarkAnchor(b.bulwarkAnchor, e.x, e.y, -(e.r || 10) * 0.35)) {
+          continue;
+        }
         const dist = Math.hypot(e.x - b.x, e.y - b.y);
         if (dist < best) {
           best = dist;
@@ -5131,6 +6101,185 @@ function getClosestPointOnSegment(px, py, ax, ay, bx, by) {
   return { x: ax + abx * t, y: ay + aby * t };
 }
 
+function buildSiegeSpikePath(points, maxLength) {
+  if (!Array.isArray(points) || points.length < 2) return null;
+  const cap = Math.max(8, Number(maxLength) || 8);
+  const normPoints = [];
+  const segments = [];
+  let totalLength = 0;
+  let lastPoint = null;
+
+  for (const rawPoint of points) {
+    const px = Number(rawPoint?.x);
+    const py = Number(rawPoint?.y);
+    if (!Number.isFinite(px) || !Number.isFinite(py)) continue;
+    const point = {
+      x: clamp(px, 0, canvas.width),
+      y: clamp(py, 0, canvas.height),
+    };
+
+    if (!lastPoint) {
+      normPoints.push(point);
+      lastPoint = point;
+      continue;
+    }
+
+    const dx = point.x - lastPoint.x;
+    const dy = point.y - lastPoint.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 1.2) continue;
+
+    const remaining = cap - totalLength;
+    if (remaining <= 0.001) break;
+    const step = Math.min(dist, remaining);
+    const nextPoint = {
+      x: lastPoint.x + (dx / dist) * step,
+      y: lastPoint.y + (dy / dist) * step,
+    };
+
+    const segDx = nextPoint.x - lastPoint.x;
+    const segDy = nextPoint.y - lastPoint.y;
+    const segLen = Math.hypot(segDx, segDy);
+    if (segLen <= 0.001) break;
+    const tx = segDx / segLen;
+    const ty = segDy / segLen;
+    segments.push({
+      x1: lastPoint.x,
+      y1: lastPoint.y,
+      x2: nextPoint.x,
+      y2: nextPoint.y,
+      tx,
+      ty,
+      nx: -ty,
+      ny: tx,
+      len: segLen,
+    });
+    normPoints.push(nextPoint);
+    totalLength += segLen;
+    lastPoint = nextPoint;
+    if (step + 0.001 < dist) break;
+  }
+
+  if (segments.length <= 0 || normPoints.length < 2) return null;
+  return { points: normPoints, segments, totalLength };
+}
+
+function getSiegeSpikeSegments(wall) {
+  if (!wall || typeof wall !== "object") return [];
+  if (Array.isArray(wall.segments) && wall.segments.length > 0) return wall.segments;
+  if (
+    Number.isFinite(wall.x1) && Number.isFinite(wall.y1)
+    && Number.isFinite(wall.x2) && Number.isFinite(wall.y2)
+  ) {
+    const dx = wall.x2 - wall.x1;
+    const dy = wall.y2 - wall.y1;
+    const len = Math.hypot(dx, dy) || 1;
+    wall.segments = [{
+      x1: wall.x1,
+      y1: wall.y1,
+      x2: wall.x2,
+      y2: wall.y2,
+      tx: dx / len,
+      ty: dy / len,
+      nx: wall.nx || (-dy / len),
+      ny: wall.ny || (dx / len),
+      len,
+    }];
+    wall.points = [{ x: wall.x1, y: wall.y1 }, { x: wall.x2, y: wall.y2 }];
+    wall.totalLength = len;
+    return wall.segments;
+  }
+  return [];
+}
+
+function createSiegeSpikeWallFromPoints(points, stats, spawnT = 0) {
+  const maxLength = Math.max(24, Number(stats?.drawLength) || Number(stats?.length) || 24);
+  const path = buildSiegeSpikePath(points, maxLength);
+  if (!path) return null;
+  const segments = path.segments;
+  const first = segments[0];
+  const last = segments[segments.length - 1];
+  const mid = segments[Math.floor(segments.length * 0.5)] || first;
+  let sx = 0;
+  let sy = 0;
+  for (const pt of path.points) {
+    sx += pt.x;
+    sy += pt.y;
+  }
+  const count = Math.max(1, path.points.length);
+  const turretCount = Math.max(0, Math.floor(Number(stats?.turretCount) || 0));
+  const turretEnabled = !!(stats?.turretEnabled && turretCount > 0);
+  const turretLayout = turretEnabled ? createSiegeSpikeWallTurrets(path.segments, path.totalLength, turretCount) : [];
+  return {
+    x: sx / count,
+    y: sy / count,
+    x1: first.x1,
+    y1: first.y1,
+    x2: last.x2,
+    y2: last.y2,
+    nx: mid.nx,
+    ny: mid.ny,
+    points: path.points,
+    segments,
+    totalLength: path.totalLength,
+    thickness: stats.thickness,
+    damage: stats.touchDamage,
+    hitInterval: stats.hitInterval,
+    pushForce: stats.pushForce,
+    blockWidth: stats.blockWidth,
+    turretEnabled,
+    turretDamage: stats.turretDamage,
+    turretFireInterval: stats.turretFireInterval,
+    turretSeekTurn: stats.turretSeekTurn,
+    turretRange: stats.turretRange,
+    turretProjectileSpeed: stats.turretProjectileSpeed,
+    turrets: turretLayout,
+    life: stats.duration,
+    duration: stats.duration,
+    pulse: Math.random() * Math.PI * 2,
+    spawnT,
+  };
+}
+
+function createSiegeSpikeWallTurrets(segments, totalLength, count) {
+  const total = Math.max(0, Math.floor(count || 0));
+  if (!Array.isArray(segments) || segments.length <= 0 || total <= 0) return [];
+  const fullLength = Math.max(1, Number(totalLength) || 1);
+  const turrets = [];
+  for (let i = 0; i < total; i += 1) {
+    const atLength = ((i + 0.5) / total) * fullLength;
+    let traveled = 0;
+    let sample = null;
+    for (const seg of segments) {
+      const segLen = Math.max(0.001, Number(seg.len) || Math.hypot(seg.x2 - seg.x1, seg.y2 - seg.y1));
+      if (traveled + segLen >= atLength) {
+        const t = clamp((atLength - traveled) / segLen, 0, 1);
+        sample = {
+          x: seg.x1 + (seg.x2 - seg.x1) * t,
+          y: seg.y1 + (seg.y2 - seg.y1) * t,
+          tx: seg.tx,
+          ty: seg.ty,
+        };
+        break;
+      }
+      traveled += segLen;
+    }
+    if (!sample) {
+      const last = segments[segments.length - 1];
+      sample = { x: last.x2, y: last.y2, tx: last.tx, ty: last.ty };
+    }
+    const tangentAngle = Math.atan2(sample.ty || 0, sample.tx || 1);
+    turrets.push({
+      x: sample.x,
+      y: sample.y,
+      angle: tangentAngle,
+      cd: Math.random() * 0.45,
+      pulse: Math.random() * Math.PI * 2,
+    });
+  }
+  return turrets;
+}
+
 function findClosestEnemyToPoint(w, x, y, exclude = null, maxDistance = Number.POSITIVE_INFINITY, predicate = null) {
   let best = null;
   let bestDist = maxDistance;
@@ -5218,7 +6367,7 @@ function detonateGooMineOnEnemy(w, carrier, gooData) {
     }
 
     const falloff = 1 - d / radius;
-    const dealt = damage * (0.35 + falloff * 0.65);
+    const dealt = applyBulwarkTrapDamageBonus(w, e, damage * (0.35 + falloff * 0.65));
     if (e.kind === "mega_cannon_boss" && e.shieldT > 0) {
       e.hp = Math.min(e.maxHp || e.hp, e.hp + dealt * 0.55);
       splash(w, e.x, e.y, "#8bff9f", 6, 1.0);
@@ -5248,7 +6397,7 @@ function detonatePlayerMine(w, m) {
       continue;
     }
     const falloff = 1 - d / m.r;
-    const dealt = m.dmg * (0.35 + falloff * 0.65);
+    const dealt = applyBulwarkTrapDamageBonus(w, e, m.dmg * (0.35 + falloff * 0.65));
     if (e.kind === "mega_cannon_boss" && e.shieldT > 0) {
       e.hp = Math.min(e.maxHp || e.hp, e.hp + dealt * 0.55);
       splash(w, e.x, e.y, "#8bff9f", 6, 1.0);
@@ -5302,6 +6451,376 @@ function tryFireVoidGooTurret(w, mine) {
   mine.turretCd = Math.max(1.9, mine.turretCooldown || 2.4);
   splash(w, mine.x, mine.y, "#c495ff", 6, 0.9);
   audio.play("enemyShot");
+}
+
+function stepBulwarkAnchors(w, dt) {
+  if (!Array.isArray(w?.bulwarkAnchors) || w.bulwarkAnchors.length <= 0) return;
+  const p = w.player;
+  const kept = [];
+
+  for (const anchor of w.bulwarkAnchors) {
+    if (!anchor) continue;
+    anchor.life = Math.max(0, (anchor.life || 0) - dt);
+    anchor.pulse = (anchor.pulse || 0) + dt * 3.8;
+    anchor.pulseCd = Math.max(0, (anchor.pulseCd || 0) - dt);
+    if ((anchor.life || 0) <= 0.001) continue;
+
+    const radius = Math.max(24, Number(anchor.radius) || 120);
+    const barrierWidth = Math.max(4, Number(anchor.barrierWidth) || 10);
+    const innerPlayerLimit = Math.max(8, radius - barrierWidth - 12);
+    const distToPlayer = Math.hypot(p.x - anchor.x, p.y - anchor.y);
+    if (distToPlayer <= radius) {
+      const zonePct = 1 - clamp(distToPlayer / Math.max(1, radius), 0, 1);
+      const zoneReduction = (anchor.damageReduction || 0) * (0.72 + zonePct * 0.28);
+      p.amberFortifyReduction = Math.max(p.amberFortifyReduction || 0, zoneReduction);
+    }
+    if (anchor.lockPlayer && distToPlayer > innerPlayerLimit) {
+      const nx = distToPlayer > 0.001 ? (p.x - anchor.x) / distToPlayer : 1;
+      const ny = distToPlayer > 0.001 ? (p.y - anchor.y) / distToPlayer : 0;
+      p.x = anchor.x + nx * innerPlayerLimit;
+      p.y = anchor.y + ny * innerPlayerLimit;
+      p.vx *= 0.2;
+      p.vy *= 0.2;
+      clampPlayer(p);
+    }
+
+    if (!(anchor.enemySideMap instanceof WeakMap)) anchor.enemySideMap = new WeakMap();
+    const enemySideMap = anchor.enemySideMap;
+
+    if ((anchor.pulseCd || 0) <= 0) {
+      let hits = 0;
+      for (const e of w.enemies) {
+        if (!e || e.hp <= 0) continue;
+        const d = Math.hypot(e.x - anchor.x, e.y - anchor.y);
+        if (!enemySideMap.has(e)) enemySideMap.set(e, d <= radius ? "inside" : "outside");
+        if (d > radius) continue;
+        markEnemyHit(e);
+        if (applyTypedShieldBlock(w, e, e.x, e.y, "amber")) {
+          e.lastHitKind = "amber_anchor";
+          continue;
+        }
+        const falloff = 1 - clamp(d / radius, 0, 1);
+        let dealt = (anchor.pulseDamage || 10) * (0.42 + falloff * 0.58);
+        if (isMiniBossKind(e.kind)) {
+          const guard = Math.max(0, Math.min(0.9, e.guard || 0));
+          dealt *= (1 - guard);
+        }
+        dealt = applyBulwarkTrapDamageBonus(w, e, dealt);
+        e.hp -= dealt;
+        registerSiphonOverlordHit(w, e, dealt);
+        e.lastHitKind = "amber_anchor";
+        hits += 1;
+      }
+
+      if (hits > 0) {
+        splash(w, anchor.x, anchor.y, "#ffd391", 7 + hits, 1.0);
+        audio.play("hit");
+      }
+      anchor.pulseCd = Math.max(0.05, Number(anchor.pulseInterval) || 0.8);
+    }
+
+    for (const e of w.enemies) {
+      if (!e || e.hp <= 0) continue;
+      const d = Math.hypot(e.x - anchor.x, e.y - anchor.y);
+      if (!enemySideMap.has(e)) enemySideMap.set(e, d <= radius ? "inside" : "outside");
+      const side = enemySideMap.get(e);
+      const hitPad = Math.max(4, (e.r || 10) * 0.55);
+      const innerLimit = Math.max(8, radius - barrierWidth - hitPad);
+      const outerLimit = radius + barrierWidth + hitPad;
+
+      if (side === "inside" && d > innerLimit) {
+        const nx = d > 0.001 ? (e.x - anchor.x) / d : 1;
+        const ny = d > 0.001 ? (e.y - anchor.y) / d : 0;
+        e.x = anchor.x + nx * innerLimit;
+        e.y = anchor.y + ny * innerLimit;
+      } else if (side === "outside" && d < outerLimit) {
+        const nx = d > 0.001 ? (e.x - anchor.x) / d : 1;
+        const ny = d > 0.001 ? (e.y - anchor.y) / d : 0;
+        e.x = anchor.x + nx * outerLimit;
+        e.y = anchor.y + ny * outerLimit;
+      }
+    }
+
+    if (anchor.turretEnabled && Array.isArray(anchor.turrets) && anchor.turrets.length > 0) {
+      const turretRange = Math.max(radius + 50, Number(anchor.turretRange) || radius + 120);
+      const turretDamage = Math.max(1, Number(anchor.turretDamage) || 10);
+      const turretFireInterval = Math.max(0.2, Number(anchor.turretFireInterval) || 1.0);
+      const turretSeekTurn = Math.max(0.2, Number(anchor.turretSeekTurn) || 2.8);
+      const turretProjectileSpeed = Math.max(120, Number(anchor.turretProjectileSpeed) || 260);
+      const turretRingRadius = radius + barrierWidth + 8;
+      for (const turret of anchor.turrets) {
+        if (!turret) continue;
+        turret.pulse = (turret.pulse || 0) + dt * 4.4;
+        turret.cd = Math.max(0, (turret.cd || 0) - dt);
+
+        const tx = turret.x - anchor.x;
+        const ty = turret.y - anchor.y;
+        const td = Math.hypot(tx, ty);
+        if (td > 0.001) {
+          turret.x = anchor.x + (tx / td) * turretRingRadius;
+          turret.y = anchor.y + (ty / td) * turretRingRadius;
+        }
+
+        if ((turret.cd || 0) > 0) continue;
+        let target = null;
+        let best = turretRange;
+        for (const e of w.enemies) {
+          if (!e || e.hp <= 0) continue;
+          if (isPointInsideBulwarkAnchor(anchor, e.x, e.y, -(e.r || 10) * 0.35)) continue;
+          const d = Math.hypot(e.x - turret.x, e.y - turret.y);
+          if (d < best) {
+            best = d;
+            target = e;
+          }
+        }
+        if (!target) continue;
+
+        const aim = getPredictiveAimAngle(
+          turret.x,
+          turret.y,
+          target.x,
+          target.y,
+          target.vx || 0,
+          target.vy || 0,
+          turretProjectileSpeed,
+          { leadBias: 0.95, maxLead: 0.8 },
+        );
+        turret.angle = aim;
+        w.bullets.push({
+          x: turret.x,
+          y: turret.y,
+          vx: Math.cos(aim) * turretProjectileSpeed,
+          vy: Math.sin(aim) * turretProjectileSpeed,
+          life: 3.8,
+          dmg: turretDamage,
+          affinity: "amber",
+          seekTurn: turretSeekTurn,
+          seekRange: turretRange * 1.25,
+          seekLead: 0.04,
+          bulwarkTurretShot: true,
+          bulwarkAnchor: anchor,
+        });
+        turret.cd = turretFireInterval;
+        splash(w, turret.x, turret.y, "#ffd9a8", 3, 0.55);
+      }
+    }
+
+    const ringPad = Math.max(2, barrierWidth * 0.5);
+    const innerCore = Math.max(1, radius - ringPad);
+    for (const b of w.bullets) {
+      if (!b || b.life <= 0) continue;
+      const prevX = Number.isFinite(b.px) ? b.px : b.x;
+      const prevY = Number.isFinite(b.py) ? b.py : b.y;
+      const d0 = Math.hypot(prevX - anchor.x, prevY - anchor.y);
+      const d1 = Math.hypot(b.x - anchor.x, b.y - anchor.y);
+      const bothInsideCore = d0 < innerCore && d1 < innerCore;
+      if (bothInsideCore) continue;
+      if (!doesSegmentHitCircle(prevX, prevY, b.x, b.y, anchor.x, anchor.y, radius + ringPad)) continue;
+      const segDist = Math.sqrt(getPointToSegmentDistanceSq(prevX, prevY, b.x, b.y, anchor.x, anchor.y));
+      if (Math.abs(segDist - radius) > ringPad + 1.8) continue;
+      b.life = 0;
+      splash(w, b.x, b.y, "#ffd6a3", 3, 0.52);
+    }
+
+    if (Array.isArray(w.rockets) && w.rockets.length > 0) {
+      for (const r of w.rockets) {
+        if (!r || r.life <= 0) continue;
+        const prevX = Number.isFinite(r.px) ? r.px : r.x;
+        const prevY = Number.isFinite(r.py) ? r.py : r.y;
+        const d0 = Math.hypot(prevX - anchor.x, prevY - anchor.y);
+        const d1 = Math.hypot(r.x - anchor.x, r.y - anchor.y);
+        const bothInsideCore = d0 < innerCore && d1 < innerCore;
+        if (bothInsideCore) continue;
+        if (!doesSegmentHitCircle(prevX, prevY, r.x, r.y, anchor.x, anchor.y, radius + ringPad)) continue;
+        const segDist = Math.sqrt(getPointToSegmentDistanceSq(prevX, prevY, r.x, r.y, anchor.x, anchor.y));
+        if (Math.abs(segDist - radius) > ringPad + 2.6) continue;
+        r.life = -1;
+        splash(w, r.x, r.y, "#ffd6a3", 5, 0.7);
+      }
+    }
+
+    kept.push(anchor);
+  }
+
+  w.bulwarkAnchors = kept;
+}
+
+function stepSiegeSpikes(w, dt) {
+  if (!Array.isArray(w?.siegeSpikes) || w.siegeSpikes.length <= 0) return;
+  const p = w.player;
+  const kept = [];
+
+  for (const wall of w.siegeSpikes) {
+    if (!wall) continue;
+    wall.life = Math.max(0, (wall.life || 0) - dt);
+    wall.pulse = (wall.pulse || 0) + dt * 5.2;
+    if ((wall.life || 0) <= 0.001) continue;
+
+    const thickness = Math.max(4, Number(wall.thickness) || 10);
+    const damage = Math.max(1, Number(wall.damage) || 12);
+    const hitInterval = Math.max(0.05, Number(wall.hitInterval) || 0.3);
+    const pushForce = Math.max(4, Number(wall.pushForce) || 12);
+    const blockWidth = Math.max(3, Number(wall.blockWidth) || 7);
+    const segments = getSiegeSpikeSegments(wall);
+    if (segments.length <= 0) continue;
+
+    for (const e of w.enemies) {
+      if (!e || e.hp <= 0) continue;
+      const hitRadius = (e.r || 10) + thickness;
+      let distSq = Number.POSITIVE_INFINITY;
+      let nearestSegment = null;
+      let impact = null;
+      for (const seg of segments) {
+        const segDistSq = getPointToSegmentDistanceSq(seg.x1, seg.y1, seg.x2, seg.y2, e.x, e.y);
+        if (segDistSq >= distSq) continue;
+        distSq = segDistSq;
+        nearestSegment = seg;
+        impact = getClosestPointOnSegment(e.x, e.y, seg.x1, seg.y1, seg.x2, seg.y2);
+      }
+      if (distSq > hitRadius * hitRadius) continue;
+      if (!impact) continue;
+      markEnemyHit(e);
+      if (!applyTypedShieldBlock(w, e, impact.x, impact.y, "amber") && (e.amberSpikeHitCd || 0) <= 0.001) {
+        let dealt = damage;
+        if (isMiniBossKind(e.kind)) {
+          const guard = Math.max(0, Math.min(0.9, e.guard || 0));
+          dealt *= (1 - guard);
+        }
+        dealt = applyBulwarkTrapDamageBonus(w, e, dealt);
+        e.hp -= dealt;
+        registerSiphonOverlordHit(w, e, dealt);
+        e.lastHitKind = "siege_spikes";
+        e.amberSpikeHitCd = hitInterval;
+        splash(w, impact.x, impact.y, "#ffc587", 4, 0.75);
+      } else {
+        e.lastHitKind = "siege_spikes";
+      }
+
+      let px = e.x - impact.x;
+      let py = e.y - impact.y;
+      let plen = Math.hypot(px, py);
+      if (plen <= 0.001) {
+        px = nearestSegment?.nx || wall.nx || 1;
+        py = nearestSegment?.ny || wall.ny || 0;
+        plen = Math.hypot(px, py) || 1;
+      }
+      const overlap = Math.max(0.4, hitRadius - Math.sqrt(Math.max(0, distSq)));
+      const push = Math.min(44, pushForce * dt + overlap * 0.8);
+      e.x += (px / plen) * push;
+      e.y += (py / plen) * push;
+    }
+
+    if (p && p.hp > 0) {
+      const hitRadius = 12 + thickness;
+      let distSq = Number.POSITIVE_INFINITY;
+      let nearestSegment = null;
+      let impact = null;
+      for (const seg of segments) {
+        const segDistSq = getPointToSegmentDistanceSq(seg.x1, seg.y1, seg.x2, seg.y2, p.x, p.y);
+        if (segDistSq >= distSq) continue;
+        distSq = segDistSq;
+        nearestSegment = seg;
+        impact = getClosestPointOnSegment(p.x, p.y, seg.x1, seg.y1, seg.x2, seg.y2);
+      }
+      if (distSq <= hitRadius * hitRadius && impact) {
+        let px = p.x - impact.x;
+        let py = p.y - impact.y;
+        let plen = Math.hypot(px, py);
+        if (plen <= 0.001) {
+          px = nearestSegment?.nx || wall.nx || 1;
+          py = nearestSegment?.ny || wall.ny || 0;
+          plen = Math.hypot(px, py) || 1;
+        }
+        const overlap = Math.max(0.4, hitRadius - Math.sqrt(Math.max(0, distSq)));
+        const push = Math.min(44, pushForce * dt + overlap * 0.8);
+        p.x += (px / plen) * push;
+        p.y += (py / plen) * push;
+        clampPlayer(p);
+        if ((p.siegeSpikeHitCd || 0) <= 0.001) {
+          const dmg = damage * (1 - Math.min(0.62, p.armor || 0));
+          applyPlayerDamage(w, dmg, { hitFlash: 0.12, playSound: true, absorbSplash: false });
+          p.siegeSpikeHitCd = hitInterval;
+          splash(w, impact.x, impact.y, "#ffc587", 4, 0.72);
+        }
+      }
+    }
+
+    for (const b of w.bullets) {
+      if (!b?.enemy || b.life <= 0) continue;
+      if (b.megaShot) continue;
+      const prevX = Number.isFinite(b.px) ? b.px : b.x;
+      const prevY = Number.isFinite(b.py) ? b.py : b.y;
+      let blocked = false;
+      for (const seg of segments) {
+        const nowSq = getPointToSegmentDistanceSq(seg.x1, seg.y1, seg.x2, seg.y2, b.x, b.y);
+        const prevSq = getPointToSegmentDistanceSq(seg.x1, seg.y1, seg.x2, seg.y2, prevX, prevY);
+        if (Math.min(nowSq, prevSq) <= blockWidth * blockWidth) {
+          blocked = true;
+          break;
+        }
+      }
+      if (!blocked) continue;
+      b.life = 0;
+      splash(w, b.x, b.y, "#ffd8a8", 3, 0.5);
+    }
+
+    if (wall.turretEnabled && Array.isArray(wall.turrets) && wall.turrets.length > 0) {
+      const turretRange = Math.max(100, Number(wall.turretRange) || 180);
+      const turretDamage = Math.max(1, Number(wall.turretDamage) || 10);
+      const turretFireInterval = Math.max(0.2, Number(wall.turretFireInterval) || 1.0);
+      const turretSeekTurn = Math.max(0.2, Number(wall.turretSeekTurn) || 2.6);
+      const turretProjectileSpeed = Math.max(120, Number(wall.turretProjectileSpeed) || 250);
+      for (const turret of wall.turrets) {
+        if (!turret) continue;
+        turret.pulse = (turret.pulse || 0) + dt * 4.8;
+        turret.cd = Math.max(0, (turret.cd || 0) - dt);
+        if ((turret.cd || 0) > 0) continue;
+
+        let target = null;
+        let best = turretRange;
+        for (const e of w.enemies) {
+          if (!e || e.hp <= 0) continue;
+          const d = Math.hypot(e.x - turret.x, e.y - turret.y);
+          if (d < best) {
+            best = d;
+            target = e;
+          }
+        }
+        if (!target) continue;
+
+        const aim = getPredictiveAimAngle(
+          turret.x,
+          turret.y,
+          target.x,
+          target.y,
+          target.vx || 0,
+          target.vy || 0,
+          turretProjectileSpeed,
+          { leadBias: 0.92, maxLead: 0.75 },
+        );
+        turret.angle = aim;
+        w.bullets.push({
+          x: turret.x,
+          y: turret.y,
+          vx: Math.cos(aim) * turretProjectileSpeed,
+          vy: Math.sin(aim) * turretProjectileSpeed,
+          life: 3.2,
+          dmg: turretDamage,
+          affinity: "amber",
+          seekTurn: turretSeekTurn,
+          seekRange: turretRange * 1.2,
+          seekLead: 0.035,
+          siegeTurretShot: true,
+        });
+        turret.cd = turretFireInterval;
+        splash(w, turret.x, turret.y, "#ffd7a2", 3, 0.52);
+      }
+    }
+
+    kept.push(wall);
+  }
+
+  w.siegeSpikes = kept;
 }
 
 function stepMines(w, dt) {
@@ -5395,7 +6914,7 @@ function stepMines(w, dt) {
         markEnemyHit(e);
         const linkAffinity = getMineChainAffinityType(a) === "void" ? "void" : "amber";
         if (!applyTypedShieldBlock(w, e, impact.x, impact.y, linkAffinity)) {
-          const linkDamage = ((a.dmg + b.dmg) * 0.5) * 0.34 * ((a.chainDamageMult + b.chainDamageMult) * 0.5);
+          const linkDamage = applyBulwarkTrapDamageBonus(w, e, ((a.dmg + b.dmg) * 0.5) * 0.34 * ((a.chainDamageMult + b.chainDamageMult) * 0.5));
           if (e.kind === "mega_cannon_boss" && e.shieldT > 0) {
             e.hp = Math.min(e.maxHp || e.hp, e.hp + linkDamage * 0.5);
             splash(w, e.x, e.y, "#8bff9f", 6, 1.0);
@@ -5872,6 +7391,7 @@ function stepEnemies(w, dt) {
     e.weakSpotFlash = Math.max(0, (e.weakSpotFlash || 0) - dt);
     e.allyDrainPulse = Math.max(0, (e.allyDrainPulse || 0) - dt);
     e.gooMinePulse = Math.max(0, (e.gooMinePulse || 0) - dt);
+    e.amberSpikeHitCd = Math.max(0, (e.amberSpikeHitCd || 0) - dt);
 
     if (e.gooMine && Number.isFinite(e.gooMine.timer)) {
       e.gooMine.timer = Math.max(0, e.gooMine.timer - dt);
@@ -6609,6 +8129,9 @@ function resolveCombat(w) {
     if (!b.enemy) {
       for (const e of w.enemies) {
         if (e.hp <= 0) continue;
+        if (b.bulwarkTurretShot && b.bulwarkAnchor && isPointInsideBulwarkAnchor(b.bulwarkAnchor, e.x, e.y, -(e.r || 10) * 0.35)) {
+          continue;
+        }
         const prevX = Number.isFinite(b.px) ? b.px : b.x;
         const prevY = Number.isFinite(b.py) ? b.py : b.y;
         const hitCore = doesSegmentHitCircle(prevX, prevY, b.x, b.y, e.x, e.y, e.r + 4);
@@ -6665,6 +8188,7 @@ function resolveCombat(w) {
           e.weakSpotFlash = Math.max(e.weakSpotFlash || 0, 0.28);
           splash(w, e.x, e.y, "#ffdff8", 14, 1.7);
         }
+        dealt = applyBulwarkTrapDamageBonus(w, e, dealt);
         e.hp -= dealt;
         registerSiphonOverlordHit(w, e, dealt);
         registerMainGunComboHit(w, b);
@@ -6777,6 +8301,7 @@ function resolveCombat(w) {
           const guard = Math.max(0, Math.min(0.9, e.guard || 0));
           dealt *= (1 - guard);
         }
+        dealt = applyBulwarkTrapDamageBonus(w, e, dealt);
         e.hp -= dealt;
         registerSiphonOverlordHit(w, e, dealt);
         e.lastHitKind = "rocket";
@@ -7176,6 +8701,40 @@ function drawGame() {
   const p = w.player;
   const warpComboActive = (p.warpComboT || 0) > 0;
 
+  const amberAbility = pickAbility("amber");
+  if (state.input.amberDrawActive && amberAbility?.type === "siege_spikes") {
+    const stats = getSiegeSpikesStats(amberAbility, countSlottedByType("siege_spikes"));
+    const drawPoints = Array.isArray(state.input.amberDrawPoints) ? state.input.amberDrawPoints : [];
+    if (drawPoints.length > 0) {
+      ctx.strokeStyle = "rgba(255,210,150,0.8)";
+      ctx.lineWidth = Math.max(2, stats.thickness * 0.55);
+      ctx.setLineDash([9, 7]);
+      ctx.beginPath();
+      ctx.moveTo(drawPoints[0].x, drawPoints[0].y);
+      for (let i = 1; i < drawPoints.length; i += 1) {
+        const pt = drawPoints[i];
+        ctx.lineTo(pt.x, pt.y);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = "rgba(255,226,183,0.85)";
+      const first = drawPoints[0];
+      const last = drawPoints[drawPoints.length - 1];
+      if (first) {
+        ctx.beginPath();
+        ctx.arc(first.x, first.y, 3.4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      if (last) {
+        ctx.beginPath();
+        ctx.arc(last.x, last.y, 3.4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.lineWidth = 1;
+    }
+  }
+
   for (let i = 0; i < w.mines.length; i += 1) {
     const a = w.mines[i];
     if (!a?.chainEnabled || a.expired || (a.chargesLeft || 0) <= 0) continue;
@@ -7284,6 +8843,119 @@ function drawGame() {
     }
   }
   ctx.lineWidth = 1;
+
+  for (const anchor of w.bulwarkAnchors || []) {
+    const lifePct = clamp((anchor.life || 0) / Math.max(0.001, anchor.duration || 1), 0, 1);
+    const pulse = (Math.sin((anchor.pulse || 0)) + 1) * 0.5;
+    const radius = Math.max(16, anchor.radius || 110);
+    const barrierWidth = Math.max(4, Number(anchor.barrierWidth) || 10);
+    const alpha = 0.08 + lifePct * 0.14 + pulse * 0.05;
+
+    ctx.fillStyle = `rgba(255,208,142,${alpha})`;
+    ctx.beginPath();
+    ctx.arc(anchor.x, anchor.y, radius * (0.96 + pulse * 0.03), 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = `rgba(255,222,168,${0.34 + pulse * 0.22})`;
+    ctx.lineWidth = Math.max(2, barrierWidth * 0.22);
+    ctx.beginPath();
+    ctx.arc(anchor.x, anchor.y, radius, 0, Math.PI * 2);
+    ctx.stroke();
+
+    if (Array.isArray(anchor.turrets) && anchor.turrets.length > 0) {
+      for (const turret of anchor.turrets) {
+        if (!turret) continue;
+        const tpulse = (Math.sin(turret.pulse || 0) + 1) * 0.5;
+        const turretR = 4.4 + tpulse * 1.2;
+        const ang = Number.isFinite(turret.angle) ? turret.angle : 0;
+        ctx.fillStyle = "rgba(255,214,158,0.96)";
+        ctx.beginPath();
+        ctx.arc(turret.x, turret.y, turretR, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = "rgba(255,236,196,0.9)";
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.moveTo(turret.x, turret.y);
+        ctx.lineTo(turret.x + Math.cos(ang) * (turretR + 5), turret.y + Math.sin(ang) * (turretR + 5));
+        ctx.stroke();
+      }
+    }
+
+    const coreR = 8 + pulse * 1.8;
+    ctx.fillStyle = "rgba(255,196,118,0.95)";
+    ctx.beginPath();
+    ctx.arc(anchor.x, anchor.y, coreR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.lineWidth = 1;
+  }
+
+  for (const wall of w.siegeSpikes || []) {
+    const lifePct = clamp((wall.life || 0) / Math.max(0.001, wall.duration || 1), 0, 1);
+    const pulse = (Math.sin((wall.pulse || 0)) + 1) * 0.5;
+    const alpha = 0.34 + lifePct * 0.3 + pulse * 0.16;
+    const thickness = Math.max(4, Number(wall.thickness) || 10);
+    const segments = getSiegeSpikeSegments(wall);
+    if (segments.length <= 0) continue;
+
+    ctx.strokeStyle = `rgba(255,196,122,${alpha})`;
+    ctx.lineWidth = Math.max(2, thickness * 0.9);
+    ctx.beginPath();
+    ctx.moveTo(segments[0].x1, segments[0].y1);
+    for (const seg of segments) {
+      ctx.lineTo(seg.x2, seg.y2);
+    }
+    ctx.stroke();
+
+    ctx.strokeStyle = `rgba(255,230,186,${0.5 + pulse * 0.26})`;
+    ctx.lineWidth = Math.max(1.2, thickness * 0.28);
+    ctx.beginPath();
+    ctx.moveTo(segments[0].x1, segments[0].y1);
+    for (const seg of segments) {
+      ctx.lineTo(seg.x2, seg.y2);
+    }
+    ctx.stroke();
+
+    const spikeDepth = 7 + thickness * 0.4 + pulse * 2;
+    ctx.strokeStyle = `rgba(255,216,148,${0.45 + lifePct * 0.3})`;
+    ctx.lineWidth = 1.3;
+    for (let segIndex = 0; segIndex < segments.length; segIndex += 1) {
+      const seg = segments[segIndex];
+      const spikes = Math.max(1, Math.floor((seg.len || 0) / 16));
+      for (let i = 0; i <= spikes; i += 1) {
+        const t = spikes <= 0 ? 0 : i / spikes;
+        const sx = seg.x1 + (seg.x2 - seg.x1) * t;
+        const sy = seg.y1 + (seg.y2 - seg.y1) * t;
+        const a = ((i + segIndex) % 2 === 0) ? 1 : -1;
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(sx + (seg.nx || 0) * spikeDepth * a, sy + (seg.ny || 0) * spikeDepth * a);
+        ctx.stroke();
+      }
+    }
+
+    if (wall.turretEnabled && Array.isArray(wall.turrets) && wall.turrets.length > 0) {
+      for (const turret of wall.turrets) {
+        if (!turret) continue;
+        const tpulse = (Math.sin(turret.pulse || 0) + 1) * 0.5;
+        const turretR = 3.8 + tpulse * 1.05;
+        const ang = Number.isFinite(turret.angle) ? turret.angle : 0;
+        ctx.fillStyle = "rgba(255,218,162,0.96)";
+        ctx.beginPath();
+        ctx.arc(turret.x, turret.y, turretR, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = "rgba(255,236,196,0.88)";
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(turret.x, turret.y);
+        ctx.lineTo(turret.x + Math.cos(ang) * (turretR + 4), turret.y + Math.sin(ang) * (turretR + 4));
+        ctx.stroke();
+      }
+      ctx.lineWidth = 1;
+    }
+    ctx.lineWidth = 1;
+  }
 
   for (const m of w.enemyMines) {
     const arm = Math.max(0, m.armed || 0);
@@ -8087,6 +9759,8 @@ function splash(w, x, y, color, count, force) {
 
 function endRun(survived) {
   if (!state.world || !state.player) return;
+  resetAmberDrawInputState();
+  state.input.amber = false;
 
   const w = state.world;
   const bankedEssence = Math.floor(w.runEssence);
@@ -8153,11 +9827,34 @@ function shiftEntityByOffset(entity, dx, dy) {
   if (Number.isFinite(entity.y1)) entity.y1 += dy;
   if (Number.isFinite(entity.x2)) entity.x2 += dx;
   if (Number.isFinite(entity.y2)) entity.y2 += dy;
+  if (Array.isArray(entity.points)) {
+    for (const point of entity.points) {
+      if (!point) continue;
+      if (Number.isFinite(point.x)) point.x += dx;
+      if (Number.isFinite(point.y)) point.y += dy;
+    }
+  }
+  if (Array.isArray(entity.segments)) {
+    for (const seg of entity.segments) {
+      if (!seg) continue;
+      if (Number.isFinite(seg.x1)) seg.x1 += dx;
+      if (Number.isFinite(seg.y1)) seg.y1 += dy;
+      if (Number.isFinite(seg.x2)) seg.x2 += dx;
+      if (Number.isFinite(seg.y2)) seg.y2 += dy;
+    }
+  }
   if (Array.isArray(entity.drainLinks)) {
     for (const link of entity.drainLinks) {
       if (!link) continue;
       if (Number.isFinite(link.x)) link.x += dx;
       if (Number.isFinite(link.y)) link.y += dy;
+    }
+  }
+  if (Array.isArray(entity.turrets)) {
+    for (const turret of entity.turrets) {
+      if (!turret) continue;
+      if (Number.isFinite(turret.x)) turret.x += dx;
+      if (Number.isFinite(turret.y)) turret.y += dy;
     }
   }
 }
@@ -8175,6 +9872,8 @@ function shiftWorldEntitiesByOffset(w, dx, dy) {
   shiftEntityListByOffset(w.bullets, dx, dy);
   shiftEntityListByOffset(w.drops, dx, dy);
   shiftEntityListByOffset(w.mines, dx, dy);
+  shiftEntityListByOffset(w.bulwarkAnchors, dx, dy);
+  shiftEntityListByOffset(w.siegeSpikes, dx, dy);
   shiftEntityListByOffset(w.enemyMines, dx, dy);
   shiftEntityListByOffset(w.bossBursts, dx, dy);
   shiftEntityListByOffset(w.lanceBeams, dx, dy);
