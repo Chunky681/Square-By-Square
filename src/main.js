@@ -7,6 +7,7 @@ const ARENA_WIDTH = 1600;
 const ARENA_HEIGHT = 900;
 const MAX_UPGRADE_LEVEL = 50;
 const SHIP_MOUNT_RADIUS = 16;
+const VOID_COMBO_RELAY_HOLD_DELAY = 0.18;
 
 const MAX_VISIBLE_SLOTS = 18;
 
@@ -752,6 +753,8 @@ const state = {
     amber: false,
     aegisCombo: false,
     aegisSummon: false,
+    voidComboRelayHeld: false,
+    voidComboRelayHoldT: 0,
     amberDown: false,
     amberDrawActive: false,
     amberDrawCommit: false,
@@ -957,6 +960,8 @@ function bindInput() {
     state.input.amber = false;
     state.input.aegisCombo = false;
     state.input.aegisSummon = false;
+    state.input.voidComboRelayHeld = false;
+    state.input.voidComboRelayHoldT = 0;
     resetAmberDrawInputState();
   };
 
@@ -972,9 +977,16 @@ function bindInput() {
     if (k === "a" || k === "arrowleft") state.input.left = true;
     if (k === "d" || k === "arrowright") state.input.right = true;
     if (k === "shift" && state.mode === "game") {
-      if (!e.repeat) {
-        const handledCombo = tryHandleWarpComboSelection();
-        if (!handledCombo) state.input.voidCursor = true;
+      const comboActive = (state.world?.player?.warpComboT || 0) > 0;
+      if (comboActive) {
+        state.input.voidComboRelayHeld = true;
+        if (!e.repeat) state.input.voidComboRelayHoldT = 0;
+        if (!e.repeat) {
+          tryHandleWarpComboSelection();
+        }
+        state.input.voidCursor = false;
+      } else if (!e.repeat) {
+        state.input.voidCursor = true;
       }
       e.preventDefault();
     }
@@ -1017,6 +1029,10 @@ function bindInput() {
     if (k === "s" || k === "arrowdown") state.input.down = false;
     if (k === "a" || k === "arrowleft") state.input.left = false;
     if (k === "d" || k === "arrowright") state.input.right = false;
+    if (k === "shift") {
+      state.input.voidComboRelayHeld = false;
+      state.input.voidComboRelayHoldT = 0;
+    }
     if (k === "e" && state.input.amberDown) {
       if (state.input.amberDrawActive) {
         appendSiegeSpikesDrawPoint(state.mouse.x, state.mouse.y, true);
@@ -1052,6 +1068,13 @@ function bindInput() {
     state.mouse.y = ((e.clientY - r.top) / Math.max(1, r.height)) * canvas.height;
     if (state.input.amberDown && state.input.amberDrawActive) {
       appendSiegeSpikesDrawPoint(state.mouse.x, state.mouse.y);
+    }
+    if (
+      state.input.voidComboRelayHeld
+      && (state.world?.player?.warpComboT || 0) > 0
+      && (state.input.voidComboRelayHoldT || 0) >= VOID_COMBO_RELAY_HOLD_DELAY
+    ) {
+      tryHandleWarpComboSelection();
     }
   });
   canvas.addEventListener("pointerdown", (e) => {
@@ -1101,10 +1124,10 @@ function getWarpComboMineTarget(w, x, y) {
 
 function getWarpComboEnemyTarget(w, x, y) {
   let chosen = null;
-  let best = 28;
+  let best = 72;
   for (const enemy of w.enemies) {
     if (!isWarpComboEnemyEligible(enemy)) continue;
-    const pickR = Math.max(12, (enemy.r || 10) + 8);
+    const pickR = Math.max(28, (enemy.r || 10) + 24);
     const d = Math.hypot(enemy.x - x, enemy.y - y);
     if (d <= pickR && d < best) {
       best = d;
@@ -1179,6 +1202,116 @@ function clearWarpComboState(p) {
   p.warpComboDuration = 0;
   p.warpComboChainCount = 0;
   p.warpComboChainCap = 0;
+  p.warpComboQueuedEnemies = [];
+  p.warpComboRelayQueue = [];
+  p.warpComboRelayStepTimer = 0;
+}
+
+function executeWarpComboEnemyRelayStep(w, enemy, stats, bulwarkLockAnchor = null) {
+  const p = w?.player;
+  if (!w || !p || !enemy || !stats) return 0;
+
+  const chainCount = Math.max(0, Math.floor(Number(p.warpComboChainCount) || 0));
+  const chainDamageScale = 1 + chainCount * Math.max(0, Number(stats.comboChainDamagePer) || 0);
+
+  const px = p.x;
+  const py = p.y;
+  if (w.isMarathonMode) {
+    p.x = enemy.x;
+    p.y = enemy.y;
+    enemy.x = px;
+    enemy.y = py;
+    clampPlayer(p);
+  } else {
+    p.x = clamp(enemy.x, 14, canvas.width - 14);
+    p.y = clamp(enemy.y, 14, canvas.height - 14);
+    enemy.x = clamp(px, enemy.r || 10, canvas.width - (enemy.r || 10));
+    enemy.y = clamp(py, enemy.r || 10, canvas.height - (enemy.r || 10));
+  }
+  if (bulwarkLockAnchor) {
+    const clamped = clampPointInsideBulwarkAnchor(bulwarkLockAnchor, p.x, p.y, 12);
+    p.x = clamped.x;
+    p.y = clamped.y;
+  }
+  enemy.hitFlash = Math.max(enemy.hitFlash || 0, 0.2);
+
+  let comboKills = 0;
+  if ((stats.swapPulseScale || 0) > 0) {
+    comboKills += applyWarpBurstDamage(w, p.x, p.y, stats, {
+      radiusMult: 0.55 + stats.swapPulseScale,
+      damageMult: (0.28 + stats.swapPulseScale) * chainDamageScale,
+      sourceKind: "warp_swap",
+    });
+    comboKills += applyWarpBurstDamage(w, enemy.x, enemy.y, stats, {
+      radiusMult: 0.55 + stats.swapPulseScale,
+      damageMult: (0.22 + stats.swapPulseScale * 0.85) * chainDamageScale,
+      sourceKind: "warp_swap",
+    });
+  }
+
+  if (comboKills > 0) {
+    const nextChainCount = chainCount + 1;
+    p.warpComboChainCount = nextChainCount;
+    const chainPitch = 1 + Math.min(1.1, Math.max(0, nextChainCount - 1) * 0.14);
+    audio.play("warpComboChain", { pitch: chainPitch });
+    splash(w, p.x, p.y, "#ce9dff", 8, 1.1);
+  }
+
+  splash(w, p.x, p.y, "#b993ff", 12, 1.5);
+  splash(w, enemy.x, enemy.y, "#b993ff", 12, 1.5);
+  audio.play("warp");
+  return comboKills;
+}
+
+function startWarpComboRelayExecution(w) {
+  const p = w?.player;
+  if (!p) return false;
+
+  const queue = Array.isArray(p.warpComboQueuedEnemies) ? p.warpComboQueuedEnemies.filter(Boolean) : [];
+  if (queue.length <= 0) return false;
+
+  p.warpComboRelayQueue = queue.slice();
+  p.warpComboQueuedEnemies = [];
+  p.warpComboRelayStepTimer = 0;
+  p.warpComboChainCount = 0;
+  p.warpComboT = 0;
+  p.warpComboDuration = 0;
+  return true;
+}
+
+function stepWarpComboRelayExecution(w, dt) {
+  const p = w?.player;
+  if (!p || !Array.isArray(p.warpComboRelayQueue) || p.warpComboRelayQueue.length <= 0) return;
+
+  p.warpComboRelayStepTimer = Math.max(0, (Number(p.warpComboRelayStepTimer) || 0) - dt);
+  if ((p.warpComboRelayStepTimer || 0) > 0) return;
+
+  const module = pickAbility("void");
+  if (!module || module.type !== "warp") {
+    clearWarpComboState(p);
+    return;
+  }
+  const stacks = countSlottedByType(module.type);
+  const stats = getWarpAbilityStats(module, stacks);
+  if (!stats.comboEnabled) {
+    clearWarpComboState(p);
+    return;
+  }
+
+  const bulwarkLockAnchor = findPlayerBulwarkLockAnchor(w);
+
+  while (p.warpComboRelayQueue.length > 0) {
+    const enemy = p.warpComboRelayQueue.shift();
+    if (!isWarpComboEnemyEligible(enemy)) continue;
+    if (bulwarkLockAnchor && !isPointInsideBulwarkAnchor(bulwarkLockAnchor, enemy.x, enemy.y, -(enemy.r || 10) * 0.35)) {
+      continue;
+    }
+    executeWarpComboEnemyRelayStep(w, enemy, stats, bulwarkLockAnchor);
+    p.warpComboRelayStepTimer = 0.085;
+    return;
+  }
+
+  clearWarpComboState(p);
 }
 
 function infuseActiveAegisGlassingBeamWithVoid(beam, mult = 2) {
@@ -1242,8 +1375,6 @@ function tryHandleWarpComboSelection() {
   if (bulwarkLockAnchor && !isPointInsideBulwarkAnchor(bulwarkLockAnchor, enemy.x, enemy.y, -(enemy.r || 10) * 0.35)) {
     return false;
   }
-  const currentComboDuration = Math.max(0.001, Number(p.warpComboDuration) || Number(p.warpComboT) || Number(stats.comboWindow) || 0.001);
-  const chainCount = Math.max(0, Math.floor(Number(p.warpComboChainCount) || 0));
   const chainCap = Math.max(
     1,
     Math.floor(
@@ -1252,64 +1383,28 @@ function tryHandleWarpComboSelection() {
       || 1,
     ),
   );
-  const chainDamageScale = 1 + chainCount * Math.max(0, Number(stats.comboChainDamagePer) || 0);
-
-  const px = p.x;
-  const py = p.y;
-  if (w.isMarathonMode) {
-    p.x = enemy.x;
-    p.y = enemy.y;
-    enemy.x = px;
-    enemy.y = py;
-    clampPlayer(p);
-  } else {
-    p.x = clamp(enemy.x, 14, canvas.width - 14);
-    p.y = clamp(enemy.y, 14, canvas.height - 14);
-    enemy.x = clamp(px, enemy.r || 10, canvas.width - (enemy.r || 10));
-    enemy.y = clamp(py, enemy.r || 10, canvas.height - (enemy.r || 10));
+  if (!Array.isArray(p.warpComboQueuedEnemies)) p.warpComboQueuedEnemies = [];
+  const alreadyQueued = p.warpComboQueuedEnemies.includes(enemy);
+  if (alreadyQueued) {
+    return true;
   }
-  if (bulwarkLockAnchor) {
-    const clamped = clampPointInsideBulwarkAnchor(bulwarkLockAnchor, p.x, p.y, 12);
-    p.x = clamped.x;
-    p.y = clamped.y;
+  if (p.warpComboQueuedEnemies.length >= chainCap) {
+    return true;
+  }
+
+  p.warpComboQueuedEnemies.push(enemy);
+  p.warpComboChainCount = p.warpComboQueuedEnemies.length;
+  p.warpComboChainCap = chainCap;
+  if (p.warpComboQueuedEnemies.length >= chainCap) {
+    if (startWarpComboRelayExecution(w)) {
+      stepWarpComboRelayExecution(w, 0);
+    }
+    return true;
   }
   enemy.hitFlash = Math.max(enemy.hitFlash || 0, 0.2);
-
-  let comboKills = 0;
-  if ((stats.swapPulseScale || 0) > 0) {
-    comboKills += applyWarpBurstDamage(w, p.x, p.y, stats, {
-      radiusMult: 0.55 + stats.swapPulseScale,
-      damageMult: (0.28 + stats.swapPulseScale) * chainDamageScale,
-      sourceKind: "warp_swap",
-    });
-    comboKills += applyWarpBurstDamage(w, enemy.x, enemy.y, stats, {
-      radiusMult: 0.55 + stats.swapPulseScale,
-      damageMult: (0.22 + stats.swapPulseScale * 0.85) * chainDamageScale,
-      sourceKind: "warp_swap",
-    });
-  }
-
-  if (comboKills > 0) {
-    const nextChainCount = chainCount + 1;
-    const chainPitch = 1 + Math.min(1.1, Math.max(0, nextChainCount - 1) * 0.14);
-    audio.play("warpComboChain", { pitch: chainPitch });
-    if (nextChainCount >= chainCap) {
-      clearWarpComboState(p);
-    } else {
-      const nextWindow = Math.max(0.12, currentComboDuration * 0.7);
-      p.warpComboDuration = nextWindow;
-      p.warpComboT = nextWindow;
-      p.warpComboChainCount = nextChainCount;
-      p.warpComboChainCap = chainCap;
-      splash(w, p.x, p.y, "#ce9dff", 8, 1.1);
-    }
-  } else {
-    clearWarpComboState(p);
-  }
-
-  splash(w, p.x, p.y, "#b993ff", 12, 1.5);
-  splash(w, enemy.x, enemy.y, "#b993ff", 12, 1.5);
-  audio.play("warp");
+  splash(w, enemy.x, enemy.y, "#b993ff", 10, 1.2);
+  const queuePitch = 1 + Math.min(0.7, Math.max(0, p.warpComboQueuedEnemies.length - 1) * 0.08);
+  audio.play("warpComboChain", { pitch: queuePitch });
   return true;
 }
 
@@ -3778,6 +3873,9 @@ function makeWorld(profile, difficulty) {
       warpComboDuration: 0,
       warpComboChainCount: 0,
       warpComboChainCap: 0,
+      warpComboQueuedEnemies: [],
+      warpComboRelayQueue: [],
+      warpComboRelayStepTimer: 0,
       hitFlash: 0,
       angle: 0,
       dashIFrames: 0,
@@ -3827,7 +3925,8 @@ function stepGame(dt) {
   }
 
   const warpComboActive = (p.warpComboT || 0) > 0;
-  if (!warpComboActive) {
+  const warpRelayActive = Array.isArray(p.warpComboRelayQueue) && p.warpComboRelayQueue.length > 0;
+  if (!warpComboActive && !warpRelayActive) {
     p.voidCd = Math.max(0, p.voidCd - dt);
   }
   p.azureCd = Math.max(0, p.azureCd - dt);
@@ -3835,9 +3934,17 @@ function stepGame(dt) {
   p.siegeSpikeHitCd = Math.max(0, (p.siegeSpikeHitCd || 0) - dt);
   p.amberFortifyReduction = 0;
   p.altFireCd = Math.max(0, (p.altFireCd || 0) - dt);
-  p.warpComboT = Math.max(0, p.warpComboT - dt);
-  if ((p.warpComboT || 0) <= 0) {
-    clearWarpComboState(p);
+  if (warpComboActive) {
+    p.warpComboT = Math.max(0, p.warpComboT - dt);
+    if ((p.warpComboT || 0) <= 0) {
+      p.warpComboT = 0;
+      if (!startWarpComboRelayExecution(w)) {
+        clearWarpComboState(p);
+      }
+    }
+  }
+  if (Array.isArray(p.warpComboRelayQueue) && p.warpComboRelayQueue.length > 0) {
+    stepWarpComboRelayExecution(w, dt);
   }
   p.skyGlassingSummonWindow = Math.max(0, (p.skyGlassingSummonWindow || 0) - dt);
   if ((p.skyGlassingSummonWindow || 0) <= 0.001) {
@@ -3873,6 +3980,16 @@ function stepGame(dt) {
   p.y += p.vy * dt;
   p.angle = Math.atan2(state.mouse.y - p.y, state.mouse.x - p.x);
   clampPlayer(p);
+
+  if (state.input.voidComboRelayHeld && (p.warpComboT || 0) > 0) {
+    state.input.voidComboRelayHoldT = Math.max(0, (state.input.voidComboRelayHoldT || 0) + dt);
+    if ((state.input.voidComboRelayHoldT || 0) >= VOID_COMBO_RELAY_HOLD_DELAY) {
+      tryHandleWarpComboSelection();
+      state.input.voidCursor = false;
+    }
+  } else if ((state.input.voidComboRelayHoldT || 0) > 0) {
+    state.input.voidComboRelayHoldT = 0;
+  }
 
   if (state.input.voidCursor) {
     useVoidAbility(w, "cursor");
@@ -5090,6 +5207,9 @@ function useVoidAbility(w, mode = "movement") {
       p.warpComboDuration = stats.comboWindow;
       p.warpComboChainCount = 0;
       p.warpComboChainCap = Math.max(1, Math.floor(stats.comboChainCap || 1));
+      p.warpComboQueuedEnemies = [];
+      p.warpComboRelayQueue = [];
+      p.warpComboRelayStepTimer = 0;
       splash(w, p.x, p.y, "#b88dff", 10, 1.25);
     }
     splash(w, sourceX, sourceY, "#70ccff", 10, 1.45);
@@ -9006,6 +9126,9 @@ function drawGame() {
   drawBossBursts(w);
   const p = w.player;
   const warpComboActive = (p.warpComboT || 0) > 0;
+  const comboQueuedEnemyIndex = warpComboActive && Array.isArray(p.warpComboQueuedEnemies)
+    ? new Map(p.warpComboQueuedEnemies.map((enemy, idx) => [enemy, idx]))
+    : null;
 
   const amberAbility = pickAbility("amber");
   if (state.input.amberDrawActive && amberAbility?.type === "siege_spikes") {
@@ -9824,11 +9947,21 @@ function drawGame() {
 
     if (warpComboActive) {
       const comboPulse = (Math.sin(w.t * 8.5 + e.x * 0.02 + e.y * 0.015) + 1) * 0.5;
-      ctx.strokeStyle = `rgba(192,145,255,${0.26 + comboPulse * 0.35})`;
-      ctx.lineWidth = 1.5;
+      const queuedIdx = comboQueuedEnemyIndex ? comboQueuedEnemyIndex.get(e) : undefined;
+      const isQueued = Number.isFinite(queuedIdx);
+      ctx.strokeStyle = isQueued
+        ? `rgba(226,187,255,${0.42 + comboPulse * 0.44})`
+        : `rgba(192,145,255,${0.26 + comboPulse * 0.35})`;
+      ctx.lineWidth = isQueued ? 2.2 : 1.5;
       ctx.beginPath();
-      ctx.arc(e.x, e.y, e.r + 9 + comboPulse * 2.8, 0, Math.PI * 2);
+      ctx.arc(e.x, e.y, e.r + (isQueued ? 11 : 9) + comboPulse * (isQueued ? 3.2 : 2.8), 0, Math.PI * 2);
       ctx.stroke();
+      if (isQueued) {
+        ctx.fillStyle = "rgba(244,227,255,0.95)";
+        ctx.font = "bold 11px 'Segoe UI', sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(String((queuedIdx || 0) + 1), e.x, e.y - (e.r || 10) - 11);
+      }
       ctx.lineWidth = 1;
     }
   }
@@ -9934,7 +10067,12 @@ function drawGame() {
   if ((p.warpComboT || 0) > 0) {
     const comboTotal = Math.max(0.001, p.warpComboDuration || p.warpComboT || 0.001);
     const comboPct = clamp((p.warpComboT || 0) / comboTotal, 0, 1);
-    const comboChainCount = Math.max(0, Math.floor(p.warpComboChainCount || 0));
+    const comboChainCount = Math.max(
+      0,
+      Array.isArray(p.warpComboQueuedEnemies)
+        ? p.warpComboQueuedEnemies.length
+        : Math.floor(p.warpComboChainCount || 0),
+    );
     const comboChainCap = Math.max(1, Math.floor(p.warpComboChainCap || 1));
     const barW = 88;
     const barH = 6;
@@ -9951,7 +10089,7 @@ function drawGame() {
     ctx.fillStyle = "rgba(228,210,255,0.96)";
     ctx.font = "10px 'Segoe UI', sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText(`VOID COMBO ${p.warpComboT.toFixed(1)}s | CHAIN ${comboChainCount}/${comboChainCap}`, p.x, barY - 5);
+    ctx.fillText(`VOID COMBO ${p.warpComboT.toFixed(1)}s | QUEUE ${comboChainCount}/${comboChainCap}`, p.x, barY - 5);
   }
 
   if ((p.skyGlassingSummonWindow || 0) > 0 && (p.skyGlassingSummonCharges || 0) > 0) {
@@ -10398,9 +10536,14 @@ function updateHud(w) {
   if ((p.warpComboT || 0) > 0) {
     voidSnapshot.status = "ready";
     voidSnapshot.fillPct = clamp((p.warpComboT || 0) / Math.max(0.001, p.warpComboDuration || 1), 0, 1);
-    const comboChainCount = Math.max(0, Math.floor(p.warpComboChainCount || 0));
+    const comboChainCount = Math.max(
+      0,
+      Array.isArray(p.warpComboQueuedEnemies)
+        ? p.warpComboQueuedEnemies.length
+        : Math.floor(p.warpComboChainCount || 0),
+    );
     const comboChainCap = Math.max(1, Math.floor(p.warpComboChainCap || 1));
-    voidSnapshot.text = `Combo ${p.warpComboT.toFixed(1)}s (${comboChainCount}/${comboChainCap})`;
+    voidSnapshot.text = `Combo ${p.warpComboT.toFixed(1)}s (Queue ${comboChainCount}/${comboChainCap})`;
   }
   setCooldownHud(ui.cdVoid, ui.cdVoidFill, ui.cdVoidText, voidSnapshot);
   const azureSnapshot = getAbilityCooldownSnapshot("azure", p);
