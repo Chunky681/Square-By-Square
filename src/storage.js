@@ -121,6 +121,12 @@ const SIEGE_SPIKES_TREE_LIMITS = {
   turretTurn: 8,
   turretRange: 8,
   drawBoost: 8,
+  relayUnlock: 1,
+  relayEfficiency: 8,
+  relayConversion: 10,
+  relayTracking: 8,
+  relayWallCap: 4,
+  relayRegen: 8,
 };
 
 let didWarnSaveFailure = false;
@@ -921,8 +927,62 @@ function createDefaultSiegeSpikesSkillTree() {
     turretRate: 0,
     turretTurn: 0,
     turretRange: 0,
-    drawBoost: 0,
+    relayUnlock: 0,
+    relayEfficiency: 0,
+    relayConversion: 0,
+    relayTracking: 0,
+    relayWallCap: 0,
+    relayRegen: 0,
   };
+}
+
+function normalizeSiegeSpikesBranchChoice(tree) {
+  if (!tree || typeof tree !== "object") return;
+  const turretScore = (tree.turretUnlock || 0)
+    + (tree.turretCount || 0)
+    + (tree.turretDamage || 0)
+    + (tree.turretRate || 0)
+    + (tree.turretTurn || 0)
+    + (tree.turretRange || 0);
+  const relayScore = (tree.relayUnlock || 0)
+    + (tree.relayEfficiency || 0)
+    + (tree.relayConversion || 0)
+    + (tree.relayTracking || 0)
+    + (tree.relayWallCap || 0)
+    + (tree.relayRegen || 0);
+
+  if (tree.turretUnlock > 0 && tree.relayUnlock > 0) {
+    if (relayScore > turretScore) {
+      tree.turretUnlock = 0;
+      tree.turretCount = 0;
+      tree.turretDamage = 0;
+      tree.turretRate = 0;
+      tree.turretTurn = 0;
+      tree.turretRange = 0;
+    } else {
+      tree.relayUnlock = 0;
+      tree.relayEfficiency = 0;
+      tree.relayConversion = 0;
+      tree.relayTracking = 0;
+      tree.relayWallCap = 0;
+      tree.relayRegen = 0;
+    }
+  }
+
+  if (tree.turretUnlock <= 0) {
+    tree.turretCount = 0;
+    tree.turretDamage = 0;
+    tree.turretRate = 0;
+    tree.turretTurn = 0;
+    tree.turretRange = 0;
+  }
+  if (tree.relayUnlock <= 0) {
+    tree.relayEfficiency = 0;
+    tree.relayConversion = 0;
+    tree.relayTracking = 0;
+    tree.relayWallCap = 0;
+    tree.relayRegen = 0;
+  }
 }
 
 function normalizeSiegeSpikesSkillTree(raw, fallbackLevel = 0) {
@@ -940,15 +1000,17 @@ function normalizeSiegeSpikesSkillTree(raw, fallbackLevel = 0) {
     tree.turretRate = clampInt(source.turretRate, 0, SIEGE_SPIKES_TREE_LIMITS.turretRate);
     tree.turretTurn = clampInt(source.turretTurn, 0, SIEGE_SPIKES_TREE_LIMITS.turretTurn);
     tree.turretRange = clampInt(source.turretRange, 0, SIEGE_SPIKES_TREE_LIMITS.turretRange);
-    tree.drawBoost = clampInt(source.drawBoost, 0, SIEGE_SPIKES_TREE_LIMITS.drawBoost);
-    if (tree.turretUnlock <= 0) {
-      tree.turretCount = 0;
-      tree.turretDamage = 0;
-      tree.turretRate = 0;
-      tree.turretTurn = 0;
-      tree.turretRange = 0;
-      tree.drawBoost = 0;
+    const legacyDrawBoost = clampInt(source.drawBoost, 0, SIEGE_SPIKES_TREE_LIMITS.drawBoost);
+    if (legacyDrawBoost > 0) {
+      tree.length = clampInt(tree.length + legacyDrawBoost, 0, SIEGE_SPIKES_TREE_LIMITS.length);
     }
+    tree.relayUnlock = clampInt(source.relayUnlock, 0, SIEGE_SPIKES_TREE_LIMITS.relayUnlock);
+    tree.relayEfficiency = clampInt(source.relayEfficiency, 0, SIEGE_SPIKES_TREE_LIMITS.relayEfficiency);
+    tree.relayConversion = clampInt(source.relayConversion, 0, SIEGE_SPIKES_TREE_LIMITS.relayConversion);
+    tree.relayTracking = clampInt(source.relayTracking, 0, SIEGE_SPIKES_TREE_LIMITS.relayTracking);
+    tree.relayWallCap = clampInt(source.relayWallCap, 0, SIEGE_SPIKES_TREE_LIMITS.relayWallCap);
+    tree.relayRegen = clampInt(source.relayRegen, 0, SIEGE_SPIKES_TREE_LIMITS.relayRegen);
+    normalizeSiegeSpikesBranchChoice(tree);
     return tree;
   }
 
@@ -964,7 +1026,17 @@ function normalizeSiegeSpikesSkillTree(raw, fallbackLevel = 0) {
   tree.turretRate = tree.turretUnlock ? clampInt(Math.floor((legacy - 26) * 0.16), 0, SIEGE_SPIKES_TREE_LIMITS.turretRate) : 0;
   tree.turretTurn = tree.turretUnlock ? clampInt(Math.floor((legacy - 26) * 0.14), 0, SIEGE_SPIKES_TREE_LIMITS.turretTurn) : 0;
   tree.turretRange = tree.turretUnlock ? clampInt(Math.floor((legacy - 28) * 0.12), 0, SIEGE_SPIKES_TREE_LIMITS.turretRange) : 0;
-  tree.drawBoost = tree.turretUnlock ? clampInt(Math.floor((legacy - 24) * 0.18), 0, SIEGE_SPIKES_TREE_LIMITS.drawBoost) : 0;
+  const legacyDrawBoost = tree.turretUnlock ? clampInt(Math.floor((legacy - 24) * 0.18), 0, SIEGE_SPIKES_TREE_LIMITS.drawBoost) : 0;
+  if (legacyDrawBoost > 0) {
+    tree.length = clampInt(tree.length + legacyDrawBoost, 0, SIEGE_SPIKES_TREE_LIMITS.length);
+  }
+  tree.relayUnlock = 0;
+  tree.relayEfficiency = 0;
+  tree.relayConversion = 0;
+  tree.relayTracking = 0;
+  tree.relayWallCap = 0;
+  tree.relayRegen = 0;
+  normalizeSiegeSpikesBranchChoice(tree);
   return tree;
 }
 
@@ -982,7 +1054,12 @@ function getSiegeSpikesTreeTotalLevel(tree) {
     tree.turretRate,
     tree.turretTurn,
     tree.turretRange,
-    tree.drawBoost,
+    tree.relayUnlock,
+    tree.relayEfficiency,
+    tree.relayConversion,
+    tree.relayTracking,
+    tree.relayWallCap,
+    tree.relayRegen,
   ].reduce((sum, value) => sum + clampInt(value, 0, MAX_LEVEL), 0);
 }
 

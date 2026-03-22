@@ -310,6 +310,12 @@ const SIEGE_SPIKES_TREE_LIMITS = {
   turretTurn: 8,
   turretRange: 8,
   drawBoost: 8,
+  relayUnlock: 1,
+  relayEfficiency: 8,
+  relayConversion: 10,
+  relayTracking: 8,
+  relayWallCap: 4,
+  relayRegen: 8,
 };
 
 const MINE_TREE_DEFINITION = [
@@ -460,7 +466,7 @@ const SIEGE_SPIKES_TREE_DEFINITION = [
   {
     id: "siege_spikes_turrets",
     title: "Node 2 - Spine Turret Array",
-    desc: "Turrets mount along the drawn wall and fire tracking shots. Also unlocks extra draw-range scaling.",
+    desc: "Turrets mount along the drawn wall and fire tracking shots.",
     upgrades: [
       { key: "turretUnlock", label: "Array Activation", max: SIEGE_SPIKES_TREE_LIMITS.turretUnlock, costBase: 124, costStep: 0, costCurve: 0 },
       { key: "turretCount", label: "Turret Count", max: SIEGE_SPIKES_TREE_LIMITS.turretCount, costBase: 62, costStep: 11, costCurve: 0.86, requires: "turretUnlock" },
@@ -468,7 +474,19 @@ const SIEGE_SPIKES_TREE_DEFINITION = [
       { key: "turretRate", label: "Fire Rate", max: SIEGE_SPIKES_TREE_LIMITS.turretRate, costBase: 58, costStep: 10, costCurve: 0.82, requires: "turretUnlock" },
       { key: "turretTurn", label: "Tracking Turn", max: SIEGE_SPIKES_TREE_LIMITS.turretTurn, costBase: 56, costStep: 10, costCurve: 0.8, requires: "turretUnlock" },
       { key: "turretRange", label: "Target Range", max: SIEGE_SPIKES_TREE_LIMITS.turretRange, costBase: 54, costStep: 9, costCurve: 0.78, requires: "turretUnlock" },
-      { key: "drawBoost", label: "Draw Range Boost", max: SIEGE_SPIKES_TREE_LIMITS.drawBoost, costBase: 52, costStep: 9, costCurve: 0.76, requires: "turretUnlock" },
+    ],
+  },
+  {
+    id: "siege_spikes_energy_relay",
+    title: "Node 3 - Solar Relay Matrix",
+    desc: "Path B. Draw length consumes cooldown energy instead of requiring full readiness. During the first 0.3 seconds after wall deployment, blocked hostile projectiles convert into yellow tracking energy orbs.",
+    upgrades: [
+      { key: "relayUnlock", label: "Relay Activation", max: SIEGE_SPIKES_TREE_LIMITS.relayUnlock, costBase: 124, costStep: 0, costCurve: 0 },
+      { key: "relayEfficiency", label: "Draw Efficiency", max: SIEGE_SPIKES_TREE_LIMITS.relayEfficiency, costBase: 56, costStep: 10, costCurve: 0.8, requires: "relayUnlock" },
+      { key: "relayConversion", label: "Energy Conversion", max: SIEGE_SPIKES_TREE_LIMITS.relayConversion, costBase: 62, costStep: 11, costCurve: 0.86, requires: "relayUnlock" },
+      { key: "relayTracking", label: "Orb Tracking", max: SIEGE_SPIKES_TREE_LIMITS.relayTracking, costBase: 54, costStep: 10, costCurve: 0.78, requires: "relayUnlock" },
+      { key: "relayWallCap", label: "Max Active Walls", max: SIEGE_SPIKES_TREE_LIMITS.relayWallCap, costBase: 64, costStep: 11, costCurve: 0.86, requires: "relayUnlock" },
+      { key: "relayRegen", label: "Amber Regen Speed", max: SIEGE_SPIKES_TREE_LIMITS.relayRegen, costBase: 58, costStep: 10, costCurve: 0.8, requires: "relayUnlock" },
     ],
   },
 ];
@@ -487,6 +505,9 @@ const SKY_GLASSING_SUMMON_HOLD_TIME = 2.2;
 const SKY_GLASSING_SUMMON_RADIUS = 54;
 const SKY_GLASSING_SUMMON_SPEED = 980;
 const SKY_GLASSING_SUMMON_DPS = 760;
+const SIEGE_SPIKES_RELAY_CONVERSION_DELAY = 0;
+const SIEGE_SPIKES_RELAY_CONVERSION_WINDOW = 0.3;
+const SIEGE_SPIKES_RELAY_DRAW_COST_SCALE = 2.5;
 const LANCE_HITBOX_PAD = 6;
 const LANCE_COOLDOWN_MULT = 10;
 
@@ -904,7 +925,7 @@ function isSiegeSpikesAmberEquipped() {
   return !!getActiveSiegeSpikesData();
 }
 
-function beginSiegeSpikesDrawAtMouse(maxLength) {
+function beginSiegeSpikesDrawAtMouse(maxLength, minLength = 24) {
   const x = Number(state.mouse.x);
   const y = Number(state.mouse.y);
   const startX = Number.isFinite(x) ? clamp(x, 0, canvas.width) : canvas.width * 0.5;
@@ -913,13 +934,14 @@ function beginSiegeSpikesDrawAtMouse(maxLength) {
   state.input.amberDrawCommit = false;
   state.input.amberDrawPoints = [{ x: startX, y: startY }];
   state.input.amberDrawLength = 0;
-  state.input.amberDrawMaxLength = Math.max(24, Number(maxLength) || 24);
+  const floorLength = Math.max(1, Number(minLength) || 1);
+  state.input.amberDrawMaxLength = Math.max(floorLength, Number(maxLength) || floorLength);
 }
 
 function appendSiegeSpikesDrawPoint(x, y, force = false) {
   if (!state.input.amberDrawActive) return;
   if (!Array.isArray(state.input.amberDrawPoints) || state.input.amberDrawPoints.length <= 0) {
-    beginSiegeSpikesDrawAtMouse(state.input.amberDrawMaxLength || 24);
+    beginSiegeSpikesDrawAtMouse(state.input.amberDrawMaxLength || 24, 1);
   }
 
   const targetX = clamp(Number.isFinite(x) ? x : 0, 0, canvas.width);
@@ -1011,9 +1033,25 @@ function bindInput() {
       if (isSiegeSpikesAmberEquipped()) {
         if (!state.input.amberDown) {
           const siegeData = getActiveSiegeSpikesData();
-          if (!siegeData || (siegeData.player?.amberCd || 0) > 0.001) {
+          if (!siegeData) {
             return;
           }
+          const drawStats = siegeData.stats;
+          const drawPlayer = siegeData.player;
+          if (drawStats.relayEnabled) {
+            const cdTotal = Math.max(0.001, Number(drawStats.cooldown) || 0.001);
+            const cdRemaining = clamp(Math.max(0, Number(drawPlayer?.amberCd) || 0), 0, cdTotal);
+            const energyPct = clamp(1 - cdRemaining / cdTotal, 0, 1);
+            const energyScaledLength = drawStats.drawLength * energyPct / Math.max(0.05, drawStats.drawEnergyCostMult || 1);
+            const previewMaxLength = Math.min(Math.max(1, Number(drawStats.drawLength) || 1), Math.max(0, energyScaledLength));
+            if (energyPct <= 0.001 || previewMaxLength < 12) {
+              return;
+            }
+            state.input.amberDown = true;
+            beginSiegeSpikesDrawAtMouse(previewMaxLength, 8);
+            return;
+          }
+          if ((drawPlayer?.amberCd || 0) > 0.001) return;
           state.input.amberDown = true;
           beginSiegeSpikesDrawAtMouse(siegeData.stats.drawLength);
         }
@@ -2332,10 +2370,10 @@ function getSiegeSpikesStats(module, stacks = 1) {
   const stackScale = getAbilityStackScale(stacks);
   const duration = 4.8 + tree.duration * 0.16;
   const cooldown = Math.max(10.6 - tree.cooldown * 0.34, 5.8) * stackScale;
-  const length = 148 + tree.length * 9 + tree.length * tree.length * 0.26;
-  const turretEnabled = (tree.turretUnlock || 0) > 0;
-  const drawRangeBonus = turretEnabled ? tree.drawBoost * 26 : 0;
-  const drawLength = length * (1.1 + tree.length * 0.02) + drawRangeBonus;
+  const length = 148 + tree.length * 13.5 + tree.length * tree.length * 0.46;
+  const relayEnabled = (tree.relayUnlock || 0) > 0 && (tree.turretUnlock || 0) <= 0;
+  const turretEnabled = (tree.turretUnlock || 0) > 0 && !relayEnabled;
+  const drawLength = length * (1.1 + tree.length * 0.03);
   const thickness = 11 + tree.length * 0.18;
   const touchDamage = 22 + tree.touchDamage * 3.1;
   const hitInterval = Math.max(0.18, 0.5 - tree.hitRate * 0.03);
@@ -2347,13 +2385,21 @@ function getSiegeSpikesStats(module, stacks = 1) {
   const turretSeekTurn = turretEnabled ? 2.4 + tree.turretTurn * 0.42 : 0;
   const turretRange = turretEnabled ? 168 + tree.turretRange * 26 : 0;
   const turretProjectileSpeed = turretEnabled ? 250 + tree.turretTurn * 9 : 0;
-  const maxWalls = 1;
+  const drawEnergyCostMult = relayEnabled
+    ? Math.max(0.38, 1 - tree.relayEfficiency * 0.07) * SIEGE_SPIKES_RELAY_DRAW_COST_SCALE
+    : 1;
+  const relayEnergyCaptureMult = relayEnabled ? 4.2 + tree.relayConversion * 0.55 : 0;
+  const relayEnergyMinDamage = relayEnabled ? 16 + tree.relayConversion * 3.2 : 0;
+  const relayEnergySeekTurn = relayEnabled ? 3.1 + tree.relayTracking * 0.48 : 0;
+  const relayEnergySeekRange = relayEnabled ? 220 + tree.relayTracking * 34 : 0;
+  const relayEnergySpeed = relayEnabled ? 275 + tree.relayTracking * 16 : 0;
+  const relayEnergyRegenMult = relayEnabled ? Math.max(0.65, 0.82 + tree.relayRegen * 0.09) : 1;
+  const maxWalls = relayEnabled ? Math.max(1, 1 + clampInt(tree.relayWallCap, 0, SIEGE_SPIKES_TREE_LIMITS.relayWallCap)) : 1;
   return {
     duration,
     cooldown,
     length,
     drawLength,
-    drawRangeBonus,
     thickness,
     touchDamage,
     hitInterval,
@@ -2366,6 +2412,16 @@ function getSiegeSpikesStats(module, stacks = 1) {
     turretSeekTurn,
     turretRange,
     turretProjectileSpeed,
+    relayEnabled,
+    drawEnergyCostMult,
+    relayEnergyCaptureMult,
+    relayEnergyMinDamage,
+    relayEnergySeekTurn,
+    relayEnergySeekRange,
+    relayEnergySpeed,
+    relayEnergyRegenMult,
+    relayConversionDelay: SIEGE_SPIKES_RELAY_CONVERSION_DELAY,
+    relayConversionWindow: SIEGE_SPIKES_RELAY_CONVERSION_WINDOW,
     maxWalls,
     tree,
   };
@@ -2589,8 +2645,62 @@ function createDefaultSiegeSpikesSkillTree() {
     turretRate: 0,
     turretTurn: 0,
     turretRange: 0,
-    drawBoost: 0,
+    relayUnlock: 0,
+    relayEfficiency: 0,
+    relayConversion: 0,
+    relayTracking: 0,
+    relayWallCap: 0,
+    relayRegen: 0,
   };
+}
+
+function normalizeSiegeSpikesBranchChoice(tree) {
+  if (!tree || typeof tree !== "object") return;
+  const turretScore = (tree.turretUnlock || 0)
+    + (tree.turretCount || 0)
+    + (tree.turretDamage || 0)
+    + (tree.turretRate || 0)
+    + (tree.turretTurn || 0)
+    + (tree.turretRange || 0);
+  const relayScore = (tree.relayUnlock || 0)
+    + (tree.relayEfficiency || 0)
+    + (tree.relayConversion || 0)
+    + (tree.relayTracking || 0)
+    + (tree.relayWallCap || 0)
+    + (tree.relayRegen || 0);
+
+  if (tree.turretUnlock > 0 && tree.relayUnlock > 0) {
+    if (relayScore > turretScore) {
+      tree.turretUnlock = 0;
+      tree.turretCount = 0;
+      tree.turretDamage = 0;
+      tree.turretRate = 0;
+      tree.turretTurn = 0;
+      tree.turretRange = 0;
+    } else {
+      tree.relayUnlock = 0;
+      tree.relayEfficiency = 0;
+      tree.relayConversion = 0;
+      tree.relayTracking = 0;
+      tree.relayWallCap = 0;
+      tree.relayRegen = 0;
+    }
+  }
+
+  if (tree.turretUnlock <= 0) {
+    tree.turretCount = 0;
+    tree.turretDamage = 0;
+    tree.turretRate = 0;
+    tree.turretTurn = 0;
+    tree.turretRange = 0;
+  }
+  if (tree.relayUnlock <= 0) {
+    tree.relayEfficiency = 0;
+    tree.relayConversion = 0;
+    tree.relayTracking = 0;
+    tree.relayWallCap = 0;
+    tree.relayRegen = 0;
+  }
 }
 
 function normalizeSiegeSpikesSkillTree(raw, fallbackLevel = 0) {
@@ -2608,15 +2718,17 @@ function normalizeSiegeSpikesSkillTree(raw, fallbackLevel = 0) {
     tree.turretRate = clampInt(source.turretRate, 0, SIEGE_SPIKES_TREE_LIMITS.turretRate);
     tree.turretTurn = clampInt(source.turretTurn, 0, SIEGE_SPIKES_TREE_LIMITS.turretTurn);
     tree.turretRange = clampInt(source.turretRange, 0, SIEGE_SPIKES_TREE_LIMITS.turretRange);
-    tree.drawBoost = clampInt(source.drawBoost, 0, SIEGE_SPIKES_TREE_LIMITS.drawBoost);
-    if (tree.turretUnlock <= 0) {
-      tree.turretCount = 0;
-      tree.turretDamage = 0;
-      tree.turretRate = 0;
-      tree.turretTurn = 0;
-      tree.turretRange = 0;
-      tree.drawBoost = 0;
+    const legacyDrawBoost = clampInt(source.drawBoost, 0, SIEGE_SPIKES_TREE_LIMITS.drawBoost);
+    if (legacyDrawBoost > 0) {
+      tree.length = clampInt(tree.length + legacyDrawBoost, 0, SIEGE_SPIKES_TREE_LIMITS.length);
     }
+    tree.relayUnlock = clampInt(source.relayUnlock, 0, SIEGE_SPIKES_TREE_LIMITS.relayUnlock);
+    tree.relayEfficiency = clampInt(source.relayEfficiency, 0, SIEGE_SPIKES_TREE_LIMITS.relayEfficiency);
+    tree.relayConversion = clampInt(source.relayConversion, 0, SIEGE_SPIKES_TREE_LIMITS.relayConversion);
+    tree.relayTracking = clampInt(source.relayTracking, 0, SIEGE_SPIKES_TREE_LIMITS.relayTracking);
+    tree.relayWallCap = clampInt(source.relayWallCap, 0, SIEGE_SPIKES_TREE_LIMITS.relayWallCap);
+    tree.relayRegen = clampInt(source.relayRegen, 0, SIEGE_SPIKES_TREE_LIMITS.relayRegen);
+    normalizeSiegeSpikesBranchChoice(tree);
     return tree;
   }
 
@@ -2632,7 +2744,17 @@ function normalizeSiegeSpikesSkillTree(raw, fallbackLevel = 0) {
   tree.turretRate = tree.turretUnlock ? clampInt(Math.floor((legacy - 26) * 0.16), 0, SIEGE_SPIKES_TREE_LIMITS.turretRate) : 0;
   tree.turretTurn = tree.turretUnlock ? clampInt(Math.floor((legacy - 26) * 0.14), 0, SIEGE_SPIKES_TREE_LIMITS.turretTurn) : 0;
   tree.turretRange = tree.turretUnlock ? clampInt(Math.floor((legacy - 28) * 0.12), 0, SIEGE_SPIKES_TREE_LIMITS.turretRange) : 0;
-  tree.drawBoost = tree.turretUnlock ? clampInt(Math.floor((legacy - 24) * 0.18), 0, SIEGE_SPIKES_TREE_LIMITS.drawBoost) : 0;
+  const legacyDrawBoost = tree.turretUnlock ? clampInt(Math.floor((legacy - 24) * 0.18), 0, SIEGE_SPIKES_TREE_LIMITS.drawBoost) : 0;
+  if (legacyDrawBoost > 0) {
+    tree.length = clampInt(tree.length + legacyDrawBoost, 0, SIEGE_SPIKES_TREE_LIMITS.length);
+  }
+  tree.relayUnlock = 0;
+  tree.relayEfficiency = 0;
+  tree.relayConversion = 0;
+  tree.relayTracking = 0;
+  tree.relayWallCap = 0;
+  tree.relayRegen = 0;
+  normalizeSiegeSpikesBranchChoice(tree);
   return tree;
 }
 
@@ -2650,7 +2772,12 @@ function getSiegeSpikesTreeTotalLevel(tree) {
     tree.turretRate,
     tree.turretTurn,
     tree.turretRange,
-    tree.drawBoost,
+    tree.relayUnlock,
+    tree.relayEfficiency,
+    tree.relayConversion,
+    tree.relayTracking,
+    tree.relayWallCap,
+    tree.relayRegen,
   ].reduce((sum, value) => sum + clampInt(value, 0, MAX_UPGRADE_LEVEL), 0);
 }
 
@@ -2696,6 +2823,18 @@ function isMineUpgradePathBlocked(tree, upgrade) {
   if (upgrade.key === "gooUnlock") return (tree.chainUnlock || 0) > 0;
   if (upgrade.requires === "chainUnlock" && (tree.gooUnlock || 0) > 0) return true;
   if (upgrade.requires === "gooUnlock" && (tree.chainUnlock || 0) > 0) return true;
+  return false;
+}
+
+function isSiegeSpikesUpgradePathBlocked(tree, upgrade) {
+  if (!tree || !upgrade) return false;
+  const turretPath = new Set(["turretUnlock", "turretCount", "turretDamage", "turretRate", "turretTurn", "turretRange"]);
+  const relayPath = new Set(["relayUnlock", "relayEfficiency", "relayConversion", "relayTracking", "relayWallCap", "relayRegen"]);
+  const key = upgrade.key;
+  if (turretPath.has(key)) return (tree.relayUnlock || 0) > 0;
+  if (relayPath.has(key)) return (tree.turretUnlock || 0) > 0;
+  if (upgrade.requires === "turretUnlock" && (tree.relayUnlock || 0) > 0) return true;
+  if (upgrade.requires === "relayUnlock" && (tree.turretUnlock || 0) > 0) return true;
   return false;
 }
 
@@ -2866,13 +3005,23 @@ function getItemStatLines(item) {
       `Hit Interval ${stats.hitInterval.toFixed(2)}s`,
       `Max Walls ${stats.maxWalls}`,
     ];
-    if (stats.turretEnabled) {
+    if (stats.relayEnabled) {
+      const conversionStart = stats.relayConversionDelay;
+      lines.push("Solar Relay Matrix Active");
+      lines.push(`Draw Energy Cost x${stats.drawEnergyCostMult.toFixed(2)}`);
+      lines.push(`Amber Regen x${stats.relayEnergyRegenMult.toFixed(2)}`);
+      const conversionEnd = stats.relayConversionDelay + Math.max(0, stats.relayConversionWindow || 0);
+      lines.push(`Energy Conversion Window ${conversionStart.toFixed(1)}s-${conversionEnd.toFixed(1)}s`);
+      lines.push(`Energy Orb Min Damage ${stats.relayEnergyMinDamage.toFixed(1)}`);
+      lines.push(`Energy Capture x${stats.relayEnergyCaptureMult.toFixed(2)}`);
+      lines.push(`Energy Orb Tracking ${stats.relayEnergySeekTurn.toFixed(2)}`);
+      lines.push(`Energy Orb Range ${stats.relayEnergySeekRange.toFixed(0)}`);
+    } else if (stats.turretEnabled) {
       lines.push(`Wall Turrets ${Math.max(0, Math.floor(stats.turretCount || 0))}`);
       lines.push(`Turret Damage ${stats.turretDamage.toFixed(1)}`);
       lines.push(`Turret Fire Interval ${stats.turretFireInterval.toFixed(2)}s`);
       lines.push(`Turret Tracking ${stats.turretSeekTurn.toFixed(2)}`);
       lines.push(`Turret Target Range ${stats.turretRange.toFixed(0)}`);
-      lines.push(`Draw Range Bonus +${stats.drawRangeBonus.toFixed(0)}`);
     } else {
       lines.push("Spine Turret Array Inactive");
     }
@@ -3266,9 +3415,10 @@ function renderSlotActions(slot, occupied) {
       for (const upgrade of node.upgrades) {
         const current = clampInt(tree[upgrade.key], 0, upgrade.max);
         const unlocked = !upgrade.requires || (tree[upgrade.requires] || 0) > 0;
+        const blocked = isSiegeSpikesUpgradePathBlocked(tree, upgrade);
         const atMax = current >= upgrade.max;
         const cost = atMax ? 0 : calculateSiegeSpikesTreeUpgradeCost(occupied, upgrade.key);
-        const isUnlockUpgrade = upgrade.key === "turretUnlock";
+        const isUnlockUpgrade = upgrade.key === "turretUnlock" || upgrade.key === "relayUnlock";
 
         const upgradeRow = document.createElement("div");
         upgradeRow.className = "slot-skill-upgrade";
@@ -3278,6 +3428,9 @@ function renderSlotActions(slot, occupied) {
         btn.type = "button";
         if (atMax) {
           btn.textContent = "Maxed";
+          btn.disabled = true;
+        } else if (blocked) {
+          btn.textContent = "Path Locked";
           btn.disabled = true;
         } else if (!unlocked) {
           btn.textContent = "Locked";
@@ -3544,8 +3697,13 @@ function upgradeSiegeSpikesSkillTreeNode(slotKey, upgradeKey) {
     if (ui.upgradeMsg) ui.upgradeMsg.textContent = "Siege Spikes upgrade failed: unable to initialize siege skill tree.";
     return;
   }
+  if (isSiegeSpikesUpgradePathBlocked(tree, upgrade)) {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = "This branch is locked. Choose either Spine Turret Array (Node 2) or Solar Relay Matrix (Node 3).";
+    return;
+  }
   if (upgrade.requires && (tree[upgrade.requires] || 0) <= 0) {
-    if (ui.upgradeMsg) ui.upgradeMsg.textContent = "This enhancement is locked. Unlock Spine Turret Array first.";
+    const requiredLabel = upgrade.requires === "relayUnlock" ? "Solar Relay Matrix" : "Spine Turret Array";
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = `This enhancement is locked. Unlock ${requiredLabel} first.`;
     return;
   }
 
@@ -3930,7 +4088,7 @@ function stepGame(dt) {
     p.voidCd = Math.max(0, p.voidCd - dt);
   }
   p.azureCd = Math.max(0, p.azureCd - dt);
-  p.amberCd = Math.max(0, p.amberCd - dt * getVoidMineChargeRateMultiplier(w));
+  p.amberCd = Math.max(0, p.amberCd - dt * getAmberCooldownRateMultiplier(w));
   p.siegeSpikeHitCd = Math.max(0, (p.siegeSpikeHitCd || 0) - dt);
   p.amberFortifyReduction = 0;
   p.altFireCd = Math.max(0, (p.altFireCd || 0) - dt);
@@ -4993,6 +5151,22 @@ function getAbilityCooldownSnapshot(triggerType, player) {
       text: charges >= cap ? `${charges}/${cap}` : `${charges}/${cap} (${rechargeRemaining.toFixed(1)}s)`,
     };
   }
+  if (triggerType === "amber" && module.type === "siege_spikes") {
+    const stats = getSiegeSpikesStats(module, stacks);
+    if (stats.relayEnabled) {
+      const cdTotal = Math.max(0.001, total || 0.001);
+      const cdRemaining = clamp(Math.max(0, remaining || 0), 0, cdTotal);
+      const energyPct = clamp(1 - cdRemaining / cdTotal, 0, 1);
+      return {
+        available: true,
+        remaining: cdRemaining,
+        total: cdTotal,
+        status: energyPct > 0.001 ? "ready" : "cooldown",
+        fillPct: energyPct,
+        text: `${Math.round(energyPct * 100)}%`,
+      };
+    }
+  }
   return { available: true, remaining: Math.max(0, remaining || 0), total: Math.max(0.001, total || 0.001) };
 }
 
@@ -5385,8 +5559,14 @@ function useAmberAbility(w, opts = null) {
   }
 
   if (module.type === "siege_spikes") {
-    if (p.amberCd > 0) return;
     const stats = getSiegeSpikesStats(module, stacks);
+    if (stats.relayEnabled) {
+      const cdTotal = Math.max(0.001, Number(stats.cooldown) || 0.001);
+      const energyPct = clamp(1 - clamp(Math.max(0, Number(p.amberCd) || 0), 0, cdTotal) / cdTotal, 0, 1);
+      if (energyPct <= 0.001) return;
+    } else if (p.amberCd > 0) {
+      return;
+    }
     if (!opts?.drawn || !Array.isArray(opts.drawPoints) || opts.drawPoints.length < 2) return;
     const wall = createSiegeSpikeWallFromPoints(opts.drawPoints, stats, w.t);
     if (!wall) return;
@@ -5396,7 +5576,14 @@ function useAmberAbility(w, opts = null) {
       w.siegeSpikes.splice(0, w.siegeSpikes.length - stats.maxWalls + 1);
     }
     w.siegeSpikes.push(wall);
-    p.amberCd = stats.cooldown;
+    if (stats.relayEnabled) {
+      const baseDrawLength = Math.max(1, Number(stats.drawLength) || 1);
+      const usedDrawLength = clamp(Math.max(0, Number(wall.totalLength) || 0), 0, baseDrawLength * 2.5);
+      const consumedPct = clamp((usedDrawLength / baseDrawLength) * Math.max(0.05, stats.drawEnergyCostMult || 1), 0, 1);
+      p.amberCd = clamp((Number(p.amberCd) || 0) + consumedPct * stats.cooldown, 0, stats.cooldown);
+    } else {
+      p.amberCd = stats.cooldown;
+    }
     splash(w, wall.x, wall.y, "#ffbf7a", 13, 1.5);
     audio.play("minePlace");
     return;
@@ -6497,6 +6684,18 @@ function getVoidMineChargeRateMultiplier(w) {
   return mult;
 }
 
+function getAmberCooldownRateMultiplier(w) {
+  let mult = getVoidMineChargeRateMultiplier(w);
+  const module = pickAbility("amber");
+  if (module?.type === "siege_spikes") {
+    const stats = getSiegeSpikesStats(module, countSlottedByType(module.type));
+    if (stats.relayEnabled) {
+      mult *= Math.max(1, Number(stats.relayEnergyRegenMult) || 1);
+    }
+  }
+  return mult;
+}
+
 function getPointToSegmentDistancePx(px, py, ax, ay, bx, by) {
   const abx = bx - ax;
   const aby = by - ay;
@@ -6654,6 +6853,14 @@ function createSiegeSpikeWallFromPoints(points, stats, spawnT = 0) {
     turretRange: stats.turretRange,
     turretProjectileSpeed: stats.turretProjectileSpeed,
     turrets: turretLayout,
+    energyCaptureEnabled: !!stats.relayEnabled,
+    energyCaptureDelay: Number(stats.relayConversionDelay) || 0,
+    energyCaptureWindow: Number(stats.relayConversionWindow) || 0,
+    energyCaptureMult: Number(stats.relayEnergyCaptureMult) || 0,
+    energyOrbMinDamage: Number(stats.relayEnergyMinDamage) || 0,
+    energyOrbSeekTurn: Number(stats.relayEnergySeekTurn) || 0,
+    energyOrbSeekRange: Number(stats.relayEnergySeekRange) || 0,
+    energyOrbSpeed: Number(stats.relayEnergySpeed) || 0,
     life: stats.duration,
     duration: stats.duration,
     pulse: Math.random() * Math.PI * 2,
@@ -7065,6 +7272,48 @@ function stepBulwarkAnchors(w, dt) {
   w.bulwarkAnchors = kept;
 }
 
+function spawnSiegeRelayEnergyOrb(w, wall, hitX, hitY, sourceBullet = null) {
+  if (!w || !wall) return;
+  const orbSpeed = Math.max(120, Number(wall.energyOrbSpeed) || 240);
+  const captureMult = Math.max(0, Number(wall.energyCaptureMult) || 0);
+  const baseDamage = Math.abs(Number(sourceBullet?.dmg) || 0);
+  const minDamage = Math.max(1, Number(wall.energyOrbMinDamage) || 1);
+  const orbDamage = Math.max(minDamage, baseDamage * captureMult);
+
+  const seekRange = Math.max(120, Number(wall.energyOrbSeekRange) || 220);
+  const seekTurn = Math.max(0.2, Number(wall.energyOrbSeekTurn) || 3.0);
+
+  const target = findClosestEnemyToPoint(w, hitX, hitY, null, seekRange);
+  let aim = Math.atan2(-(sourceBullet?.vy || 0), -(sourceBullet?.vx || 1));
+  if (target) {
+    aim = getPredictiveAimAngle(
+      hitX,
+      hitY,
+      target.x,
+      target.y,
+      target.vx || 0,
+      target.vy || 0,
+      orbSpeed,
+      { leadBias: 0.9, maxLead: 0.72 },
+    );
+  }
+
+  w.bullets.push({
+    x: hitX,
+    y: hitY,
+    vx: Math.cos(aim) * orbSpeed,
+    vy: Math.sin(aim) * orbSpeed,
+    life: 3.2,
+    dmg: orbDamage,
+    affinity: "amber",
+    seekTurn,
+    seekRange,
+    seekLead: 0.03,
+    siegeEnergyShot: true,
+  });
+  splash(w, hitX, hitY, "#ffe18d", 5, 0.68);
+}
+
 function stepSiegeSpikes(w, dt) {
   if (!Array.isArray(w?.siegeSpikes) || w.siegeSpikes.length <= 0) return;
   const p = w.player;
@@ -7083,6 +7332,13 @@ function stepSiegeSpikes(w, dt) {
     const blockWidth = Math.max(3, Number(wall.blockWidth) || 7);
     const segments = getSiegeSpikeSegments(wall);
     if (segments.length <= 0) continue;
+    const wallAge = Math.max(0, (w.t || 0) - (wall.spawnT || 0));
+    const conversionStart = Math.max(0, Number(wall.energyCaptureDelay) || 0);
+    const conversionWindow = Math.max(0, Number(wall.energyCaptureWindow) || 0);
+    const conversionEnd = conversionStart + conversionWindow;
+    const conversionActive = !!wall.energyCaptureEnabled
+      && wallAge >= conversionStart
+      && (conversionWindow <= 0 || wallAge <= conversionEnd);
 
     for (const e of w.enemies) {
       if (!e || e.hp <= 0) continue;
@@ -7171,17 +7427,28 @@ function stepSiegeSpikes(w, dt) {
       const prevX = Number.isFinite(b.px) ? b.px : b.x;
       const prevY = Number.isFinite(b.py) ? b.py : b.y;
       let blocked = false;
+      let impactX = b.x;
+      let impactY = b.y;
+      let bestSq = Number.POSITIVE_INFINITY;
       for (const seg of segments) {
         const nowSq = getPointToSegmentDistanceSq(seg.x1, seg.y1, seg.x2, seg.y2, b.x, b.y);
         const prevSq = getPointToSegmentDistanceSq(seg.x1, seg.y1, seg.x2, seg.y2, prevX, prevY);
-        if (Math.min(nowSq, prevSq) <= blockWidth * blockWidth) {
+        const nearSq = Math.min(nowSq, prevSq);
+        if (nearSq <= blockWidth * blockWidth && nearSq < bestSq) {
           blocked = true;
-          break;
+          bestSq = nearSq;
+          const impact = getClosestPointOnSegment(b.x, b.y, seg.x1, seg.y1, seg.x2, seg.y2);
+          impactX = impact.x;
+          impactY = impact.y;
         }
       }
       if (!blocked) continue;
+      if (conversionActive) {
+        spawnSiegeRelayEnergyOrb(w, wall, impactX, impactY, b);
+      } else {
+        splash(w, impactX, impactY, "#ffd8a8", 3, 0.5);
+      }
       b.life = 0;
-      splash(w, b.x, b.y, "#ffd8a8", 3, 0.5);
     }
 
     if (wall.turretEnabled && Array.isArray(wall.turrets) && wall.turrets.length > 0) {
@@ -9360,6 +9627,36 @@ function drawGame() {
         ctx.moveTo(sx, sy);
         ctx.lineTo(sx + (seg.nx || 0) * spikeDepth * a, sy + (seg.ny || 0) * spikeDepth * a);
         ctx.stroke();
+      }
+    }
+
+    const conversionWindow = Math.max(0, Number(wall.energyCaptureWindow) || 0);
+    if (wall.energyCaptureEnabled && conversionWindow > 0) {
+      const conversionDelay = Math.max(0, Number(wall.energyCaptureDelay) || 0);
+      const wallAge = Math.max(0, (w.t || 0) - (wall.spawnT || 0));
+      const conversionEnd = conversionDelay + conversionWindow;
+      if (wallAge >= conversionDelay && wallAge <= conversionEnd) {
+        let minX = Number.POSITIVE_INFINITY;
+        let maxX = Number.NEGATIVE_INFINITY;
+        let minY = Number.POSITIVE_INFINITY;
+        for (const seg of segments) {
+          minX = Math.min(minX, seg.x1, seg.x2);
+          maxX = Math.max(maxX, seg.x1, seg.x2);
+          minY = Math.min(minY, seg.y1, seg.y2);
+        }
+        const reflectPct = clamp((conversionEnd - wallAge) / conversionWindow, 0, 1);
+        const span = Math.max(36, maxX - minX);
+        const barW = clamp(span * 0.64, 44, 180);
+        const barH = 5;
+        const barX = clamp((Number.isFinite(wall.x) ? wall.x : (minX + maxX) * 0.5) - barW * 0.5, 6, canvas.width - barW - 6);
+        const barY = clamp(minY - Math.max(12, thickness * 0.8 + 8), 6, canvas.height - barH - 6);
+        ctx.fillStyle = "rgba(24,18,9,0.72)";
+        ctx.fillRect(barX, barY, barW, barH);
+        ctx.fillStyle = `rgba(255,226,132,${0.78 + pulse * 0.16})`;
+        ctx.fillRect(barX, barY, barW * reflectPct, barH);
+        ctx.strokeStyle = "rgba(255,242,190,0.95)";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(barX, barY, barW, barH);
       }
     }
 
