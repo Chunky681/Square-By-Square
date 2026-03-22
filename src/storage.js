@@ -82,6 +82,7 @@ const AEGIS_TREE_LIMITS = {
   beamDamage: 8,
   beamRadius: 8,
   beamControl: 8,
+  beamSummon: 6,
 };
 
 const BULWARK_ANCHOR_TREE_LIMITS = {
@@ -746,6 +747,7 @@ function createDefaultAegisSkillTree() {
     beamDamage: 0,
     beamRadius: 0,
     beamControl: 0,
+    beamSummon: 0,
   };
 }
 
@@ -759,6 +761,7 @@ function normalizeAegisSkillTree(raw, fallbackLevel = 0) {
     tree.beamDamage = clampInt(source.beamDamage, 0, AEGIS_TREE_LIMITS.beamDamage);
     tree.beamRadius = clampInt(source.beamRadius, 0, AEGIS_TREE_LIMITS.beamRadius);
     tree.beamControl = clampInt(source.beamControl, 0, AEGIS_TREE_LIMITS.beamControl);
+    tree.beamSummon = clampInt(source.beamSummon, 0, AEGIS_TREE_LIMITS.beamSummon);
     return tree;
   }
 
@@ -769,6 +772,7 @@ function normalizeAegisSkillTree(raw, fallbackLevel = 0) {
   tree.beamDamage = clampInt(Math.floor(legacy * 0.14), 0, AEGIS_TREE_LIMITS.beamDamage);
   tree.beamRadius = clampInt(Math.floor(legacy * 0.12), 0, AEGIS_TREE_LIMITS.beamRadius);
   tree.beamControl = clampInt(Math.floor(legacy * 0.12), 0, AEGIS_TREE_LIMITS.beamControl);
+  tree.beamSummon = 0;
   return tree;
 }
 
@@ -781,6 +785,7 @@ function getAegisTreeTotalLevel(tree) {
     tree.beamDamage,
     tree.beamRadius,
     tree.beamControl,
+    tree.beamSummon,
   ].reduce((sum, value) => sum + clampInt(value, 0, MAX_LEVEL), 0);
 }
 

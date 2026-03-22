@@ -270,6 +270,7 @@ const AEGIS_TREE_LIMITS = {
   beamDamage: 8,
   beamRadius: 8,
   beamControl: 8,
+  beamSummon: 6,
 };
 
 const BULWARK_ANCHOR_TREE_LIMITS = {
@@ -388,11 +389,12 @@ const AEGIS_TREE_DEFINITION = [
   {
     id: "aegis_glassing",
     title: "Node 2 - Sky Glassing Combo",
-    desc: "Press C before shield collapse. Too early fails, slightly early gives a small beam, perfect timing gives full beam. Void Combo can also infuse this beam for major duration/radius/tracking boosts.",
+    desc: "Press C before shield collapse. Too early fails, slightly early gives a small beam, perfect timing gives full beam. Void Combo can also infuse this beam for major duration/radius/tracking boosts. After the beam ends, gain a 3s summon window and press C to call edge-launched glassing beams at your cursor.",
     upgrades: [
       { key: "beamDamage", label: "Beam Damage", max: AEGIS_TREE_LIMITS.beamDamage, costBase: 66, costStep: 12, costCurve: 0.9 },
       { key: "beamRadius", label: "Beam Hit Radius", max: AEGIS_TREE_LIMITS.beamRadius, costBase: 62, costStep: 11, costCurve: 0.86 },
       { key: "beamControl", label: "Beam Tracking Speed", max: AEGIS_TREE_LIMITS.beamControl, costBase: 60, costStep: 10, costCurve: 0.82 },
+      { key: "beamSummon", label: "Summon Charges", max: AEGIS_TREE_LIMITS.beamSummon, costBase: 74, costStep: 13, costCurve: 0.94 },
     ],
   },
 ];
@@ -479,6 +481,11 @@ const VOID_INFUSED_GLASSING_RADIUS_BASE = 1.35;
 const VOID_INFUSED_GLASSING_RADIUS_PER_POWER = 0.4;
 const VOID_INFUSED_GLASSING_CONTROL_BASE = 1.55;
 const VOID_INFUSED_GLASSING_CONTROL_PER_POWER = 0.5;
+const SKY_GLASSING_SUMMON_WINDOW = 3;
+const SKY_GLASSING_SUMMON_HOLD_TIME = 2.2;
+const SKY_GLASSING_SUMMON_RADIUS = 54;
+const SKY_GLASSING_SUMMON_SPEED = 980;
+const SKY_GLASSING_SUMMON_DPS = 760;
 const LANCE_HITBOX_PAD = 6;
 const LANCE_COOLDOWN_MULT = 10;
 
@@ -577,6 +584,8 @@ const SPECIAL_CURRENCY_BY_KILL = {
   helper: "azure",
   rocket: "azure",
   azure_beam: "azure",
+  glassing_sweep: "azure",
+  void_glassing_sweep: "void",
 };
 
 const BOSS_BOTTOM_LEFT_MINION_BY_TYPE = {
@@ -742,6 +751,7 @@ const state = {
     azure: false,
     amber: false,
     aegisCombo: false,
+    aegisSummon: false,
     amberDown: false,
     amberDrawActive: false,
     amberDrawCommit: false,
@@ -946,6 +956,7 @@ function bindInput() {
     state.input.azure = false;
     state.input.amber = false;
     state.input.aegisCombo = false;
+    state.input.aegisSummon = false;
     resetAmberDrawInputState();
   };
 
@@ -970,8 +981,14 @@ function bindInput() {
     if (k === " ") state.input.void = true;
     if (k === "c") {
       const player = state.world?.player;
+      const canSummonGlassing = state.mode === "game"
+        && (player?.skyGlassingSummonWindow || 0) > 0
+        && (player?.skyGlassingSummonCharges || 0) > 0;
       const canTimeAegis = state.mode === "game" && !!player?.aegisBeamStats && (player.aegisT || 0) > 0;
-      if (canTimeAegis) {
+      if (canSummonGlassing) {
+        if (!e.repeat) state.input.aegisSummon = true;
+        e.preventDefault();
+      } else if (canTimeAegis) {
         if (!e.repeat) state.input.aegisCombo = true;
         e.preventDefault();
       } else {
@@ -1164,26 +1181,6 @@ function clearWarpComboState(p) {
   p.warpComboChainCap = 0;
 }
 
-function infuseAegisGlassingWithVoid(player, mult = 2) {
-  const stats = player?.aegisBeamStats;
-  if (!stats || !stats.comboPurchased || stats.voidInfused) return false;
-
-  const infusionPower = Math.max(1, Number(mult) || 2);
-  const durationMult = VOID_INFUSED_GLASSING_DURATION_BASE + infusionPower * VOID_INFUSED_GLASSING_DURATION_PER_POWER;
-  const radiusMult = VOID_INFUSED_GLASSING_RADIUS_BASE + infusionPower * VOID_INFUSED_GLASSING_RADIUS_PER_POWER;
-  const controlMult = VOID_INFUSED_GLASSING_CONTROL_BASE + infusionPower * VOID_INFUSED_GLASSING_CONTROL_PER_POWER;
-
-  stats.voidInfused = true;
-  stats.voidInfusePower = infusionPower;
-  stats.voidDurationMult = durationMult;
-  stats.voidRadiusMult = radiusMult;
-  stats.voidControlMult = controlMult;
-  stats.beamDuration = Math.max(0.2, (Number(stats.beamDuration) || AEGIS_COMBO_BASE_BEAM_DURATION) * durationMult);
-  stats.beamRadius = Math.max(18, (Number(stats.beamRadius) || 68) * radiusMult);
-  stats.beamControlSpeed = Math.max(20, (Number(stats.beamControlSpeed) || 84) * controlMult);
-  return true;
-}
-
 function infuseActiveAegisGlassingBeamWithVoid(beam, mult = 2) {
   if (!beam || beam.voidInfused) return false;
   if ((beam.life || 0) <= 0.001) return false;
@@ -1241,18 +1238,7 @@ function tryHandleWarpComboSelection() {
   }
 
   const enemy = getWarpComboEnemyTarget(w, mx, my);
-  if (!enemy) {
-    const skyGlassingInfused = infuseAegisGlassingWithVoid(p, stats.comboInfusionMult);
-    if (skyGlassingInfused) {
-      clearWarpComboState(p);
-      p.aegisFlash = Math.max(p.aegisFlash || 0, 0.24);
-      p.aegisComboRingSuppressed = false;
-      splash(w, p.x, p.y, "#bc8fff", 14, 1.6);
-      audio.play("warp");
-      return true;
-    }
-    return false;
-  }
+  if (!enemy) return false;
   if (bulwarkLockAnchor && !isPointInsideBulwarkAnchor(bulwarkLockAnchor, enemy.x, enemy.y, -(enemy.r || 10) * 0.35)) {
     return false;
   }
@@ -1569,6 +1555,7 @@ function exitTestModeRun() {
   state.input.azure = false;
   state.input.amber = false;
   state.input.aegisCombo = false;
+  state.input.aegisSummon = false;
   openMenu();
 }
 
@@ -2316,6 +2303,7 @@ function createDefaultAegisSkillTree() {
     beamDamage: 0,
     beamRadius: 0,
     beamControl: 0,
+    beamSummon: 0,
   };
 }
 
@@ -2329,6 +2317,7 @@ function normalizeAegisSkillTree(raw, fallbackLevel = 0) {
     tree.beamDamage = clampInt(source.beamDamage, 0, AEGIS_TREE_LIMITS.beamDamage);
     tree.beamRadius = clampInt(source.beamRadius, 0, AEGIS_TREE_LIMITS.beamRadius);
     tree.beamControl = clampInt(source.beamControl, 0, AEGIS_TREE_LIMITS.beamControl);
+    tree.beamSummon = clampInt(source.beamSummon, 0, AEGIS_TREE_LIMITS.beamSummon);
     return tree;
   }
 
@@ -2339,6 +2328,7 @@ function normalizeAegisSkillTree(raw, fallbackLevel = 0) {
   tree.beamDamage = clampInt(Math.floor(legacy * 0.14), 0, AEGIS_TREE_LIMITS.beamDamage);
   tree.beamRadius = clampInt(Math.floor(legacy * 0.12), 0, AEGIS_TREE_LIMITS.beamRadius);
   tree.beamControl = clampInt(Math.floor(legacy * 0.12), 0, AEGIS_TREE_LIMITS.beamControl);
+  tree.beamSummon = 0;
   return tree;
 }
 
@@ -2351,6 +2341,7 @@ function getAegisTreeTotalLevel(tree) {
     tree.beamDamage,
     tree.beamRadius,
     tree.beamControl,
+    tree.beamSummon,
   ].reduce((sum, value) => sum + clampInt(value, 0, MAX_UPGRADE_LEVEL), 0);
 }
 
@@ -2381,6 +2372,7 @@ function getAegisAbilityStats(module, stacks = 1) {
   const beamDamage = 92 + tree.beamDamage * 16;
   const beamRadius = 68 + tree.beamRadius * 7.2;
   const beamControlSpeed = 84 + tree.beamControl * 22;
+  const beamSummonCharges = Math.max(0, Math.floor(tree.beamSummon || 0));
   return {
     duration,
     storeCap,
@@ -2389,6 +2381,7 @@ function getAegisAbilityStats(module, stacks = 1) {
     beamDamage,
     beamRadius,
     beamControlSpeed,
+    beamSummonCharges,
     beamDuration: AEGIS_COMBO_BASE_BEAM_DURATION,
     tree,
   };
@@ -2396,7 +2389,7 @@ function getAegisAbilityStats(module, stacks = 1) {
 
 function hasAegisSkyGlassingCombo(tree) {
   if (!tree) return false;
-  return (tree.beamDamage || 0) > 0 || (tree.beamRadius || 0) > 0 || (tree.beamControl || 0) > 0;
+  return (tree.beamDamage || 0) > 0 || (tree.beamRadius || 0) > 0 || (tree.beamControl || 0) > 0 || (tree.beamSummon || 0) > 0;
 }
 
 function getAegisTreeUpgradeDefinition(upgradeKey) {
@@ -2739,6 +2732,7 @@ function getItemStatLines(item) {
       `Strong Beam ${stats.beamDamage.toFixed(0)} DPS`,
       `Beam Radius ${stats.beamRadius.toFixed(1)}`,
       `Beam Control ${stats.beamControlSpeed.toFixed(0)}/s`,
+      `Post-Beam Summon Charges ${Math.max(0, Math.floor(stats.beamSummonCharges || 0))}`,
     ];
   }
 
@@ -3722,6 +3716,7 @@ function makeWorld(profile, difficulty) {
     enemyMines: [],
     bossBursts: [],
     azureBeams: [],
+    skyGlassingSweepBeams: [],
     lanceBeams: [],
     lanceTrails: [],
     rockets: [],
@@ -3792,10 +3787,16 @@ function makeWorld(profile, difficulty) {
       aegisStoreCap: 0,
       aegisLevel: 0,
       aegisFlash: 0,
+      aegisCooldownPending: 0,
       aegisBeamStats: null,
       aegisComboAttempt: null,
       aegisComboFeedback: null,
       aegisComboRingSuppressed: false,
+      skyGlassingSummonWindow: 0,
+      skyGlassingSummonCharges: 0,
+      skyGlassingSummonVoidInfused: false,
+      skyGlassingSummonRadius: SKY_GLASSING_SUMMON_RADIUS,
+      skyGlassingSummonDps: SKY_GLASSING_SUMMON_DPS,
     },
   };
   if (isMarathonMode) updateMarathonState(world, 0);
@@ -3838,6 +3839,14 @@ function stepGame(dt) {
   if ((p.warpComboT || 0) <= 0) {
     clearWarpComboState(p);
   }
+  p.skyGlassingSummonWindow = Math.max(0, (p.skyGlassingSummonWindow || 0) - dt);
+  if ((p.skyGlassingSummonWindow || 0) <= 0.001) {
+    p.skyGlassingSummonWindow = 0;
+    p.skyGlassingSummonCharges = 0;
+    p.skyGlassingSummonVoidInfused = false;
+    p.skyGlassingSummonRadius = SKY_GLASSING_SUMMON_RADIUS;
+    p.skyGlassingSummonDps = SKY_GLASSING_SUMMON_DPS;
+  }
   stepAmberMineRecharge(w);
   stepMainGunComboState(w, dt);
   p.dashIFrames = Math.max(0, p.dashIFrames - dt);
@@ -3878,6 +3887,11 @@ function stepGame(dt) {
   if (state.input.azure) {
     useAzureAbility(w);
     state.input.azure = false;
+  }
+
+  if (state.input.aegisSummon) {
+    summonSkyGlassingAtCursor(w);
+    state.input.aegisSummon = false;
   }
 
   if (state.input.amberDown && state.input.amberDrawActive && pickAbility("amber")?.type === "siege_spikes") {
@@ -3948,6 +3962,8 @@ function stepGame(dt) {
   stepSiegeSpikes(w, dt);
   stepBulwarkAnchors(w, dt);
   stepAzureBeams(w, dt);
+  stepSkyGlassingSweepBeams(w, dt);
+  tryStartDeferredAegisCooldown(w);
   stepLanceBeams(w, dt);
   stepLanceTrails(w, dt);
   resolveCombat(w);
@@ -4486,6 +4502,8 @@ function spawnAegisGlassingBeam(w, stats, strongHit) {
     radius: Math.max(18, stats.beamRadius * radiusScale),
     dps: Math.max(12, stats.beamDamage * power),
     controlSpeed: Math.max(20, stats.beamControlSpeed * controlScale),
+    summonCharges: Math.max(0, Math.floor(stats.summonCharges || 0)),
+    killCount: 0,
     strongHit: !!strongHit,
     voidInfused,
   };
@@ -4547,6 +4565,82 @@ function registerAegisComboTimingPress(w) {
   return true;
 }
 
+function activateSkyGlassingSummonWindow(w, baseBeam) {
+  if (!w?.player || !baseBeam) return;
+  const summonLevel = Math.max(0, Math.floor(baseBeam.summonCharges || 0));
+  const beamKills = Math.max(0, Math.floor(baseBeam.killCount || 0));
+  const charges = Math.min(summonLevel, beamKills);
+  if (charges <= 0) return;
+
+  const p = w.player;
+  p.skyGlassingSummonWindow = SKY_GLASSING_SUMMON_WINDOW;
+  p.skyGlassingSummonCharges = charges;
+  p.skyGlassingSummonVoidInfused = !!baseBeam.voidInfused;
+  p.skyGlassingSummonRadius = Math.max(16, (Number(baseBeam.radius) || SKY_GLASSING_SUMMON_RADIUS) * 0.5);
+  p.skyGlassingSummonDps = Math.max(1, Number(baseBeam.dps) || SKY_GLASSING_SUMMON_DPS);
+
+  splash(w, p.x, p.y, "#9ddaff", 12, 1.2);
+  if (p.skyGlassingSummonVoidInfused) {
+    splash(w, p.x, p.y, "#bf8eff", 8, 1.05);
+  }
+}
+
+function spawnSkyGlassingSummonBeam(w, targetX, targetY, voidInfused = false, summonRadius = null, summonDps = null) {
+  const requestedRadius = Number(summonRadius);
+  const hasRequestedRadius = Number.isFinite(requestedRadius) && requestedRadius > 0;
+  const radius = hasRequestedRadius
+    ? Math.max(16, requestedRadius)
+    : SKY_GLASSING_SUMMON_RADIUS;
+  const requestedDps = Number(summonDps);
+  const hasRequestedDps = Number.isFinite(requestedDps) && requestedDps > 0;
+  const speed = SKY_GLASSING_SUMMON_SPEED;
+  const affinity = voidInfused ? "void" : "azure";
+  const dps = hasRequestedDps ? requestedDps : SKY_GLASSING_SUMMON_DPS;
+
+  const tx = clamp(targetX, 0, canvas.width);
+  const ty = clamp(targetY, 0, canvas.height);
+  const px = Number.isFinite(w?.player?.x) ? w.player.x : tx;
+  const py = Number.isFinite(w?.player?.y) ? w.player.y : ty;
+
+  w.skyGlassingSweepBeams.push({
+    x: px,
+    y: py,
+    targetX: tx,
+    targetY: ty,
+    speed,
+    holdT: SKY_GLASSING_SUMMON_HOLD_TIME,
+    phase: "travel",
+    radius,
+    dps,
+    affinity,
+    voidInfused,
+    warmup: 0.2,
+  });
+}
+
+function summonSkyGlassingAtCursor(w) {
+  if (!w?.player) return false;
+  const p = w.player;
+  if ((p.skyGlassingSummonWindow || 0) <= 0 || (p.skyGlassingSummonCharges || 0) <= 0) return false;
+  const voidInfused = !!p.skyGlassingSummonVoidInfused;
+  const summonRadius = Math.max(16, Number(p.skyGlassingSummonRadius) || SKY_GLASSING_SUMMON_RADIUS);
+  const summonDps = Math.max(1, Number(p.skyGlassingSummonDps) || SKY_GLASSING_SUMMON_DPS);
+
+  const tx = Number.isFinite(state.mouse.x) ? state.mouse.x : p.x;
+  const ty = Number.isFinite(state.mouse.y) ? state.mouse.y : p.y;
+  spawnSkyGlassingSummonBeam(w, tx, ty, voidInfused, summonRadius, summonDps);
+  splash(w, tx, ty, voidInfused ? "#bf8eff" : "#9ddaff", 6, 0.95);
+  p.skyGlassingSummonCharges = Math.max(0, Math.floor(p.skyGlassingSummonCharges || 0) - 1);
+  if ((p.skyGlassingSummonCharges || 0) <= 0) {
+    p.skyGlassingSummonWindow = 0;
+    p.skyGlassingSummonVoidInfused = false;
+    p.skyGlassingSummonRadius = SKY_GLASSING_SUMMON_RADIUS;
+    p.skyGlassingSummonDps = SKY_GLASSING_SUMMON_DPS;
+  }
+  audio.play(voidInfused ? "warp" : "hit");
+  return true;
+}
+
 function stepAzureBeams(w, dt) {
   if (!Array.isArray(w?.azureBeams) || w.azureBeams.length <= 0) return;
   const safeDt = Math.max(0.001, dt || 0.016);
@@ -4556,7 +4650,10 @@ function stepAzureBeams(w, dt) {
     if (!beam) continue;
     beam.life = Math.max(0, (beam.life || 0) - safeDt);
     beam.warmup = Math.max(0, (beam.warmup || 0) - safeDt);
-    if (beam.life <= 0.001) continue;
+    if (beam.life <= 0.001) {
+      activateSkyGlassingSummonWindow(w, beam);
+      continue;
+    }
 
     const tx = state.mouse.x;
     const ty = state.mouse.y;
@@ -4597,6 +4694,7 @@ function stepAzureBeams(w, dt) {
         e.hp -= dealt;
         registerSiphonOverlordHit(w, e, dealt);
         e.lastHitKind = "azure_beam";
+        e.lastAegisBeam = beam;
 
         if (Math.random() < 0.18) {
           splash(w, e.x, e.y, beam.strongHit ? "#9bdfff" : "#7ec8ff", beam.strongHit ? 4 : 3, 0.7);
@@ -4608,6 +4706,88 @@ function stepAzureBeams(w, dt) {
   }
 
   w.azureBeams = next;
+}
+
+function stepSkyGlassingSweepBeams(w, dt) {
+  if (!Array.isArray(w?.skyGlassingSweepBeams) || w.skyGlassingSweepBeams.length <= 0) return;
+  const safeDt = Math.max(0.001, dt || 0.016);
+  const next = [];
+
+  for (const sweep of w.skyGlassingSweepBeams) {
+    if (!sweep) continue;
+    sweep.warmup = Math.max(0, (sweep.warmup || 0) - safeDt);
+    if (sweep.phase === "travel") {
+      const dx = (sweep.targetX || 0) - (sweep.x || 0);
+      const dy = (sweep.targetY || 0) - (sweep.y || 0);
+      const dist = Math.hypot(dx, dy);
+      const step = Math.max(0, sweep.speed || SKY_GLASSING_SUMMON_SPEED) * safeDt;
+      if (dist <= Math.max(2, step)) {
+        sweep.x = sweep.targetX || sweep.x;
+        sweep.y = sweep.targetY || sweep.y;
+        sweep.phase = "hold";
+      } else if (dist > 0.001) {
+        sweep.x += (dx / dist) * step;
+        sweep.y += (dy / dist) * step;
+      }
+    } else {
+      sweep.holdT = Math.max(0, (sweep.holdT || SKY_GLASSING_SUMMON_HOLD_TIME) - safeDt);
+    }
+
+    if ((sweep.warmup || 0) > 0.001) {
+      if (sweep.phase !== "hold" || (sweep.holdT || 0) > 0.001) {
+        next.push(sweep);
+      }
+      continue;
+    }
+
+    for (const e of w.enemies) {
+      if (!e || e.hp <= 0) continue;
+      const radius = Math.max(16, sweep.radius || SKY_GLASSING_SUMMON_RADIUS);
+      const d = Math.hypot((e.x || 0) - (sweep.x || 0), (e.y || 0) - (sweep.y || 0));
+      if (d > radius + (e.r || 10) * 0.45) continue;
+
+      markEnemyHit(e);
+      const affinity = sweep.affinity || "azure";
+      if (applyTypedShieldBlock(w, e, e.x, e.y, affinity)) {
+        e.lastHitKind = sweep.voidInfused ? "void_glassing_sweep" : "glassing_sweep";
+        continue;
+      }
+
+      if (e.kind === "mega_cannon_boss" && e.shieldT > 0) {
+        const heal = Math.max(1, (sweep.dps || SKY_GLASSING_SUMMON_DPS) * safeDt * 0.35);
+        e.hp = Math.min(e.maxHp || e.hp, e.hp + heal);
+        continue;
+      }
+
+      const falloff = 1 - clamp(d / Math.max(1, radius), 0, 1);
+      let dealt = (sweep.dps || SKY_GLASSING_SUMMON_DPS) * safeDt * (0.45 + falloff * 0.55);
+      if (isMiniBossKind(e.kind)) {
+        const guard = Math.max(0, Math.min(0.9, e.guard || 0));
+        dealt *= (1 - guard);
+      }
+      dealt = applyBulwarkTrapDamageBonus(w, e, dealt);
+      e.hp -= dealt;
+      registerSiphonOverlordHit(w, e, dealt);
+      e.lastHitKind = sweep.voidInfused ? "void_glassing_sweep" : "glassing_sweep";
+
+      if (Math.random() < 0.16) {
+        splash(
+          w,
+          e.x,
+          e.y,
+          sweep.voidInfused ? "#cb9aff" : "#9ddaff",
+          sweep.voidInfused ? 4 : 3,
+          sweep.voidInfused ? 0.9 : 0.75,
+        );
+      }
+    }
+
+    if (sweep.phase !== "hold" || (sweep.holdT || 0) > 0.001) {
+      next.push(sweep);
+    }
+  }
+
+  w.skyGlassingSweepBeams = next;
 }
 
 function stepLanceBeams(w, dt) {
@@ -4697,6 +4877,26 @@ function getAbilityCooldownSnapshot(triggerType, player) {
     };
   }
   return { available: true, remaining: Math.max(0, remaining || 0), total: Math.max(0.001, total || 0.001) };
+}
+
+function hasActiveSkyGlassingSummons(w) {
+  if (!Array.isArray(w?.skyGlassingSweepBeams) || w.skyGlassingSweepBeams.length <= 0) return false;
+  return w.skyGlassingSweepBeams.some((beam) => !!beam);
+}
+
+function tryStartDeferredAegisCooldown(w) {
+  const p = w?.player;
+  if (!p) return;
+  const pending = Math.max(0, Number(p.aegisCooldownPending) || 0);
+  if (pending <= 0.001) return;
+  if ((p.aegisT || 0) > 0) return;
+  if (Array.isArray(w?.azureBeams) && w.azureBeams.length > 0) return;
+  if ((p.skyGlassingSummonWindow || 0) > 0) return;
+  if ((p.skyGlassingSummonCharges || 0) > 0) return;
+  if (hasActiveSkyGlassingSummons(w)) return;
+
+  p.azureCd = Math.max(p.azureCd || 0, pending);
+  p.aegisCooldownPending = 0;
 }
 
 function syncAmberMineChargeCapacity(w, fillToCap = false) {
@@ -4901,7 +5101,7 @@ function useVoidAbility(w, mode = "movement") {
 
 function useAzureAbility(w) {
   const p = w.player;
-  if (p.azureCd > 0) return;
+  if (p.azureCd > 0 || (p.aegisCooldownPending || 0) > 0) return;
 
   const module = pickAbility("azure");
   if (!module) return;
@@ -4939,6 +5139,7 @@ function useAzureAbility(w) {
       beamRadius: stats.beamRadius,
       beamControlSpeed: stats.beamControlSpeed,
       beamDuration: stats.beamDuration,
+      summonCharges: stats.beamSummonCharges,
       comboPurchased: hasAegisSkyGlassingCombo(stats.tree),
       voidInfused: false,
       voidInfusePower: 0,
@@ -4949,8 +5150,14 @@ function useAzureAbility(w) {
     p.aegisComboAttempt = null;
     p.aegisComboFeedback = null;
     p.aegisComboRingSuppressed = false;
+    p.skyGlassingSummonWindow = 0;
+    p.skyGlassingSummonCharges = 0;
+    p.skyGlassingSummonVoidInfused = false;
+    p.skyGlassingSummonRadius = SKY_GLASSING_SUMMON_RADIUS;
+    p.skyGlassingSummonDps = SKY_GLASSING_SUMMON_DPS;
+    p.aegisCooldownPending = stats.cooldown;
     p.aegisFlash = 0.22;
-    p.azureCd = stats.cooldown;
+    p.azureCd = 0;
     splash(w, p.x, p.y, "#8fe9ff", 12, 1.3);
     audio.play("helperSpawn");
   }
@@ -8419,6 +8626,12 @@ function resolveCombat(w) {
     }
 
     w.kills += 1;
+    if (e.lastHitKind === "azure_beam") {
+      const sourceBeam = e.lastAegisBeam;
+      if (sourceBeam && (sourceBeam.life || 0) > 0) {
+        sourceBeam.killCount = Math.max(0, Math.floor(sourceBeam.killCount || 0) + 1);
+      }
+    }
     const baseXp = getEnemyEssenceBase(e.kind);
     const essence = Math.floor(baseXp * w.scale.reward);
     const bonusEssence = Math.max(1, Math.floor(essence * 0.45));
@@ -9137,6 +9350,48 @@ function drawGame() {
     }
   }
 
+  if (Array.isArray(w.skyGlassingSweepBeams) && w.skyGlassingSweepBeams.length > 0) {
+    for (const sweep of w.skyGlassingSweepBeams) {
+      const warm = clamp((sweep.warmup || 0) / 0.2, 0, 1);
+      const lifePct = 1;
+      const pulse = (Math.sin(w.t * 12 + (sweep.x + sweep.y) * 0.02) + 1) * 0.5;
+      const radius = Math.max(16, sweep.radius || SKY_GLASSING_SUMMON_RADIUS);
+      const alphaBase = 0.34;
+      const alpha = alphaBase * (0.5 + lifePct * 0.5) + pulse * 0.12;
+      const warmColor = sweep.voidInfused ? "192,153,255" : "150,220,255";
+      const fillColor = sweep.voidInfused ? "168,120,255" : "120,205,255";
+      const strokeColor = sweep.voidInfused ? "220,194,255" : "182,236,255";
+      const columnColor = sweep.voidInfused ? "205,168,255" : "168,231,255";
+
+      if (warm > 0.001) {
+        ctx.fillStyle = `rgba(${warmColor},${0.14 + warm * 0.2})`;
+        ctx.beginPath();
+        ctx.arc(sweep.x, sweep.y, radius * (0.55 + (1 - warm) * 0.25), 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        ctx.fillStyle = `rgba(${fillColor},${alpha})`;
+        ctx.beginPath();
+        ctx.arc(sweep.x, sweep.y, radius * (0.9 + pulse * 0.08), 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.strokeStyle = `rgba(${strokeColor},${0.35 + pulse * 0.3})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(sweep.x, sweep.y, radius, 0, Math.PI * 2);
+      ctx.stroke();
+
+      const columnTop = sweep.y - (warm > 0 ? (60 + warm * 140) : 230);
+      ctx.strokeStyle = `rgba(${columnColor},${0.22 + lifePct * 0.24})`;
+      ctx.lineWidth = Math.max(6, radius * 0.5);
+      ctx.beginPath();
+      ctx.moveTo(sweep.x, columnTop);
+      ctx.lineTo(sweep.x, sweep.y);
+      ctx.stroke();
+      ctx.lineWidth = 1;
+    }
+  }
+
   if (Array.isArray(w.lanceTrails) && w.lanceTrails.length > 0) {
     for (const trail of w.lanceTrails) {
       const lifePct = clamp((trail.life || 0) / Math.max(0.001, trail.ttl || 1), 0, 1);
@@ -9699,6 +9954,54 @@ function drawGame() {
     ctx.fillText(`VOID COMBO ${p.warpComboT.toFixed(1)}s | CHAIN ${comboChainCount}/${comboChainCap}`, p.x, barY - 5);
   }
 
+  if ((p.skyGlassingSummonWindow || 0) > 0 && (p.skyGlassingSummonCharges || 0) > 0) {
+    const charges = Math.max(1, Math.floor(p.skyGlassingSummonCharges || 0));
+    const windowPct = clamp((p.skyGlassingSummonWindow || 0) / Math.max(0.001, SKY_GLASSING_SUMMON_WINDOW), 0, 1);
+    const pulse = (Math.sin(w.t * 11.8) + 1) * 0.5;
+    const orbit = 33 + pulse * 3.2;
+    for (let i = 0; i < charges; i += 1) {
+      const a = (i / charges) * Math.PI * 2 + w.t * (0.85 + i * 0.02);
+      const sx = p.x + Math.cos(a) * orbit;
+      const sy = p.y + Math.sin(a) * orbit;
+      const core = p.skyGlassingSummonVoidInfused ? "205,160,255" : "138,216,255";
+      const ring = p.skyGlassingSummonVoidInfused ? "162,102,255" : "112,201,255";
+      ctx.fillStyle = `rgba(${core},${0.32 + windowPct * 0.48})`;
+      ctx.beginPath();
+      ctx.arc(sx, sy, 3.2 + pulse * 1.1, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = `rgba(${ring},${0.3 + windowPct * 0.46})`;
+      ctx.lineWidth = 1.3;
+      ctx.beginPath();
+      ctx.arc(sx, sy, 5.2 + pulse * 1.2, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.lineWidth = 1;
+    }
+
+    const barW = 92;
+    const barH = 6;
+    const barX = p.x - barW * 0.5;
+    const barY = p.y - 60;
+    const backRgb = p.skyGlassingSummonVoidInfused ? "71,42,112" : "34,67,112";
+    const fillRgb = p.skyGlassingSummonVoidInfused ? "196,144,255" : "138,216,255";
+
+    ctx.fillStyle = "rgba(18,16,30,0.84)";
+    ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
+    ctx.fillStyle = `rgba(${backRgb},0.9)`;
+    ctx.fillRect(barX, barY, barW, barH);
+    ctx.fillStyle = `rgba(${fillRgb},0.96)`;
+    ctx.fillRect(barX, barY, barW * windowPct, barH);
+
+    ctx.strokeStyle = "rgba(210,238,255,0.44)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(barX, barY, barW, barH);
+
+    ctx.fillStyle = "rgba(186,228,255,0.96)";
+    ctx.font = "10px 'Segoe UI', sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(`SUMMON ${charges}`, p.x, barY - 5);
+  }
+
   if ((p.aegisT || 0) > 0) {
     const shieldPct = clamp(p.aegisT / Math.max(0.001, p.aegisDuration || 1), 0, 1);
     const predictedRockets = getAegisRocketCount(p.aegisStoredDamage || 0, p.aegisLevel || 0);
@@ -9926,6 +10229,8 @@ function shiftEntityByOffset(entity, dx, dy) {
   if (Number.isFinite(entity.y1)) entity.y1 += dy;
   if (Number.isFinite(entity.x2)) entity.x2 += dx;
   if (Number.isFinite(entity.y2)) entity.y2 += dy;
+  if (Number.isFinite(entity.targetX)) entity.targetX += dx;
+  if (Number.isFinite(entity.targetY)) entity.targetY += dy;
   if (Array.isArray(entity.points)) {
     for (const point of entity.points) {
       if (!point) continue;
@@ -9977,6 +10282,7 @@ function shiftWorldEntitiesByOffset(w, dx, dy) {
   shiftEntityListByOffset(w.bossBursts, dx, dy);
   shiftEntityListByOffset(w.lanceBeams, dx, dy);
   shiftEntityListByOffset(w.lanceTrails, dx, dy);
+  shiftEntityListByOffset(w.skyGlassingSweepBeams, dx, dy);
   shiftEntityListByOffset(w.rockets, dx, dy);
   shiftEntityListByOffset(w.allies, dx, dy);
   shiftEntityListByOffset(w.particles, dx, dy);
@@ -10102,6 +10408,15 @@ function updateHud(w) {
     azureSnapshot.status = "cooldown";
     azureSnapshot.fillPct = clamp((p.aegisT || 0) / Math.max(0.001, p.aegisDuration || 1), 0, 1);
     azureSnapshot.text = p.aegisBeamStats?.voidInfused ? "Active (Void Infused)" : "Active";
+  } else if ((p.skyGlassingSummonWindow || 0) > 0 && (p.skyGlassingSummonCharges || 0) > 0) {
+    azureSnapshot.status = "ready";
+    azureSnapshot.fillPct = clamp((p.skyGlassingSummonWindow || 0) / Math.max(0.001, SKY_GLASSING_SUMMON_WINDOW), 0, 1);
+    const charges = Math.max(0, Math.floor(p.skyGlassingSummonCharges || 0));
+    azureSnapshot.text = `Summon ${charges}`;
+  } else if ((p.aegisCooldownPending || 0) > 0) {
+    azureSnapshot.status = "cooldown";
+    azureSnapshot.fillPct = 1;
+    azureSnapshot.text = hasActiveSkyGlassingSummons(w) ? "Summons Resolving" : "Combo Resolving";
   }
   setCooldownHud(ui.cdAzure, ui.cdAzureFill, ui.cdAzureText, azureSnapshot);
   setCooldownHud(ui.cdAmber, ui.cdAmberFill, ui.cdAmberText, getAbilityCooldownSnapshot("amber", p));
