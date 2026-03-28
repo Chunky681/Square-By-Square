@@ -560,6 +560,10 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 .test-spawn-btn:hover { background: #173248; }
 .marathon-test-reset-btn { width: 100%; margin-top: 0.12rem; }
+.marathon-test-distance-row .test-spawn-btn {
+  width: 100%;
+  min-width: 0;
+}
 
 
 

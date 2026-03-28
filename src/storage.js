@@ -10,6 +10,7 @@ const ITEM_TYPES = new Set([
   "lance",
   "combo_link",
   "warp",
+  "void_counter",
   "mine",
   "bulwark_anchor",
   "siege_spikes",
@@ -31,6 +32,7 @@ const ITEM_DEFAULT_COSTS = {
   lance: { buyBase: 168, upgradeBase: 59 },
   combo_link: { buyBase: 154, upgradeBase: 54 },
   warp: { buyBase: 140, upgradeBase: 55 },
+  void_counter: { buyBase: 172, upgradeBase: 60 },
   mine: { buyBase: 130, upgradeBase: 53 },
   bulwark_anchor: { buyBase: 155, upgradeBase: 57 },
   siege_spikes: { buyBase: 168, upgradeBase: 60 },
@@ -73,6 +75,45 @@ const WARP_TREE_LIMITS = {
   swapPulse: 5,
   chainDamage: 8,
   chainLimit: 8,
+};
+
+const ROCKET_POD_TREE_LIMITS = {
+  cooldown: 10,
+  clusterCount: 8,
+  explosionRadius: 10,
+  explosionDamage: 10,
+  shockDamage: 10,
+  shockDuration: 8,
+  turnRate: 8,
+  speed: 8,
+  life: 8,
+  afterburnUnlock: 1,
+  afterburnShield: 10,
+  afterburnDuration: 8,
+  afterburnSpeed: 8,
+  afterburnConvert: 8,
+  afterburnRange: 8,
+  infuseUnlock: 1,
+  infuseDuration: 8,
+  infuseCadence: 8,
+  infusePayload: 10,
+  infuseCount: 6,
+};
+
+const VOID_COUNTER_TREE_LIMITS = {
+  cooldown: 10,
+  burstRadius: 10,
+  burstDamage: 10,
+  exileDuration: 10,
+  teleporterDuration: 10,
+  infectUnlock: 1,
+  infectRadius: 10,
+  infectInfusion: 8,
+  infectLingering: 10,
+  imprintUnlock: 1,
+  imprintWindow: 8,
+  imprintCharges: 6,
+  imprintInfusion: 8,
 };
 
 const AEGIS_TREE_LIMITS = {
@@ -505,6 +546,12 @@ function normalizePlayer(player) {
       } else if (raw.type === "warp") {
         normalized.warpTree = normalizeWarpSkillTree(raw.warpTree, level);
         normalized.level = Math.min(MAX_LEVEL, getWarpTreeTotalLevel(normalized.warpTree));
+      } else if (raw.type === "rocket") {
+        normalized.rocketTree = normalizeRocketPodSkillTree(raw.rocketTree, level);
+        normalized.level = Math.min(MAX_LEVEL, getRocketPodTreeTotalLevel(normalized.rocketTree));
+      } else if (raw.type === "void_counter") {
+        normalized.counterTree = normalizeVoidCounterSkillTree(raw.counterTree, level);
+        normalized.level = Math.min(MAX_LEVEL, getVoidCounterTreeTotalLevel(normalized.counterTree));
       } else if (raw.type === "aegis") {
         normalized.aegisTree = normalizeAegisSkillTree(raw.aegisTree, level);
         normalized.level = Math.min(MAX_LEVEL, getAegisTreeTotalLevel(normalized.aegisTree));
@@ -560,7 +607,17 @@ function normalizePlayer(player) {
         aegisTree: normalizeAegisSkillTree(null, aegisLegacyLevel),
       });
     }
-    if (player.ownedSecondary?.rocket) normalizedItems.push({ id: ++maxId, type: "rocket", level: p.upgrades.rocketDamage, slot: null, spentXp: estimateLegacySpentXp("rocket", p.upgrades.rocketDamage) });
+    if (player.ownedSecondary?.rocket) {
+      const rocketLegacyLevel = clampInt(p.upgrades.rocketDamage, 0, MAX_LEVEL);
+      normalizedItems.push({
+        id: ++maxId,
+        type: "rocket",
+        level: Math.min(MAX_LEVEL, rocketLegacyLevel),
+        slot: null,
+        spentXp: estimateLegacySpentXp("rocket", rocketLegacyLevel),
+        rocketTree: normalizeRocketPodSkillTree(null, rocketLegacyLevel),
+      });
+    }
     if (player.ownedSecondary?.helper) normalizedItems.push({ id: ++maxId, type: "helper", level: p.upgrades.helperDamage, slot: null, spentXp: estimateLegacySpentXp("helper", p.upgrades.helperDamage) });
   }
 
@@ -742,6 +799,252 @@ function getWarpTreeTotalLevel(tree) {
     tree.swapPulse,
     tree.chainDamage,
     tree.chainLimit,
+  ].reduce((sum, value) => sum + clampInt(value, 0, MAX_LEVEL), 0);
+}
+
+function createDefaultRocketPodSkillTree() {
+  return {
+    cooldown: 0,
+    clusterCount: 0,
+    explosionRadius: 0,
+    explosionDamage: 0,
+    shockDamage: 0,
+    shockDuration: 0,
+    turnRate: 0,
+    speed: 0,
+    life: 0,
+    afterburnUnlock: 0,
+    afterburnShield: 0,
+    afterburnDuration: 0,
+    afterburnSpeed: 0,
+    afterburnConvert: 0,
+    afterburnRange: 0,
+    infuseUnlock: 0,
+    infuseDuration: 0,
+    infuseCadence: 0,
+    infusePayload: 0,
+    infuseCount: 0,
+  };
+}
+
+function enforceRocketPodBranchChoice(tree) {
+  if (!tree) return tree;
+  const afterburnScore = (tree.afterburnUnlock || 0)
+    + (tree.afterburnShield || 0)
+    + (tree.afterburnDuration || 0)
+    + (tree.afterburnSpeed || 0)
+    + (tree.afterburnConvert || 0)
+    + (tree.afterburnRange || 0);
+  const infuseScore = (tree.infuseUnlock || 0)
+    + (tree.infuseDuration || 0)
+    + (tree.infuseCadence || 0)
+    + (tree.infusePayload || 0)
+    + (tree.infuseCount || 0);
+  if ((tree.afterburnUnlock || 0) > 0 && (tree.infuseUnlock || 0) > 0) {
+    if (afterburnScore >= infuseScore) {
+      tree.infuseUnlock = 0;
+      tree.infuseDuration = 0;
+      tree.infuseCadence = 0;
+      tree.infusePayload = 0;
+      tree.infuseCount = 0;
+    } else {
+      tree.afterburnUnlock = 0;
+      tree.afterburnShield = 0;
+      tree.afterburnDuration = 0;
+      tree.afterburnSpeed = 0;
+      tree.afterburnConvert = 0;
+      tree.afterburnRange = 0;
+    }
+  }
+  if ((tree.afterburnUnlock || 0) <= 0) {
+    tree.afterburnShield = 0;
+    tree.afterburnDuration = 0;
+    tree.afterburnSpeed = 0;
+    tree.afterburnConvert = 0;
+    tree.afterburnRange = 0;
+  }
+  if ((tree.infuseUnlock || 0) <= 0) {
+    tree.infuseDuration = 0;
+    tree.infuseCadence = 0;
+    tree.infusePayload = 0;
+    tree.infuseCount = 0;
+  }
+  return tree;
+}
+
+function normalizeRocketPodSkillTree(raw, fallbackLevel = 0) {
+  const tree = createDefaultRocketPodSkillTree();
+  const source = raw && typeof raw === "object" ? raw : null;
+  if (source) {
+    tree.cooldown = clampInt(source.cooldown, 0, ROCKET_POD_TREE_LIMITS.cooldown);
+    tree.clusterCount = clampInt(source.clusterCount, 0, ROCKET_POD_TREE_LIMITS.clusterCount);
+    tree.explosionRadius = clampInt(source.explosionRadius, 0, ROCKET_POD_TREE_LIMITS.explosionRadius);
+    tree.explosionDamage = clampInt(source.explosionDamage, 0, ROCKET_POD_TREE_LIMITS.explosionDamage);
+    tree.shockDamage = clampInt(source.shockDamage, 0, ROCKET_POD_TREE_LIMITS.shockDamage);
+    tree.shockDuration = clampInt(source.shockDuration, 0, ROCKET_POD_TREE_LIMITS.shockDuration);
+    tree.turnRate = clampInt(source.turnRate, 0, ROCKET_POD_TREE_LIMITS.turnRate);
+    tree.speed = clampInt(source.speed, 0, ROCKET_POD_TREE_LIMITS.speed);
+    tree.life = clampInt(source.life, 0, ROCKET_POD_TREE_LIMITS.life);
+    tree.afterburnUnlock = clampInt(source.afterburnUnlock, 0, ROCKET_POD_TREE_LIMITS.afterburnUnlock);
+    tree.afterburnShield = clampInt(source.afterburnShield, 0, ROCKET_POD_TREE_LIMITS.afterburnShield);
+    tree.afterburnDuration = clampInt(source.afterburnDuration, 0, ROCKET_POD_TREE_LIMITS.afterburnDuration);
+    tree.afterburnSpeed = clampInt(source.afterburnSpeed, 0, ROCKET_POD_TREE_LIMITS.afterburnSpeed);
+    tree.afterburnConvert = clampInt(source.afterburnConvert, 0, ROCKET_POD_TREE_LIMITS.afterburnConvert);
+    tree.afterburnRange = clampInt(source.afterburnRange, 0, ROCKET_POD_TREE_LIMITS.afterburnRange);
+    tree.infuseUnlock = clampInt(source.infuseUnlock, 0, ROCKET_POD_TREE_LIMITS.infuseUnlock);
+    tree.infuseDuration = clampInt(source.infuseDuration, 0, ROCKET_POD_TREE_LIMITS.infuseDuration);
+    tree.infuseCadence = clampInt(source.infuseCadence, 0, ROCKET_POD_TREE_LIMITS.infuseCadence);
+    tree.infusePayload = clampInt(source.infusePayload, 0, ROCKET_POD_TREE_LIMITS.infusePayload);
+    tree.infuseCount = clampInt(source.infuseCount, 0, ROCKET_POD_TREE_LIMITS.infuseCount);
+    return enforceRocketPodBranchChoice(tree);
+  }
+
+  const legacy = clampInt(fallbackLevel, 0, MAX_LEVEL);
+  tree.cooldown = clampInt(Math.floor(legacy * 0.19), 0, ROCKET_POD_TREE_LIMITS.cooldown);
+  tree.clusterCount = clampInt(Math.floor(legacy * 0.13), 0, ROCKET_POD_TREE_LIMITS.clusterCount);
+  tree.explosionRadius = clampInt(Math.floor(legacy * 0.23), 0, ROCKET_POD_TREE_LIMITS.explosionRadius);
+  tree.explosionDamage = clampInt(Math.floor(legacy * 0.24), 0, ROCKET_POD_TREE_LIMITS.explosionDamage);
+  tree.shockDamage = clampInt(Math.floor(legacy * 0.16), 0, ROCKET_POD_TREE_LIMITS.shockDamage);
+  tree.shockDuration = clampInt(Math.floor(legacy * 0.11), 0, ROCKET_POD_TREE_LIMITS.shockDuration);
+  tree.turnRate = clampInt(Math.floor(legacy * 0.12), 0, ROCKET_POD_TREE_LIMITS.turnRate);
+  tree.speed = clampInt(Math.floor(legacy * 0.12), 0, ROCKET_POD_TREE_LIMITS.speed);
+  tree.life = clampInt(Math.floor(legacy * 0.1), 0, ROCKET_POD_TREE_LIMITS.life);
+  tree.afterburnUnlock = 0;
+  tree.afterburnShield = 0;
+  tree.afterburnDuration = 0;
+  tree.afterburnSpeed = 0;
+  tree.afterburnConvert = 0;
+  tree.afterburnRange = 0;
+  tree.infuseUnlock = 0;
+  tree.infuseDuration = 0;
+  tree.infuseCadence = 0;
+  tree.infusePayload = 0;
+  tree.infuseCount = 0;
+  return enforceRocketPodBranchChoice(tree);
+}
+
+function getRocketPodTreeTotalLevel(tree) {
+  if (!tree) return 0;
+  return [
+    tree.cooldown,
+    tree.clusterCount,
+    tree.explosionRadius,
+    tree.explosionDamage,
+    tree.shockDamage,
+    tree.shockDuration,
+    tree.turnRate,
+    tree.speed,
+    tree.life,
+    tree.afterburnUnlock,
+    tree.afterburnShield,
+    tree.afterburnDuration,
+    tree.afterburnSpeed,
+    tree.afterburnConvert,
+    tree.afterburnRange,
+    tree.infuseUnlock,
+    tree.infuseDuration,
+    tree.infuseCadence,
+    tree.infusePayload,
+    tree.infuseCount,
+  ].reduce((sum, value) => sum + clampInt(value, 0, MAX_LEVEL), 0);
+}
+
+function createDefaultVoidCounterSkillTree() {
+  return {
+    cooldown: 0,
+    burstRadius: 0,
+    burstDamage: 0,
+    exileDuration: 0,
+    teleporterDuration: 0,
+    infectUnlock: 0,
+    infectRadius: 0,
+    infectInfusion: 0,
+    infectLingering: 0,
+    imprintUnlock: 0,
+    imprintWindow: 0,
+    imprintCharges: 0,
+    imprintInfusion: 0,
+  };
+}
+
+function enforceVoidCounterBranchChoice(tree) {
+  if (!tree) return tree;
+  const infectionScore = (tree.infectUnlock || 0) + (tree.infectRadius || 0) + (tree.infectInfusion || 0) + (tree.infectLingering || 0);
+  const imprintScore = (tree.imprintUnlock || 0) + (tree.imprintWindow || 0) + (tree.imprintCharges || 0) + (tree.imprintInfusion || 0);
+  if ((tree.infectUnlock || 0) > 0 && (tree.imprintUnlock || 0) > 0) {
+    if (infectionScore >= imprintScore) {
+      tree.imprintUnlock = 0;
+      tree.imprintWindow = 0;
+      tree.imprintCharges = 0;
+      tree.imprintInfusion = 0;
+    } else {
+      tree.infectUnlock = 0;
+      tree.infectRadius = 0;
+      tree.infectInfusion = 0;
+      tree.infectLingering = 0;
+    }
+  }
+  if ((tree.infectUnlock || 0) <= 0) {
+    tree.infectRadius = 0;
+    tree.infectInfusion = 0;
+    tree.infectLingering = 0;
+  }
+  if ((tree.imprintUnlock || 0) <= 0) {
+    tree.imprintWindow = 0;
+    tree.imprintCharges = 0;
+    tree.imprintInfusion = 0;
+  }
+  return tree;
+}
+
+function normalizeVoidCounterSkillTree(raw, fallbackLevel = 0) {
+  const tree = createDefaultVoidCounterSkillTree();
+  const source = raw && typeof raw === "object" ? raw : null;
+  if (source) {
+    tree.cooldown = clampInt(source.cooldown, 0, VOID_COUNTER_TREE_LIMITS.cooldown);
+    tree.burstRadius = clampInt(source.burstRadius, 0, VOID_COUNTER_TREE_LIMITS.burstRadius);
+    tree.burstDamage = clampInt(source.burstDamage, 0, VOID_COUNTER_TREE_LIMITS.burstDamage);
+    tree.exileDuration = clampInt(source.exileDuration, 0, VOID_COUNTER_TREE_LIMITS.exileDuration);
+    tree.teleporterDuration = clampInt(source.teleporterDuration, 0, VOID_COUNTER_TREE_LIMITS.teleporterDuration);
+    tree.infectUnlock = clampInt(source.infectUnlock, 0, VOID_COUNTER_TREE_LIMITS.infectUnlock);
+    tree.infectRadius = clampInt(source.infectRadius, 0, VOID_COUNTER_TREE_LIMITS.infectRadius);
+    tree.infectInfusion = clampInt(source.infectInfusion, 0, VOID_COUNTER_TREE_LIMITS.infectInfusion);
+    tree.infectLingering = clampInt(source.infectLingering, 0, VOID_COUNTER_TREE_LIMITS.infectLingering);
+    tree.imprintUnlock = clampInt(source.imprintUnlock, 0, VOID_COUNTER_TREE_LIMITS.imprintUnlock);
+    tree.imprintWindow = clampInt(source.imprintWindow, 0, VOID_COUNTER_TREE_LIMITS.imprintWindow);
+    tree.imprintCharges = clampInt(source.imprintCharges, 0, VOID_COUNTER_TREE_LIMITS.imprintCharges);
+    tree.imprintInfusion = clampInt(source.imprintInfusion, 0, VOID_COUNTER_TREE_LIMITS.imprintInfusion);
+  } else {
+    const legacy = clampInt(fallbackLevel, 0, MAX_LEVEL);
+    tree.cooldown = clampInt(Math.floor(legacy * 0.26), 0, VOID_COUNTER_TREE_LIMITS.cooldown);
+    tree.burstRadius = clampInt(Math.floor(legacy * 0.22), 0, VOID_COUNTER_TREE_LIMITS.burstRadius);
+    tree.burstDamage = clampInt(Math.floor(legacy * 0.24), 0, VOID_COUNTER_TREE_LIMITS.burstDamage);
+    tree.exileDuration = clampInt(Math.floor(legacy * 0.16), 0, VOID_COUNTER_TREE_LIMITS.exileDuration);
+    tree.teleporterDuration = clampInt(Math.floor(legacy * 0.12), 0, VOID_COUNTER_TREE_LIMITS.teleporterDuration);
+    tree.infectUnlock = legacy >= 24 ? 1 : 0;
+    tree.infectRadius = tree.infectUnlock ? clampInt(Math.floor((legacy - 24) * 0.2), 0, VOID_COUNTER_TREE_LIMITS.infectRadius) : 0;
+    tree.infectInfusion = tree.infectUnlock ? clampInt(Math.floor((legacy - 28) * 0.16), 0, VOID_COUNTER_TREE_LIMITS.infectInfusion) : 0;
+    tree.infectLingering = tree.infectUnlock ? clampInt(Math.floor((legacy - 32) * 0.14), 0, VOID_COUNTER_TREE_LIMITS.infectLingering) : 0;
+  }
+  return enforceVoidCounterBranchChoice(tree);
+}
+
+function getVoidCounterTreeTotalLevel(tree) {
+  if (!tree) return 0;
+  return [
+    tree.cooldown,
+    tree.burstRadius,
+    tree.burstDamage,
+    tree.exileDuration,
+    tree.teleporterDuration,
+    tree.infectUnlock,
+    tree.infectRadius,
+    tree.infectInfusion,
+    tree.infectLingering,
+    tree.imprintUnlock,
+    tree.imprintWindow,
+    tree.imprintCharges,
+    tree.imprintInfusion,
   ].reduce((sum, value) => sum + clampInt(value, 0, MAX_LEVEL), 0);
 }
 

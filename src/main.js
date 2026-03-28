@@ -42,6 +42,7 @@ const INFUSOR_TYPES = new Set(["azure_infusor", "void_infusor", "amber_infusor",
 
 const SPECIAL_AFFINITY_BY_TYPE = {
   warp: "void",
+  void_counter: "void",
   helper: "azure",
   rocket: "azure",
   aegis: "azure",
@@ -110,6 +111,16 @@ const ITEM_CATALOG = {
     color: "#58c5ff",
     desc: "Space key directional teleport + burst.",
   },
+  void_counter: {
+    name: "Void Counterfield",
+    kind: "ability",
+    trigger: "void",
+    buyBase: 172,
+    buyScale: 1.45,
+    upgradeBase: 60,
+    color: "#b993ff",
+    desc: "Space pulse enters a short counter window. A successful counter detonates a singularity exile and teleporter setup.",
+  },
   mine: {
     name: "Mine Layer",
     kind: "ability",
@@ -148,7 +159,7 @@ const ITEM_CATALOG = {
     buyScale: 1.46,
     upgradeBase: 62,
     color: "#ffd58a",
-    desc: "C key tracking rocket.",
+    desc: "C key controllable rocket cluster. Press C again to detonate.",
   },
   helper: {
     name: "Summon Bay",
@@ -262,6 +273,45 @@ const WARP_TREE_LIMITS = {
   swapPulse: 5,
   chainDamage: 8,
   chainLimit: 8,
+};
+
+const ROCKET_POD_TREE_LIMITS = {
+  cooldown: 10,
+  clusterCount: 8,
+  explosionRadius: 10,
+  explosionDamage: 10,
+  shockDamage: 10,
+  shockDuration: 8,
+  turnRate: 8,
+  speed: 8,
+  life: 8,
+  afterburnUnlock: 1,
+  afterburnShield: 10,
+  afterburnDuration: 8,
+  afterburnSpeed: 8,
+  afterburnConvert: 8,
+  afterburnRange: 8,
+  infuseUnlock: 1,
+  infuseDuration: 8,
+  infuseCadence: 8,
+  infusePayload: 10,
+  infuseCount: 6,
+};
+
+const VOID_COUNTER_TREE_LIMITS = {
+  cooldown: 10,
+  burstRadius: 10,
+  burstDamage: 10,
+  exileDuration: 10,
+  teleporterDuration: 10,
+  infectUnlock: 1,
+  infectRadius: 10,
+  infectInfusion: 8,
+  infectLingering: 10,
+  imprintUnlock: 1,
+  imprintWindow: 8,
+  imprintCharges: 6,
+  imprintInfusion: 8,
 };
 
 const AEGIS_TREE_LIMITS = {
@@ -378,6 +428,87 @@ const WARP_TREE_DEFINITION = [
       { key: "swapPulse", label: "Swap Pulse", max: WARP_TREE_LIMITS.swapPulse, costBase: 60, costStep: 10, costCurve: 0.84, requires: "comboUnlock" },
       { key: "chainDamage", label: "Chain Damage Scaling", max: WARP_TREE_LIMITS.chainDamage, costBase: 66, costStep: 11, costCurve: 0.9, requires: "comboUnlock" },
       { key: "chainLimit", label: "Max Chain Count", max: WARP_TREE_LIMITS.chainLimit, costBase: 62, costStep: 10, costCurve: 0.86, requires: "comboUnlock" },
+    ],
+  },
+];
+
+const ROCKET_POD_TREE_DEFINITION = [
+  {
+    id: "rocket_pod_core",
+    title: "Node 1 - Rocket Pod Core",
+    desc: "Upgrade Rocket Pod baseline stats.",
+    upgrades: [
+      { key: "cooldown", label: "Ability Cooldown", max: ROCKET_POD_TREE_LIMITS.cooldown, costBase: 58, costStep: 10, costCurve: 0.82 },
+      { key: "clusterCount", label: "Cluster Count", max: ROCKET_POD_TREE_LIMITS.clusterCount, costBase: 64, costStep: 11, costCurve: 0.88 },
+      { key: "explosionRadius", label: "Explosion Radius", max: ROCKET_POD_TREE_LIMITS.explosionRadius, costBase: 56, costStep: 10, costCurve: 0.8 },
+      { key: "explosionDamage", label: "Explosion Damage", max: ROCKET_POD_TREE_LIMITS.explosionDamage, costBase: 62, costStep: 11, costCurve: 0.86 },
+      { key: "shockDamage", label: "Shock DPS", max: ROCKET_POD_TREE_LIMITS.shockDamage, costBase: 60, costStep: 11, costCurve: 0.84 },
+      { key: "shockDuration", label: "Shock Duration", max: ROCKET_POD_TREE_LIMITS.shockDuration, costBase: 54, costStep: 10, costCurve: 0.78 },
+      { key: "turnRate", label: "Steer Turn", max: ROCKET_POD_TREE_LIMITS.turnRate, costBase: 52, costStep: 9, costCurve: 0.76 },
+      { key: "speed", label: "Rocket Speed", max: ROCKET_POD_TREE_LIMITS.speed, costBase: 52, costStep: 9, costCurve: 0.76 },
+      { key: "life", label: "Rocket Lifetime", max: ROCKET_POD_TREE_LIMITS.life, costBase: 56, costStep: 10, costCurve: 0.8 },
+    ],
+  },
+  {
+    id: "rocket_pod_afterburn",
+    title: "Node 2 - Emergency Afterburn",
+    desc: "Path A. Manual detonation near the player grants a speed burst. Rocket kills return a healing zap to you. Cannot combine with Node 3.",
+    upgrades: [
+      { key: "afterburnUnlock", label: "Afterburn Activation", max: ROCKET_POD_TREE_LIMITS.afterburnUnlock, costBase: 126, costStep: 0, costCurve: 0 },
+      { key: "afterburnShield", label: "Leech Heal", max: ROCKET_POD_TREE_LIMITS.afterburnShield, costBase: 58, costStep: 10, costCurve: 0.82, requires: "afterburnUnlock" },
+      { key: "afterburnDuration", label: "Afterburn Duration", max: ROCKET_POD_TREE_LIMITS.afterburnDuration, costBase: 54, costStep: 10, costCurve: 0.78, requires: "afterburnUnlock" },
+      { key: "afterburnSpeed", label: "Speed Surge", max: ROCKET_POD_TREE_LIMITS.afterburnSpeed, costBase: 56, costStep: 10, costCurve: 0.8, requires: "afterburnUnlock" },
+      { key: "afterburnConvert", label: "Leech Efficiency", max: ROCKET_POD_TREE_LIMITS.afterburnConvert, costBase: 60, costStep: 11, costCurve: 0.84, requires: "afterburnUnlock" },
+      { key: "afterburnRange", label: "Trigger Radius", max: ROCKET_POD_TREE_LIMITS.afterburnRange, costBase: 52, costStep: 9, costCurve: 0.76, requires: "afterburnUnlock" },
+    ],
+  },
+  {
+    id: "rocket_pod_mine_infusion",
+    title: "Node 3 - Azure Mine Lattice",
+    desc: "Path B. Rocket kills send Azure infusion bolts into your mines (including Void-infused mines). Infused mines periodically discharge short-range Azure electricity. Cannot combine with Node 2.",
+    upgrades: [
+      { key: "infuseUnlock", label: "Lattice Activation", max: ROCKET_POD_TREE_LIMITS.infuseUnlock, costBase: 126, costStep: 0, costCurve: 0 },
+      { key: "infuseDuration", label: "Arc Reach", max: ROCKET_POD_TREE_LIMITS.infuseDuration, costBase: 56, costStep: 10, costCurve: 0.8, requires: "infuseUnlock" },
+      { key: "infuseCadence", label: "Arc Cadence", max: ROCKET_POD_TREE_LIMITS.infuseCadence, costBase: 58, costStep: 10, costCurve: 0.82, requires: "infuseUnlock" },
+      { key: "infusePayload", label: "Arc Power", max: ROCKET_POD_TREE_LIMITS.infusePayload, costBase: 62, costStep: 11, costCurve: 0.86, requires: "infuseUnlock" },
+      { key: "infuseCount", label: "Arc Targets", max: ROCKET_POD_TREE_LIMITS.infuseCount, costBase: 64, costStep: 12, costCurve: 0.9, requires: "infuseUnlock" },
+    ],
+  },
+];
+
+const VOID_COUNTER_TREE_DEFINITION = [
+  {
+    id: "void_counter_core",
+    title: "Node 1 - Counterfield Core",
+    desc: "Upgrade cooldown, counter-burst size and damage, exile duration, and teleporter uptime.",
+    upgrades: [
+      { key: "cooldown", label: "Ability Cooldown", max: VOID_COUNTER_TREE_LIMITS.cooldown, costBase: 56, costStep: 11, costCurve: 0.88 },
+      { key: "burstRadius", label: "Burst Radius", max: VOID_COUNTER_TREE_LIMITS.burstRadius, costBase: 52, costStep: 10, costCurve: 0.82 },
+      { key: "burstDamage", label: "Burst Damage", max: VOID_COUNTER_TREE_LIMITS.burstDamage, costBase: 58, costStep: 11, costCurve: 0.9 },
+      { key: "exileDuration", label: "Exile Duration", max: VOID_COUNTER_TREE_LIMITS.exileDuration, costBase: 54, costStep: 10, costCurve: 0.84 },
+      { key: "teleporterDuration", label: "Teleporter Uptime", max: VOID_COUNTER_TREE_LIMITS.teleporterDuration, costBase: 60, costStep: 11, costCurve: 0.9 },
+    ],
+  },
+  {
+    id: "void_counter_infection",
+    title: "Node 2 - Void Infection Orbit",
+    desc: "Path A. Placed teleporter emits a Void infection field. Mines and player beam abilities entering the field become Void infused, and enemies inside suffer lingering damage. Cannot combine with Node 3.",
+    upgrades: [
+      { key: "infectUnlock", label: "Infection Activation", max: VOID_COUNTER_TREE_LIMITS.infectUnlock, costBase: 124, costStep: 0, costCurve: 0 },
+      { key: "infectRadius", label: "Infection Radius", max: VOID_COUNTER_TREE_LIMITS.infectRadius, costBase: 56, costStep: 10, costCurve: 0.82, requires: "infectUnlock" },
+      { key: "infectInfusion", label: "Infusion Power", max: VOID_COUNTER_TREE_LIMITS.infectInfusion, costBase: 60, costStep: 11, costCurve: 0.88, requires: "infectUnlock" },
+      { key: "infectLingering", label: "Lingering Damage", max: VOID_COUNTER_TREE_LIMITS.infectLingering, costBase: 62, costStep: 12, costCurve: 0.92, requires: "infectUnlock" },
+    ],
+  },
+  {
+    id: "void_counter_imprint",
+    title: "Node 3 - Slipstream Imprint",
+    desc: "Path B. Teleport arrival grants a brief Slipstream Imprint that Void-infuses your next nearby non-void mines and player beam abilities. Cannot combine with Node 2.",
+    upgrades: [
+      { key: "imprintUnlock", label: "Slipstream Activation", max: VOID_COUNTER_TREE_LIMITS.imprintUnlock, costBase: 124, costStep: 0, costCurve: 0 },
+      { key: "imprintWindow", label: "Imprint Window", max: VOID_COUNTER_TREE_LIMITS.imprintWindow, costBase: 54, costStep: 10, costCurve: 0.82, requires: "imprintUnlock" },
+      { key: "imprintCharges", label: "Imprint Charges", max: VOID_COUNTER_TREE_LIMITS.imprintCharges, costBase: 58, costStep: 10, costCurve: 0.86, requires: "imprintUnlock" },
+      { key: "imprintInfusion", label: "Imprint Power", max: VOID_COUNTER_TREE_LIMITS.imprintInfusion, costBase: 60, costStep: 11, costCurve: 0.9, requires: "imprintUnlock" },
     ],
   },
 ];
@@ -716,6 +847,8 @@ const ui = {
   marathonTestWaveScaleSlider: document.getElementById("marathon-test-wave-scale-slider"),
   marathonTestLockDuration: document.getElementById("marathon-test-lock-duration"),
   marathonTestLockDurationSlider: document.getElementById("marathon-test-lock-duration-slider"),
+  marathonTestJumpDistance: document.getElementById("marathon-test-jump-distance"),
+  marathonTestJumpBtn: document.getElementById("marathon-test-jump-btn"),
   marathonTestResetBtn: document.getElementById("marathon-test-reset-btn"),
 };
 
@@ -770,6 +903,7 @@ const state = {
     altFiring: false,
     void: false,
     voidCursor: false,
+    voidShift: false,
     azure: false,
     amber: false,
     aegisCombo: false,
@@ -879,6 +1013,18 @@ function bindUI() {
       if (isMarathonTestDifficulty(state.selectedDifficulty)) updateDifficultyNote();
     });
   }
+  if (ui.marathonTestJumpBtn) {
+    ui.marathonTestJumpBtn.addEventListener("click", () => {
+      jumpMarathonTestToDistance(ui.marathonTestJumpDistance?.value);
+    });
+  }
+  if (ui.marathonTestJumpDistance) {
+    ui.marathonTestJumpDistance.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter") return;
+      e.preventDefault();
+      jumpMarathonTestToDistance(ui.marathonTestJumpDistance.value);
+    });
+  }
 }
 
 function submitPlayerId() {
@@ -978,6 +1124,7 @@ function bindInput() {
     state.input.altFiring = false;
     state.input.void = false;
     state.input.voidCursor = false;
+    state.input.voidShift = false;
     state.input.azure = false;
     state.input.amber = false;
     state.input.aegisCombo = false;
@@ -999,16 +1146,21 @@ function bindInput() {
     if (k === "a" || k === "arrowleft") state.input.left = true;
     if (k === "d" || k === "arrowright") state.input.right = true;
     if (k === "shift" && state.mode === "game") {
-      const comboActive = (state.world?.player?.warpComboT || 0) > 0;
-      if (comboActive) {
-        state.input.voidComboRelayHeld = true;
-        if (!e.repeat) state.input.voidComboRelayHoldT = 0;
-        if (!e.repeat) {
-          tryHandleWarpComboSelection();
+      const voidAbility = pickAbility("void");
+      if (voidAbility?.type === "void_counter") {
+        if (!e.repeat) state.input.voidShift = true;
+      } else {
+        const comboActive = (state.world?.player?.warpComboT || 0) > 0;
+        if (comboActive) {
+          state.input.voidComboRelayHeld = true;
+          if (!e.repeat) state.input.voidComboRelayHoldT = 0;
+          if (!e.repeat) {
+            tryHandleWarpComboSelection();
+          }
+          state.input.voidCursor = false;
+        } else if (!e.repeat) {
+          state.input.voidCursor = true;
         }
-        state.input.voidCursor = false;
-      } else if (!e.repeat) {
-        state.input.voidCursor = true;
       }
       e.preventDefault();
     }
@@ -1026,7 +1178,7 @@ function bindInput() {
         if (!e.repeat) state.input.aegisCombo = true;
         e.preventDefault();
       } else {
-        state.input.azure = true;
+        if (!e.repeat) state.input.azure = true;
       }
     }
     if (k === "e") {
@@ -1370,6 +1522,17 @@ function infuseActiveAegisGlassingBeamWithVoid(beam, mult = 2) {
   return true;
 }
 
+function infuseSkyGlassingSweepWithVoid(sweep, mult = 2) {
+  if (!sweep || sweep.voidInfused) return false;
+  const infusionPower = Math.max(1, Number(mult) || 2);
+  sweep.voidInfused = true;
+  sweep.affinity = "void";
+  if (Number.isFinite(sweep.radius)) sweep.radius = Math.max(16, sweep.radius * (1.1 + infusionPower * 0.07));
+  if (Number.isFinite(sweep.dps)) sweep.dps = Math.max(1, sweep.dps * (1.18 + infusionPower * 0.08));
+  if (Number.isFinite(sweep.holdT)) sweep.holdT = Math.max(0.2, sweep.holdT * (1.04 + infusionPower * 0.04));
+  return true;
+}
+
 function tryHandleWarpComboSelection() {
   const w = state.world;
   if (!w || state.mode !== "game") return false;
@@ -1555,6 +1718,55 @@ function syncMarathonTestTuningControls(config = state.marathonTestTuning) {
   assign(ui.marathonTestLockDurationSlider, tuned.lockDuration, 1);
 }
 
+function syncMarathonTestJumpDistanceControl(w = state.world) {
+  if (!ui.marathonTestJumpDistance) return;
+  const distance = Math.max(0, Math.floor(w?.marathon?.distance || 0));
+  ui.marathonTestJumpDistance.value = String(distance);
+}
+
+function jumpMarathonTestToDistance(rawDistance) {
+  const w = state.world;
+  if (!w?.isMarathonTestMode || !w?.marathon || state.mode !== "game") return false;
+
+  const parsed = Number(rawDistance);
+  if (!Number.isFinite(parsed)) return false;
+  const targetDistance = clamp(Math.floor(parsed), 0, 1000000);
+  const m = w.marathon;
+  const p = w.player;
+
+  const currentWorldX = Number.isFinite(m.worldX) ? m.worldX : ((p.x - m.spawnScreenX) + (m.cameraOffsetX || 0));
+  const currentWorldY = Number.isFinite(m.worldY) ? m.worldY : ((p.y - m.spawnScreenY) + (m.cameraOffsetY || 0));
+  const mag = Math.hypot(currentWorldX, currentWorldY);
+  const dirX = mag > 0.001 ? currentWorldX / mag : 1;
+  const dirY = mag > 0.001 ? currentWorldY / mag : 0;
+  const targetWorldX = dirX * targetDistance;
+  const targetWorldY = dirY * targetDistance;
+
+  m.cameraOffsetX = targetWorldX - (p.x - m.spawnScreenX);
+  m.cameraOffsetY = targetWorldY - (p.y - m.spawnScreenY);
+  m.worldX = targetWorldX;
+  m.worldY = targetWorldY;
+  m.distance = targetDistance;
+  m.maxDistance = targetDistance;
+  m.biome = getMarathonBiomeByDistance(targetDistance);
+
+  const lockStep = Math.max(1, MARATHON_LOCK_STEP_DISTANCE);
+  m.lockTimer = 0;
+  m.activeLockDistance = 0;
+  m.lockTargetBosses = 0;
+  m.lockBossesSpawned = 0;
+  m.nextLockDistance = Math.max(lockStep, (Math.floor(targetDistance / lockStep) + 1) * lockStep);
+
+  w.nextSpawn = Math.min(w.nextSpawn || (w.t + 0.25), w.t + 0.06);
+  updateMarathonState(w, 0);
+  updateHud(w);
+  syncMarathonTestJumpDistanceControl(w);
+  if (ui.wave) {
+    ui.wave.textContent = `Threat ${w.threat} | Jumped to ${formatDistance(targetDistance)}`;
+  }
+  return true;
+}
+
 function updateMarathonTestTuning(key, value) {
   if (!(key in DEFAULT_MARATHON_TEST_TUNING)) return;
   state.marathonTestTuning = cloneMarathonTestTuning({
@@ -1722,6 +1934,7 @@ function updateTestSpawnPanelVisibility() {
     if (showMarathonControls) {
       const tuning = cloneMarathonTestTuning(state.world?.marathonSpawnTuning || state.marathonTestTuning);
       syncMarathonTestTuningControls(tuning);
+      syncMarathonTestJumpDistanceControl(state.world);
     }
   }
 }
@@ -2126,6 +2339,166 @@ function getWarpAbilityStats(module, stacks = 1) {
   };
 }
 
+function createDefaultVoidCounterSkillTree() {
+  return {
+    cooldown: 0,
+    burstRadius: 0,
+    burstDamage: 0,
+    exileDuration: 0,
+    teleporterDuration: 0,
+    infectUnlock: 0,
+    infectRadius: 0,
+    infectInfusion: 0,
+    infectLingering: 0,
+    imprintUnlock: 0,
+    imprintWindow: 0,
+    imprintCharges: 0,
+    imprintInfusion: 0,
+  };
+}
+
+function enforceVoidCounterBranchChoice(tree) {
+  if (!tree) return tree;
+  const infectionScore = (tree.infectUnlock || 0) + (tree.infectRadius || 0) + (tree.infectInfusion || 0) + (tree.infectLingering || 0);
+  const imprintScore = (tree.imprintUnlock || 0) + (tree.imprintWindow || 0) + (tree.imprintCharges || 0) + (tree.imprintInfusion || 0);
+  if ((tree.infectUnlock || 0) > 0 && (tree.imprintUnlock || 0) > 0) {
+    if (infectionScore >= imprintScore) {
+      tree.imprintUnlock = 0;
+      tree.imprintWindow = 0;
+      tree.imprintCharges = 0;
+      tree.imprintInfusion = 0;
+    } else {
+      tree.infectUnlock = 0;
+      tree.infectRadius = 0;
+      tree.infectInfusion = 0;
+      tree.infectLingering = 0;
+    }
+  }
+  if ((tree.infectUnlock || 0) <= 0) {
+    tree.infectRadius = 0;
+    tree.infectInfusion = 0;
+    tree.infectLingering = 0;
+  }
+  if ((tree.imprintUnlock || 0) <= 0) {
+    tree.imprintWindow = 0;
+    tree.imprintCharges = 0;
+    tree.imprintInfusion = 0;
+  }
+  return tree;
+}
+
+function normalizeVoidCounterSkillTree(raw, fallbackLevel = 0) {
+  const tree = createDefaultVoidCounterSkillTree();
+  const source = raw && typeof raw === "object" ? raw : null;
+  if (source) {
+    tree.cooldown = clampInt(source.cooldown, 0, VOID_COUNTER_TREE_LIMITS.cooldown);
+    tree.burstRadius = clampInt(source.burstRadius, 0, VOID_COUNTER_TREE_LIMITS.burstRadius);
+    tree.burstDamage = clampInt(source.burstDamage, 0, VOID_COUNTER_TREE_LIMITS.burstDamage);
+    tree.exileDuration = clampInt(source.exileDuration, 0, VOID_COUNTER_TREE_LIMITS.exileDuration);
+    tree.teleporterDuration = clampInt(source.teleporterDuration, 0, VOID_COUNTER_TREE_LIMITS.teleporterDuration);
+    tree.infectUnlock = clampInt(source.infectUnlock, 0, VOID_COUNTER_TREE_LIMITS.infectUnlock);
+    tree.infectRadius = clampInt(source.infectRadius, 0, VOID_COUNTER_TREE_LIMITS.infectRadius);
+    tree.infectInfusion = clampInt(source.infectInfusion, 0, VOID_COUNTER_TREE_LIMITS.infectInfusion);
+    tree.infectLingering = clampInt(source.infectLingering, 0, VOID_COUNTER_TREE_LIMITS.infectLingering);
+    tree.imprintUnlock = clampInt(source.imprintUnlock, 0, VOID_COUNTER_TREE_LIMITS.imprintUnlock);
+    tree.imprintWindow = clampInt(source.imprintWindow, 0, VOID_COUNTER_TREE_LIMITS.imprintWindow);
+    tree.imprintCharges = clampInt(source.imprintCharges, 0, VOID_COUNTER_TREE_LIMITS.imprintCharges);
+    tree.imprintInfusion = clampInt(source.imprintInfusion, 0, VOID_COUNTER_TREE_LIMITS.imprintInfusion);
+  } else {
+    const legacy = clampInt(fallbackLevel, 0, MAX_UPGRADE_LEVEL);
+    tree.cooldown = clampInt(Math.floor(legacy * 0.26), 0, VOID_COUNTER_TREE_LIMITS.cooldown);
+    tree.burstRadius = clampInt(Math.floor(legacy * 0.22), 0, VOID_COUNTER_TREE_LIMITS.burstRadius);
+    tree.burstDamage = clampInt(Math.floor(legacy * 0.24), 0, VOID_COUNTER_TREE_LIMITS.burstDamage);
+    tree.exileDuration = clampInt(Math.floor(legacy * 0.16), 0, VOID_COUNTER_TREE_LIMITS.exileDuration);
+    tree.teleporterDuration = clampInt(Math.floor(legacy * 0.12), 0, VOID_COUNTER_TREE_LIMITS.teleporterDuration);
+    tree.infectUnlock = legacy >= 24 ? 1 : 0;
+    tree.infectRadius = tree.infectUnlock ? clampInt(Math.floor((legacy - 24) * 0.2), 0, VOID_COUNTER_TREE_LIMITS.infectRadius) : 0;
+    tree.infectInfusion = tree.infectUnlock ? clampInt(Math.floor((legacy - 28) * 0.16), 0, VOID_COUNTER_TREE_LIMITS.infectInfusion) : 0;
+    tree.infectLingering = tree.infectUnlock ? clampInt(Math.floor((legacy - 32) * 0.14), 0, VOID_COUNTER_TREE_LIMITS.infectLingering) : 0;
+  }
+  return enforceVoidCounterBranchChoice(tree);
+}
+
+function getVoidCounterTreeTotalLevel(tree) {
+  if (!tree) return 0;
+  return [
+    tree.cooldown,
+    tree.burstRadius,
+    tree.burstDamage,
+    tree.exileDuration,
+    tree.teleporterDuration,
+    tree.infectUnlock,
+    tree.infectRadius,
+    tree.infectInfusion,
+    tree.infectLingering,
+    tree.imprintUnlock,
+    tree.imprintWindow,
+    tree.imprintCharges,
+    tree.imprintInfusion,
+  ].reduce((sum, value) => sum + clampInt(value, 0, MAX_UPGRADE_LEVEL), 0);
+}
+
+function syncVoidCounterItemLevel(item) {
+  if (!item || item.type !== "void_counter") return;
+  const normalized = normalizeVoidCounterSkillTree(item.counterTree, item.level || 0);
+  if (item.counterTree && typeof item.counterTree === "object") {
+    Object.assign(item.counterTree, normalized);
+  } else {
+    item.counterTree = normalized;
+  }
+  item.level = clampInt(getVoidCounterTreeTotalLevel(item.counterTree), 0, MAX_UPGRADE_LEVEL);
+}
+
+function ensureVoidCounterSkillTree(item) {
+  if (!item || item.type !== "void_counter") return null;
+  syncVoidCounterItemLevel(item);
+  return item.counterTree;
+}
+
+function getVoidCounterAbilityStats(module, stacks = 1) {
+  const tree = normalizeVoidCounterSkillTree(module?.counterTree, module?.level || 0);
+  const stackScale = getAbilityStackScale(stacks);
+  return {
+    cooldown: Math.max(9.2 - tree.cooldown * 0.28, 1.45) * stackScale,
+    counterWindow: 0.1,
+    counterPulseRadius: 62 + tree.burstRadius * 2.4,
+    burstRadius: 142 + tree.burstRadius * 8.5,
+    burstDamage: 92 + tree.burstDamage * 8.2,
+    exileDuration: 2.4 + tree.exileDuration * 0.34,
+    teleporterDuration: 15 + tree.teleporterDuration * 1.7,
+    swapCooldown: 5,
+    infectEnabled: tree.infectUnlock > 0,
+    infectRadius: tree.infectUnlock > 0 ? 118 + tree.infectRadius * 19 : 0,
+    infectInfusionMult: tree.infectUnlock > 0 ? 1.9 + tree.infectInfusion * 0.16 : 1.9,
+    infectPulseInterval: tree.infectUnlock > 0 ? Math.max(0.08, 0.24 - tree.infectInfusion * 0.01) : 0,
+    infectLingeringDps: tree.infectUnlock > 0 ? 14 + tree.infectLingering * 6.8 : 0,
+    imprintEnabled: tree.imprintUnlock > 0,
+    imprintDuration: tree.imprintUnlock > 0 ? 1.2 + tree.imprintWindow * 0.24 : 0,
+    imprintCharges: tree.imprintUnlock > 0 ? 1 + tree.imprintCharges : 0,
+    imprintInfusionMult: tree.imprintUnlock > 0 ? 1.85 + tree.imprintInfusion * 0.15 : 1.85,
+    tree,
+  };
+}
+
+function getVoidCounterTreeUpgradeDefinition(upgradeKey) {
+  for (const node of VOID_COUNTER_TREE_DEFINITION) {
+    const found = node.upgrades.find((upgrade) => upgrade.key === upgradeKey);
+    if (found) return { node, upgrade: found };
+  }
+  return null;
+}
+
+function calculateVoidCounterTreeUpgradeCost(item, upgradeKey) {
+  const found = getVoidCounterTreeUpgradeDefinition(upgradeKey);
+  if (!found) return Number.POSITIVE_INFINITY;
+  const { upgrade } = found;
+  if (!item || item.type !== "void_counter") return Number.POSITIVE_INFINITY;
+  const tree = normalizeVoidCounterSkillTree(item.counterTree, item.level || 0);
+  const current = clampInt(tree[upgrade.key], 0, upgrade.max);
+  const owned = countOwnedType(item.type);
+  return Math.floor((upgrade.costBase + current * upgrade.costStep + current * current * upgrade.costCurve) * (1 + (owned - 1) * 0.2));
+}
+
 function createDefaultBulwarkAnchorSkillTree() {
   return {
     cooldown: 0,
@@ -2441,6 +2814,189 @@ function calculateWarpTreeUpgradeCost(item, upgradeKey) {
   const { upgrade } = found;
   if (!item || item.type !== "warp") return Number.POSITIVE_INFINITY;
   const tree = normalizeWarpSkillTree(item.warpTree, item.level || 0);
+  const current = clampInt(tree[upgrade.key], 0, upgrade.max);
+  const owned = countOwnedType(item.type);
+  return Math.floor((upgrade.costBase + current * upgrade.costStep + current * current * upgrade.costCurve) * (1 + (owned - 1) * 0.2));
+}
+
+function createDefaultRocketPodSkillTree() {
+  return {
+    cooldown: 0,
+    clusterCount: 0,
+    explosionRadius: 0,
+    explosionDamage: 0,
+    shockDamage: 0,
+    shockDuration: 0,
+    turnRate: 0,
+    speed: 0,
+    life: 0,
+    afterburnUnlock: 0,
+    afterburnShield: 0,
+    afterburnDuration: 0,
+    afterburnSpeed: 0,
+    afterburnConvert: 0,
+    afterburnRange: 0,
+    infuseUnlock: 0,
+    infuseDuration: 0,
+    infuseCadence: 0,
+    infusePayload: 0,
+    infuseCount: 0,
+  };
+}
+
+function enforceRocketPodBranchChoice(tree) {
+  if (!tree) return tree;
+  const afterburnScore = (tree.afterburnUnlock || 0)
+    + (tree.afterburnShield || 0)
+    + (tree.afterburnDuration || 0)
+    + (tree.afterburnSpeed || 0)
+    + (tree.afterburnConvert || 0)
+    + (tree.afterburnRange || 0);
+  const infuseScore = (tree.infuseUnlock || 0)
+    + (tree.infuseDuration || 0)
+    + (tree.infuseCadence || 0)
+    + (tree.infusePayload || 0)
+    + (tree.infuseCount || 0);
+  if ((tree.afterburnUnlock || 0) > 0 && (tree.infuseUnlock || 0) > 0) {
+    if (afterburnScore >= infuseScore) {
+      tree.infuseUnlock = 0;
+      tree.infuseDuration = 0;
+      tree.infuseCadence = 0;
+      tree.infusePayload = 0;
+      tree.infuseCount = 0;
+    } else {
+      tree.afterburnUnlock = 0;
+      tree.afterburnShield = 0;
+      tree.afterburnDuration = 0;
+      tree.afterburnSpeed = 0;
+      tree.afterburnConvert = 0;
+      tree.afterburnRange = 0;
+    }
+  }
+  if ((tree.afterburnUnlock || 0) <= 0) {
+    tree.afterburnShield = 0;
+    tree.afterburnDuration = 0;
+    tree.afterburnSpeed = 0;
+    tree.afterburnConvert = 0;
+    tree.afterburnRange = 0;
+  }
+  if ((tree.infuseUnlock || 0) <= 0) {
+    tree.infuseDuration = 0;
+    tree.infuseCadence = 0;
+    tree.infusePayload = 0;
+    tree.infuseCount = 0;
+  }
+  return tree;
+}
+
+function normalizeRocketPodSkillTree(raw, fallbackLevel = 0) {
+  const tree = createDefaultRocketPodSkillTree();
+  const source = raw && typeof raw === "object" ? raw : null;
+  if (source) {
+    tree.cooldown = clampInt(source.cooldown, 0, ROCKET_POD_TREE_LIMITS.cooldown);
+    tree.clusterCount = clampInt(source.clusterCount, 0, ROCKET_POD_TREE_LIMITS.clusterCount);
+    tree.explosionRadius = clampInt(source.explosionRadius, 0, ROCKET_POD_TREE_LIMITS.explosionRadius);
+    tree.explosionDamage = clampInt(source.explosionDamage, 0, ROCKET_POD_TREE_LIMITS.explosionDamage);
+    tree.shockDamage = clampInt(source.shockDamage, 0, ROCKET_POD_TREE_LIMITS.shockDamage);
+    tree.shockDuration = clampInt(source.shockDuration, 0, ROCKET_POD_TREE_LIMITS.shockDuration);
+    tree.turnRate = clampInt(source.turnRate, 0, ROCKET_POD_TREE_LIMITS.turnRate);
+    tree.speed = clampInt(source.speed, 0, ROCKET_POD_TREE_LIMITS.speed);
+    tree.life = clampInt(source.life, 0, ROCKET_POD_TREE_LIMITS.life);
+    tree.afterburnUnlock = clampInt(source.afterburnUnlock, 0, ROCKET_POD_TREE_LIMITS.afterburnUnlock);
+    tree.afterburnShield = clampInt(source.afterburnShield, 0, ROCKET_POD_TREE_LIMITS.afterburnShield);
+    tree.afterburnDuration = clampInt(source.afterburnDuration, 0, ROCKET_POD_TREE_LIMITS.afterburnDuration);
+    tree.afterburnSpeed = clampInt(source.afterburnSpeed, 0, ROCKET_POD_TREE_LIMITS.afterburnSpeed);
+    tree.afterburnConvert = clampInt(source.afterburnConvert, 0, ROCKET_POD_TREE_LIMITS.afterburnConvert);
+    tree.afterburnRange = clampInt(source.afterburnRange, 0, ROCKET_POD_TREE_LIMITS.afterburnRange);
+    tree.infuseUnlock = clampInt(source.infuseUnlock, 0, ROCKET_POD_TREE_LIMITS.infuseUnlock);
+    tree.infuseDuration = clampInt(source.infuseDuration, 0, ROCKET_POD_TREE_LIMITS.infuseDuration);
+    tree.infuseCadence = clampInt(source.infuseCadence, 0, ROCKET_POD_TREE_LIMITS.infuseCadence);
+    tree.infusePayload = clampInt(source.infusePayload, 0, ROCKET_POD_TREE_LIMITS.infusePayload);
+    tree.infuseCount = clampInt(source.infuseCount, 0, ROCKET_POD_TREE_LIMITS.infuseCount);
+    return enforceRocketPodBranchChoice(tree);
+  }
+
+  const legacy = clampInt(fallbackLevel, 0, MAX_UPGRADE_LEVEL);
+  tree.cooldown = clampInt(Math.floor(legacy * 0.19), 0, ROCKET_POD_TREE_LIMITS.cooldown);
+  tree.clusterCount = clampInt(Math.floor(legacy * 0.13), 0, ROCKET_POD_TREE_LIMITS.clusterCount);
+  tree.explosionRadius = clampInt(Math.floor(legacy * 0.23), 0, ROCKET_POD_TREE_LIMITS.explosionRadius);
+  tree.explosionDamage = clampInt(Math.floor(legacy * 0.24), 0, ROCKET_POD_TREE_LIMITS.explosionDamage);
+  tree.shockDamage = clampInt(Math.floor(legacy * 0.16), 0, ROCKET_POD_TREE_LIMITS.shockDamage);
+  tree.shockDuration = clampInt(Math.floor(legacy * 0.11), 0, ROCKET_POD_TREE_LIMITS.shockDuration);
+  tree.turnRate = clampInt(Math.floor(legacy * 0.12), 0, ROCKET_POD_TREE_LIMITS.turnRate);
+  tree.speed = clampInt(Math.floor(legacy * 0.12), 0, ROCKET_POD_TREE_LIMITS.speed);
+  tree.life = clampInt(Math.floor(legacy * 0.1), 0, ROCKET_POD_TREE_LIMITS.life);
+  tree.afterburnUnlock = 0;
+  tree.afterburnShield = 0;
+  tree.afterburnDuration = 0;
+  tree.afterburnSpeed = 0;
+  tree.afterburnConvert = 0;
+  tree.afterburnRange = 0;
+  tree.infuseUnlock = 0;
+  tree.infuseDuration = 0;
+  tree.infuseCadence = 0;
+  tree.infusePayload = 0;
+  tree.infuseCount = 0;
+  return enforceRocketPodBranchChoice(tree);
+}
+
+function getRocketPodTreeTotalLevel(tree) {
+  if (!tree) return 0;
+  return [
+    tree.cooldown,
+    tree.clusterCount,
+    tree.explosionRadius,
+    tree.explosionDamage,
+    tree.shockDamage,
+    tree.shockDuration,
+    tree.turnRate,
+    tree.speed,
+    tree.life,
+    tree.afterburnUnlock,
+    tree.afterburnShield,
+    tree.afterburnDuration,
+    tree.afterburnSpeed,
+    tree.afterburnConvert,
+    tree.afterburnRange,
+    tree.infuseUnlock,
+    tree.infuseDuration,
+    tree.infuseCadence,
+    tree.infusePayload,
+    tree.infuseCount,
+  ].reduce((sum, value) => sum + clampInt(value, 0, MAX_UPGRADE_LEVEL), 0);
+}
+
+function syncRocketPodItemLevel(item) {
+  if (!item || item.type !== "rocket") return;
+  const normalized = normalizeRocketPodSkillTree(item.rocketTree, item.level || 0);
+  if (item.rocketTree && typeof item.rocketTree === "object") {
+    Object.assign(item.rocketTree, normalized);
+  } else {
+    item.rocketTree = normalized;
+  }
+  item.level = clampInt(getRocketPodTreeTotalLevel(item.rocketTree), 0, MAX_UPGRADE_LEVEL);
+}
+
+function ensureRocketPodSkillTree(item) {
+  if (!item || item.type !== "rocket") return null;
+  syncRocketPodItemLevel(item);
+  return item.rocketTree;
+}
+
+function getRocketPodTreeUpgradeDefinition(upgradeKey) {
+  for (const node of ROCKET_POD_TREE_DEFINITION) {
+    const found = node.upgrades.find((upgrade) => upgrade.key === upgradeKey);
+    if (found) return { node, upgrade: found };
+  }
+  return null;
+}
+
+function calculateRocketPodTreeUpgradeCost(item, upgradeKey) {
+  const found = getRocketPodTreeUpgradeDefinition(upgradeKey);
+  if (!found) return Number.POSITIVE_INFINITY;
+  const { upgrade } = found;
+  if (!item || item.type !== "rocket") return Number.POSITIVE_INFINITY;
+  const tree = normalizeRocketPodSkillTree(item.rocketTree, item.level || 0);
   const current = clampInt(tree[upgrade.key], 0, upgrade.max);
   const owned = countOwnedType(item.type);
   return Math.floor((upgrade.costBase + current * upgrade.costStep + current * current * upgrade.costCurve) * (1 + (owned - 1) * 0.2));
@@ -2826,6 +3382,30 @@ function isMineUpgradePathBlocked(tree, upgrade) {
   return false;
 }
 
+function isVoidCounterUpgradePathBlocked(tree, upgrade) {
+  if (!tree || !upgrade) return false;
+  const infectionPath = new Set(["infectUnlock", "infectRadius", "infectInfusion", "infectLingering"]);
+  const imprintPath = new Set(["imprintUnlock", "imprintWindow", "imprintCharges", "imprintInfusion"]);
+  const key = upgrade.key;
+  if (infectionPath.has(key)) return (tree.imprintUnlock || 0) > 0;
+  if (imprintPath.has(key)) return (tree.infectUnlock || 0) > 0;
+  if (upgrade.requires === "infectUnlock" && (tree.imprintUnlock || 0) > 0) return true;
+  if (upgrade.requires === "imprintUnlock" && (tree.infectUnlock || 0) > 0) return true;
+  return false;
+}
+
+function isRocketPodUpgradePathBlocked(tree, upgrade) {
+  if (!tree || !upgrade) return false;
+  const afterburnPath = new Set(["afterburnUnlock", "afterburnShield", "afterburnDuration", "afterburnSpeed", "afterburnConvert", "afterburnRange"]);
+  const infusionPath = new Set(["infuseUnlock", "infuseDuration", "infuseCadence", "infusePayload", "infuseCount"]);
+  const key = upgrade.key;
+  if (afterburnPath.has(key)) return (tree.infuseUnlock || 0) > 0;
+  if (infusionPath.has(key)) return (tree.afterburnUnlock || 0) > 0;
+  if (upgrade.requires === "afterburnUnlock" && (tree.infuseUnlock || 0) > 0) return true;
+  if (upgrade.requires === "infuseUnlock" && (tree.afterburnUnlock || 0) > 0) return true;
+  return false;
+}
+
 function isSiegeSpikesUpgradePathBlocked(tree, upgrade) {
   if (!tree || !upgrade) return false;
   const turretPath = new Set(["turretUnlock", "turretCount", "turretDamage", "turretRate", "turretTurn", "turretRange"]);
@@ -2911,6 +3491,42 @@ function getItemStatLines(item) {
     return lines;
   }
 
+  if (item.type === "void_counter") {
+    const stats = getVoidCounterAbilityStats(item, countSlottedByType(item.type));
+    const activeTeleporters = Array.isArray(state.world?.player?.voidCounterTeleporters)
+      ? state.world.player.voidCounterTeleporters.length
+      : 0;
+    return [
+      `Counter Window ${(stats.counterWindow * 1000).toFixed(0)}ms`,
+      `Counter Pulse Radius ${stats.counterPulseRadius.toFixed(1)}`,
+      `Burst Radius ${stats.burstRadius.toFixed(1)}`,
+      `Burst Damage ${stats.burstDamage.toFixed(1)}`,
+      `Exile Duration ${stats.exileDuration.toFixed(2)}s`,
+      `Teleporter Duration ${stats.teleporterDuration.toFixed(1)}s`,
+      `Swap Cooldown ${stats.swapCooldown.toFixed(2)}s`,
+      `Active Teleporters ${activeTeleporters}/1`,
+      stats.infectEnabled
+        ? `Infection Radius ${stats.infectRadius.toFixed(1)}`
+        : "Infection Orbit Inactive",
+      stats.infectEnabled
+        ? `Infection Infusion x${stats.infectInfusionMult.toFixed(2)}`
+        : null,
+      stats.infectEnabled
+        ? `Infection DPS ${stats.infectLingeringDps.toFixed(1)}`
+        : null,
+      stats.imprintEnabled
+        ? `Slipstream Window ${stats.imprintDuration.toFixed(2)}s`
+        : "Slipstream Imprint Inactive",
+      stats.imprintEnabled
+        ? `Slipstream Charges ${Math.max(0, Math.floor(stats.imprintCharges || 0))}`
+        : null,
+      stats.imprintEnabled
+        ? `Slipstream Infusion x${stats.imprintInfusionMult.toFixed(2)}`
+        : null,
+      `Cooldown ${stats.cooldown.toFixed(2)}s`,
+    ].filter(Boolean);
+  }
+
   if (item.type === "lance") {
     const stats = getLanceStats(item);
     return [
@@ -2934,14 +3550,30 @@ function getItemStatLines(item) {
   }
 
   if (item.type === "rocket") {
-    const damage = 56 + item.level * 3.2;
-    const turn = 3.2 + item.level * 0.07;
-    const cooldown = getAbilityCooldownTotal(item, countSlottedByType(item.type));
+    const stacks = countSlottedByType(item.type);
+    const stats = getRocketPodStats(item, stacks);
+    const node2Status = stats.afterburnEnabled ? null : (stats.mineInfusionEnabled ? "Emergency Afterburn Inactive (Node 3 Active)" : "Emergency Afterburn Inactive");
+    const node3Status = stats.mineInfusionEnabled ? null : (stats.afterburnEnabled ? "Azure Mine Lattice Inactive (Node 2 Active)" : "Azure Mine Lattice Inactive");
     return [
-      `Rocket Damage ${damage.toFixed(1)}`,
-      `Turn Rate ${turn.toFixed(2)}`,
-      `Cooldown ${cooldown.toFixed(2)}s`,
-    ];
+      `Cluster Rockets ${Math.max(1, Math.floor(stats.clusterCount || 1))}`,
+      `Explosion Damage ${stats.explosionDamage.toFixed(1)}`,
+      `Explosion Radius ${stats.explosionRadius.toFixed(1)}`,
+      `Shock DPS ${stats.shockDps.toFixed(1)}`,
+      `Shock Duration ${stats.shockDuration.toFixed(2)}s`,
+      `Steer Turn ${stats.turnRate.toFixed(2)}`,
+      stats.afterburnEnabled ? `Kill Leech Heal ${stats.afterburnHealOnKill.toFixed(1)}` : node2Status,
+      stats.afterburnEnabled ? `Afterburn Duration ${stats.afterburnDuration.toFixed(2)}s` : null,
+      stats.afterburnEnabled ? `Speed Surge +${(stats.afterburnSpeedMult * 100).toFixed(0)}%` : null,
+      stats.afterburnEnabled ? `Leech Efficiency +${(stats.afterburnHealMissingPct * 100).toFixed(0)}% Missing HP` : null,
+      stats.afterburnEnabled ? `Afterburn Trigger Radius ${stats.afterburnRange.toFixed(0)}` : null,
+      stats.mineInfusionEnabled ? "Mine Infusion Duration Permanent" : node3Status,
+      stats.mineInfusionEnabled ? `Arc Reach ${stats.mineArcRange.toFixed(0)}` : null,
+      stats.mineInfusionEnabled ? `Arc Cadence ${stats.mineArcInterval.toFixed(2)}s` : null,
+      stats.mineInfusionEnabled ? `Arc Power x${stats.mineArcDamageMult.toFixed(2)}` : null,
+      stats.mineInfusionEnabled ? `Arc Targets ${Math.max(1, Math.floor(stats.mineArcTargets || 1))}` : null,
+      stats.mineInfusionEnabled ? "Void+Azure Mine Fusion Enabled" : null,
+      `Cooldown ${stats.cooldown.toFixed(2)}s`,
+    ].filter(Boolean);
   }
 
   if (item.type === "helper") {
@@ -3080,10 +3712,12 @@ function renderLoadoutPanel() {
   const occupied = getItemInSlot(slot.key);
   if (occupied?.type === "mine") syncMineItemLevel(occupied);
   if (occupied?.type === "warp") syncWarpItemLevel(occupied);
+  if (occupied?.type === "void_counter") syncVoidCounterItemLevel(occupied);
   if (occupied?.type === "aegis") syncAegisItemLevel(occupied);
   if (occupied?.type === "bulwark_anchor") syncBulwarkAnchorItemLevel(occupied);
   if (occupied?.type === "combo_link") syncComboLinkItemLevel(occupied);
   if (occupied?.type === "siege_spikes") syncSiegeSpikesItemLevel(occupied);
+  if (occupied?.type === "rocket") syncRocketPodItemLevel(occupied);
   ui.upgradePartLabel.textContent = occupied
     ? `Selected Slot: ${getSlotLabel(slot)} (${ITEM_CATALOG[occupied.type]?.name || occupied.type}, Lv ${occupied.level})`
     : `Selected Slot: ${getSlotLabel(slot)} (Empty)`;
@@ -3164,10 +3798,12 @@ function renderSlotActions(slot, occupied) {
   if (!data) return;
   if (occupied.type === "mine") ensureMineSkillTree(occupied);
   if (occupied.type === "warp") ensureWarpSkillTree(occupied);
+  if (occupied.type === "void_counter") ensureVoidCounterSkillTree(occupied);
   if (occupied.type === "aegis") ensureAegisSkillTree(occupied);
   if (occupied.type === "bulwark_anchor") ensureBulwarkAnchorSkillTree(occupied);
   if (occupied.type === "combo_link") ensureComboLinkSkillTree(occupied);
   if (occupied.type === "siege_spikes") ensureSiegeSpikesSkillTree(occupied);
+  if (occupied.type === "rocket") ensureRocketPodSkillTree(occupied);
 
   const row = document.createElement("div");
   row.className = "slot-action-item";
@@ -3179,10 +3815,12 @@ function renderSlotActions(slot, occupied) {
   if (
     occupied.type !== "mine"
     && occupied.type !== "warp"
+    && occupied.type !== "void_counter"
     && occupied.type !== "aegis"
     && occupied.type !== "bulwark_anchor"
     && occupied.type !== "combo_link"
     && occupied.type !== "siege_spikes"
+    && occupied.type !== "rocket"
   ) {
     const upgradeCost = calculateUpgradeCost(occupied);
     const upgradeBtn = document.createElement("button");
@@ -3285,6 +3923,50 @@ function renderSlotActions(slot, occupied) {
           btn.textContent = current <= 0 && isUnlockUpgrade ? `Unlock (${cost} Essence)` : `Upgrade (${cost} Essence)`;
           btn.disabled = false;
           btn.addEventListener("click", () => upgradeWarpSkillTreeNode(slot.key, upgrade.key));
+        }
+
+        upgradeRow.appendChild(btn);
+        nodeCard.appendChild(upgradeRow);
+      }
+
+      ui.slotActions.appendChild(nodeCard);
+    }
+  }
+
+  if (occupied.type === "void_counter") {
+    const tree = ensureVoidCounterSkillTree(occupied);
+    for (const node of VOID_COUNTER_TREE_DEFINITION) {
+      const nodeCard = document.createElement("div");
+      nodeCard.className = "slot-skill-node";
+      nodeCard.innerHTML = `<h4>${node.title}</h4><p>${node.desc}</p>`;
+
+      for (const upgrade of node.upgrades) {
+        const current = clampInt(tree[upgrade.key], 0, upgrade.max);
+        const unlocked = !upgrade.requires || (tree[upgrade.requires] || 0) > 0;
+        const pathBlocked = isVoidCounterUpgradePathBlocked(tree, upgrade);
+        const atMax = current >= upgrade.max;
+        const cost = atMax ? 0 : calculateVoidCounterTreeUpgradeCost(occupied, upgrade.key);
+        const isUnlockUpgrade = upgrade.key === "infectUnlock" || upgrade.key === "imprintUnlock";
+
+        const upgradeRow = document.createElement("div");
+        upgradeRow.className = "slot-skill-upgrade";
+        upgradeRow.innerHTML = `<div><strong>${upgrade.label}</strong><p>Lv ${current}/${upgrade.max}</p></div>`;
+
+        const btn = document.createElement("button");
+        btn.type = "button";
+        if (atMax) {
+          btn.textContent = "Maxed";
+          btn.disabled = true;
+        } else if (pathBlocked) {
+          btn.textContent = "Path Locked";
+          btn.disabled = true;
+        } else if (!unlocked) {
+          btn.textContent = "Locked";
+          btn.disabled = true;
+        } else {
+          btn.textContent = current <= 0 && isUnlockUpgrade ? `Unlock (${cost} Essence)` : `Upgrade (${cost} Essence)`;
+          btn.disabled = false;
+          btn.addEventListener("click", () => upgradeVoidCounterSkillTreeNode(slot.key, upgrade.key));
         }
 
         upgradeRow.appendChild(btn);
@@ -3448,6 +4130,50 @@ function renderSlotActions(slot, occupied) {
       ui.slotActions.appendChild(nodeCard);
     }
   }
+
+  if (occupied.type === "rocket") {
+    const tree = ensureRocketPodSkillTree(occupied);
+    for (const node of ROCKET_POD_TREE_DEFINITION) {
+      const nodeCard = document.createElement("div");
+      nodeCard.className = "slot-skill-node";
+      nodeCard.innerHTML = `<h4>${node.title}</h4><p>${node.desc}</p>`;
+
+      for (const upgrade of node.upgrades) {
+        const current = clampInt(tree[upgrade.key], 0, upgrade.max);
+        const unlocked = !upgrade.requires || (tree[upgrade.requires] || 0) > 0;
+        const pathBlocked = isRocketPodUpgradePathBlocked(tree, upgrade);
+        const atMax = current >= upgrade.max;
+        const cost = atMax ? 0 : calculateRocketPodTreeUpgradeCost(occupied, upgrade.key);
+        const isUnlockUpgrade = upgrade.key === "afterburnUnlock" || upgrade.key === "infuseUnlock";
+
+        const upgradeRow = document.createElement("div");
+        upgradeRow.className = "slot-skill-upgrade";
+        upgradeRow.innerHTML = `<div><strong>${upgrade.label}</strong><p>Lv ${current}/${upgrade.max}</p></div>`;
+
+        const btn = document.createElement("button");
+        btn.type = "button";
+        if (atMax) {
+          btn.textContent = "Maxed";
+          btn.disabled = true;
+        } else if (pathBlocked) {
+          btn.textContent = "Path Locked";
+          btn.disabled = true;
+        } else if (!unlocked) {
+          btn.textContent = "Locked";
+          btn.disabled = true;
+        } else {
+          btn.textContent = current <= 0 && isUnlockUpgrade ? `Unlock (${cost} Essence)` : `Upgrade (${cost} Essence)`;
+          btn.disabled = false;
+          btn.addEventListener("click", () => upgradeRocketPodSkillTreeNode(slot.key, upgrade.key));
+        }
+
+        upgradeRow.appendChild(btn);
+        nodeCard.appendChild(upgradeRow);
+      }
+
+      ui.slotActions.appendChild(nodeCard);
+    }
+  }
 }
 
 function upgradeMineSkillTreeNode(slotKey, upgradeKey) {
@@ -3541,6 +4267,110 @@ function upgradeWarpSkillTreeNode(slotKey, upgradeKey) {
   state.player.xpBank -= cost;
   tree[upgrade.key] = current + 1;
   syncWarpItemLevel(item);
+  item.spentXp = Math.max(0, Math.floor(Number(item.spentXp) || 0)) + cost;
+  savePlayer(state.player);
+  audio.play("upgrade");
+  if (ui.upgradeMsg) ui.upgradeMsg.textContent = `${upgrade.label} upgraded to Lv ${tree[upgrade.key]}/${upgrade.max}.`;
+  renderLoadoutPanel();
+}
+
+function upgradeRocketPodSkillTreeNode(slotKey, upgradeKey) {
+  if (!state.player) return;
+  const item = getItemInSlot(slotKey);
+  if (!item || item.type !== "rocket") {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = "Rocket Pod upgrade failed: Rocket Pod is not installed in this slot.";
+    return;
+  }
+
+  const found = getRocketPodTreeUpgradeDefinition(upgradeKey);
+  if (!found) {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = "Rocket Pod upgrade failed: unknown upgrade node.";
+    return;
+  }
+  const { upgrade } = found;
+  const tree = ensureRocketPodSkillTree(item);
+  if (!tree) {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = "Rocket Pod upgrade failed: unable to initialize rocket tree.";
+    return;
+  }
+  if (isRocketPodUpgradePathBlocked(tree, upgrade)) {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = "This path is locked. Choose either Node 2 or Node 3 for this Rocket Pod.";
+    return;
+  }
+  if (upgrade.requires && (tree[upgrade.requires] || 0) <= 0) {
+    const requiredUpgrade = getRocketPodTreeUpgradeDefinition(upgrade.requires)?.upgrade;
+    const requiredLabel = requiredUpgrade?.label || "required upgrade";
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = `This enhancement is locked. Unlock ${requiredLabel} first.`;
+    return;
+  }
+
+  const current = clampInt(tree[upgrade.key], 0, upgrade.max);
+  if (current >= upgrade.max) {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = `${upgrade.label} is already maxed.`;
+    return;
+  }
+
+  const cost = calculateRocketPodTreeUpgradeCost(item, upgrade.key);
+  if (state.player.xpBank < cost) {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = `Need ${cost} Essence for ${upgrade.label}.`;
+    return;
+  }
+
+  state.player.xpBank -= cost;
+  tree[upgrade.key] = current + 1;
+  syncRocketPodItemLevel(item);
+  item.spentXp = Math.max(0, Math.floor(Number(item.spentXp) || 0)) + cost;
+  savePlayer(state.player);
+  audio.play("upgrade");
+  if (ui.upgradeMsg) ui.upgradeMsg.textContent = `${upgrade.label} upgraded to Lv ${tree[upgrade.key]}/${upgrade.max}.`;
+  renderLoadoutPanel();
+}
+
+function upgradeVoidCounterSkillTreeNode(slotKey, upgradeKey) {
+  if (!state.player) return;
+  const item = getItemInSlot(slotKey);
+  if (!item || item.type !== "void_counter") {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = "Counterfield upgrade failed: Void Counterfield is not installed in this slot.";
+    return;
+  }
+
+  const found = getVoidCounterTreeUpgradeDefinition(upgradeKey);
+  if (!found) {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = "Counterfield upgrade failed: unknown upgrade node.";
+    return;
+  }
+  const { upgrade } = found;
+  const tree = ensureVoidCounterSkillTree(item);
+  if (!tree) {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = "Counterfield upgrade failed: unable to initialize counter tree.";
+    return;
+  }
+  if (isVoidCounterUpgradePathBlocked(tree, upgrade)) {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = "This path is locked. Choose either Node 2 or Node 3 for this Void Counterfield.";
+    return;
+  }
+  if (upgrade.requires && (tree[upgrade.requires] || 0) <= 0) {
+    const requiredUpgrade = getVoidCounterTreeUpgradeDefinition(upgrade.requires)?.upgrade;
+    const requiredLabel = requiredUpgrade?.label || "required upgrade";
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = `This enhancement is locked. Unlock ${requiredLabel} first.`;
+    return;
+  }
+
+  const current = clampInt(tree[upgrade.key], 0, upgrade.max);
+  if (current >= upgrade.max) {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = `${upgrade.label} is already maxed.`;
+    return;
+  }
+
+  const cost = calculateVoidCounterTreeUpgradeCost(item, upgrade.key);
+  if (state.player.xpBank < cost) {
+    if (ui.upgradeMsg) ui.upgradeMsg.textContent = `Need ${cost} Essence for ${upgrade.label}.`;
+    return;
+  }
+
+  state.player.xpBank -= cost;
+  tree[upgrade.key] = current + 1;
+  syncVoidCounterItemLevel(item);
   item.spentXp = Math.max(0, Math.floor(Number(item.spentXp) || 0)) + cost;
   savePlayer(state.player);
   audio.play("upgrade");
@@ -3751,6 +4581,9 @@ function buyItemForSlot(slotKey, type) {
   } else if (type === "warp") {
     newItem.warpTree = createDefaultWarpSkillTree();
     syncWarpItemLevel(newItem);
+  } else if (type === "void_counter") {
+    newItem.counterTree = createDefaultVoidCounterSkillTree();
+    syncVoidCounterItemLevel(newItem);
   } else if (type === "aegis") {
     newItem.aegisTree = createDefaultAegisSkillTree();
     syncAegisItemLevel(newItem);
@@ -3763,6 +4596,9 @@ function buyItemForSlot(slotKey, type) {
   } else if (type === "siege_spikes") {
     newItem.siegeTree = createDefaultSiegeSpikesSkillTree();
     syncSiegeSpikesItemLevel(newItem);
+  } else if (type === "rocket") {
+    newItem.rocketTree = createDefaultRocketPodSkillTree();
+    syncRocketPodItemLevel(newItem);
   }
   state.player.items.push(newItem);
   state.player.nextItemId += 1;
@@ -3775,7 +4611,7 @@ function upgradeItemInSlot(slotKey) {
   if (!state.player) return;
   const item = getItemInSlot(slotKey);
   if (!item || item.level >= MAX_UPGRADE_LEVEL) return;
-  if (item.type === "mine" || item.type === "warp" || item.type === "aegis" || item.type === "bulwark_anchor" || item.type === "combo_link" || item.type === "siege_spikes") return;
+  if (item.type === "mine" || item.type === "warp" || item.type === "void_counter" || item.type === "aegis" || item.type === "bulwark_anchor" || item.type === "combo_link" || item.type === "siege_spikes" || item.type === "rocket") return;
 
   const cost = calculateUpgradeCost(item);
   if (state.player.xpBank < cost) return;
@@ -3862,6 +4698,7 @@ function shortItemLabel(type) {
   if (type === "lance") return "LN";
   if (type === "combo_link") return "CL";
   if (type === "warp") return "WP";
+  if (type === "void_counter") return "VC";
   if (type === "mine") return "MN";
   if (type === "bulwark_anchor") return "BA";
   if (type === "siege_spikes") return "SS";
@@ -3973,6 +4810,7 @@ function makeWorld(profile, difficulty) {
     lanceBeams: [],
     lanceTrails: [],
     rockets: [],
+    rocketShockFlashes: [],
     allies: [],
     nextMineId: 1,
     mineLinkCooldowns: {},
@@ -4034,9 +4872,37 @@ function makeWorld(profile, difficulty) {
       warpComboQueuedEnemies: [],
       warpComboRelayQueue: [],
       warpComboRelayStepTimer: 0,
+      voidCounterWindowT: 0,
+      voidCounterPulseT: 0,
+      voidCounterBurstRadius: 0,
+      voidCounterBurstDamage: 0,
+      voidCounterExileT: 0,
+      voidCounterExileTotal: 0,
+      voidCounterExileDuration: 0,
+      voidCounterTeleporterDuration: 15,
+      voidCounterInfectEnabled: false,
+      voidCounterInfectRadius: 0,
+      voidCounterInfectInfusionMult: 1.9,
+      voidCounterInfectPulseInterval: 0,
+      voidCounterInfectLingeringDps: 0,
+      voidCounterImprintEnabled: false,
+      voidCounterImprintDuration: 0,
+      voidCounterImprintChargesBase: 0,
+      voidCounterImprintInfusionMult: 1.85,
+      voidCounterImprintT: 0,
+      voidCounterImprintTotal: 0,
+      voidCounterImprintCharges: 0,
+      voidCounterPendingTeleporters: [],
+      voidCounterTeleporters: [],
+      voidCounterSwapIndex: 0,
+      voidCounterShiftCd: 0,
       hitFlash: 0,
       angle: 0,
       dashIFrames: 0,
+      rocketPodCooldownPending: 0,
+      rocketAfterburnT: 0,
+      rocketAfterburnTotal: 0,
+      rocketAfterburnSpeedMult: 0,
       aegisT: 0,
       aegisDuration: 0,
       aegisStoredDamage: 0,
@@ -4104,6 +4970,7 @@ function stepGame(dt) {
   if (Array.isArray(p.warpComboRelayQueue) && p.warpComboRelayQueue.length > 0) {
     stepWarpComboRelayExecution(w, dt);
   }
+  stepVoidCounterState(w, dt);
   p.skyGlassingSummonWindow = Math.max(0, (p.skyGlassingSummonWindow || 0) - dt);
   if ((p.skyGlassingSummonWindow || 0) <= 0.001) {
     p.skyGlassingSummonWindow = 0;
@@ -4115,6 +4982,11 @@ function stepGame(dt) {
   stepAmberMineRecharge(w);
   stepMainGunComboState(w, dt);
   p.dashIFrames = Math.max(0, p.dashIFrames - dt);
+  p.rocketAfterburnT = Math.max(0, (p.rocketAfterburnT || 0) - dt);
+  if ((p.rocketAfterburnT || 0) <= 0.001) {
+    p.rocketAfterburnT = 0;
+    p.rocketAfterburnSpeedMult = 0;
+  }
   p.hitFlash = Math.max(0, p.hitFlash - dt);
   if (p.aegisComboFeedback) {
     p.aegisComboFeedback.t = Math.max(0, (p.aegisComboFeedback.t || 0) - dt);
@@ -4131,13 +5003,22 @@ function stepGame(dt) {
   const moveX = (state.input.right ? 1 : 0) - (state.input.left ? 1 : 0);
   const moveY = (state.input.down ? 1 : 0) - (state.input.up ? 1 : 0);
   const moveLen = Math.hypot(moveX, moveY) || 1;
-  p.vx = (moveX / moveLen) * p.speed;
-  p.vy = (moveY / moveLen) * p.speed;
-
-  p.x += p.vx * dt;
-  p.y += p.vy * dt;
+  const voidCounterExiled = (p.voidCounterExileT || 0) > 0;
+  const afterburnSpeedMult = (p.rocketAfterburnT || 0) > 0 ? Math.max(0, Number(p.rocketAfterburnSpeedMult) || 0) : 0;
+  const moveSpeed = p.speed * (1 + afterburnSpeedMult);
+  if (voidCounterExiled) {
+    p.vx = 0;
+    p.vy = 0;
+  } else {
+    p.vx = (moveX / moveLen) * moveSpeed;
+    p.vy = (moveY / moveLen) * moveSpeed;
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+  }
   p.angle = Math.atan2(state.mouse.y - p.y, state.mouse.x - p.x);
-  clampPlayer(p);
+  if (!voidCounterExiled) {
+    clampPlayer(p);
+  }
 
   if (state.input.voidComboRelayHeld && (p.warpComboT || 0) > 0) {
     state.input.voidComboRelayHoldT = Math.max(0, (state.input.voidComboRelayHoldT || 0) + dt);
@@ -4159,37 +5040,44 @@ function stepGame(dt) {
     state.input.void = false;
   }
 
+  if (state.input.voidShift) {
+    tryShiftVoidCounterTeleporter(w);
+    state.input.voidShift = false;
+  }
+
   if (state.input.azure) {
-    useAzureAbility(w);
+    if ((p.voidCounterExileT || 0) <= 0) useAzureAbility(w);
     state.input.azure = false;
   }
 
   if (state.input.aegisSummon) {
-    summonSkyGlassingAtCursor(w);
+    if ((p.voidCounterExileT || 0) <= 0) summonSkyGlassingAtCursor(w);
     state.input.aegisSummon = false;
   }
 
-  if (state.input.amberDown && state.input.amberDrawActive && pickAbility("amber")?.type === "siege_spikes") {
+  if ((p.voidCounterExileT || 0) <= 0 && state.input.amberDown && state.input.amberDrawActive && pickAbility("amber")?.type === "siege_spikes") {
     appendSiegeSpikesDrawPoint(state.mouse.x, state.mouse.y);
   }
 
   if (state.input.amberDrawCommit) {
-    useAmberAbility(w, {
-      drawn: true,
-      drawPoints: Array.isArray(state.input.amberDrawPoints)
-        ? state.input.amberDrawPoints.map((pt) => ({ x: pt.x, y: pt.y }))
-        : [],
-    });
+    if ((p.voidCounterExileT || 0) <= 0) {
+      useAmberAbility(w, {
+        drawn: true,
+        drawPoints: Array.isArray(state.input.amberDrawPoints)
+          ? state.input.amberDrawPoints.map((pt) => ({ x: pt.x, y: pt.y }))
+          : [],
+      });
+    }
     resetAmberDrawInputState();
   }
 
   if (state.input.amber) {
-    useAmberAbility(w);
+    if ((p.voidCounterExileT || 0) <= 0) useAmberAbility(w);
     state.input.amber = false;
   }
 
   if (state.input.aegisCombo) {
-    registerAegisComboTimingPress(w);
+    if ((p.voidCounterExileT || 0) <= 0) registerAegisComboTimingPress(w);
     state.input.aegisCombo = false;
   }
 
@@ -4197,9 +5085,16 @@ function stepGame(dt) {
     updateMarathonState(w, dt);
   }
 
-  stepAltWeaponCharge(w, dt);
+  const playerExiledNow = (p.voidCounterExileT || 0) > 0;
+  if (!playerExiledNow) {
+    stepAltWeaponCharge(w, dt);
+  } else {
+    p.altChargeActive = false;
+    p.altChargeReady = false;
+    p.altChargeT = 0;
+  }
 
-  if (state.input.firing) {
+  if (!playerExiledNow && state.input.firing) {
     fireSlottedWeapons(w);
   }
 
@@ -4241,7 +5136,9 @@ function stepGame(dt) {
   tryStartDeferredAegisCooldown(w);
   stepLanceBeams(w, dt);
   stepLanceTrails(w, dt);
+  stepRocketShockFlashes(w, dt);
   resolveCombat(w);
+  maybeStartRocketPodCooldown(w);
   stepAegisShield(w, dt);
   collectDrops(w, dt);
   stepParticles(w, dt);
@@ -4651,7 +5548,14 @@ function applyPlayerDamage(w, damage, opts = {}) {
   if (hit <= 0) return false;
   if ((w?.isTestMode || w?.isMarathonTestMode) && w.testPlayerInvincible) return false;
   const fortifyReduction = clamp(p.amberFortifyReduction || 0, 0, 0.85);
-  const adjustedHit = hit * (1 - fortifyReduction);
+  let adjustedHit = hit * (1 - fortifyReduction);
+  if (adjustedHit <= 0.001) return false;
+  if ((p.voidCounterExileT || 0) > 0) return false;
+  if ((p.voidCounterWindowT || 0) > 0) {
+    triggerVoidCounterMainAbility(w);
+    return false;
+  }
+
   if (adjustedHit <= 0.001) return false;
 
   if ((p.aegisT || 0) > 0) {
@@ -5118,7 +6022,8 @@ function getAbilityCooldownTotal(module, stacks) {
   if (!module) return 0;
   const stackScale = getAbilityStackScale(stacks);
   if (module.type === "warp") return getWarpAbilityStats(module, stacks).cooldown;
-  if (module.type === "rocket") return Math.max(5.2 - module.level * 0.06, 1.0) * stackScale;
+  if (module.type === "void_counter") return getVoidCounterAbilityStats(module, stacks).cooldown;
+  if (module.type === "rocket") return getRocketPodStats(module, stacks).cooldown;
   if (module.type === "helper") return Math.max(8 - module.level * 0.05, 2.0) * stackScale;
   if (module.type === "aegis") return getAegisAbilityStats(module, stacks).cooldown;
   if (module.type === "mine") return getMineAbilityStats(module, stacks).cooldown;
@@ -5336,9 +6241,294 @@ function applyWarpBurstDamage(w, x, y, warpStats, opts = {}) {
   return kills;
 }
 
+function triggerVoidCounterMainAbility(w) {
+  const p = w?.player;
+  if (!w || !p) return false;
+  if ((p.voidCounterExileT || 0) > 0) return false;
+  if ((p.voidCounterWindowT || 0) <= 0) return false;
+
+  const burstStats = {
+    damageRadius: Math.max(24, Number(p.voidCounterBurstRadius) || 140),
+    damage: Math.max(1, Number(p.voidCounterBurstDamage) || 90),
+  };
+  applyWarpBurstDamage(w, p.x, p.y, burstStats, { sourceKind: "void_counter_burst" });
+  splash(w, p.x, p.y, "#ae83ff", 20, 2.2);
+  audio.play("warp");
+
+  p.voidCounterWindowT = 0;
+  p.voidCounterPulseT = 0;
+  p.voidCounterExileT = Math.max(0.4, Number(p.voidCounterExileDuration) || 2.4);
+  p.voidCounterExileTotal = p.voidCounterExileT;
+  p.voidCounterPendingTeleporters = [];
+  p.voidCounterTeleporters = [];
+  p.voidCounterSwapIndex = 0;
+  p.voidCounterShiftCd = 0;
+  p.dashIFrames = Math.max(p.dashIFrames || 0, 0.12);
+  return true;
+}
+
+function activateVoidCounterSlipstreamImprint(w, p) {
+  if (!w || !p) return false;
+  if (!p.voidCounterImprintEnabled) return false;
+  const duration = Math.max(0, Number(p.voidCounterImprintDuration) || 0);
+  const charges = Math.max(0, Math.floor(Number(p.voidCounterImprintChargesBase) || 0));
+  if (duration <= 0 || charges <= 0) return false;
+  p.voidCounterImprintT = duration;
+  p.voidCounterImprintTotal = duration;
+  p.voidCounterImprintCharges = charges;
+  splash(w, p.x, p.y, "#c9a7ff", 9, 1.1);
+  return true;
+}
+
+function stepVoidCounterSlipstreamInfusion(w, p, dt) {
+  if (!w || !p) return;
+  p.voidCounterImprintT = Math.max(0, (p.voidCounterImprintT || 0) - dt);
+  if ((p.voidCounterImprintT || 0) <= 0 || (p.voidCounterImprintCharges || 0) <= 0) {
+    p.voidCounterImprintT = 0;
+    p.voidCounterImprintCharges = Math.max(0, Math.floor(p.voidCounterImprintCharges || 0));
+    return;
+  }
+
+  const sourceX = p.x || 0;
+  const sourceY = p.y || 0;
+  const infusionRadius = 132;
+  const infusionMult = Math.max(1, Number(p.voidCounterImprintInfusionMult) || 1.85);
+
+  const consumeCharge = () => {
+    p.voidCounterImprintCharges = Math.max(0, Math.floor((p.voidCounterImprintCharges || 0) - 1));
+    if ((p.voidCounterImprintCharges || 0) <= 0) {
+      p.voidCounterImprintT = 0;
+    }
+  };
+
+  for (const mine of w.mines || []) {
+    if ((p.voidCounterImprintCharges || 0) <= 0) break;
+    if (!mine || mine.expired || (mine.chargesLeft || 0) <= 0 || mine.voidInfused) continue;
+    const mineR = Math.max(8, (mine.visualRadius || (mine.r || 50) * 0.22));
+    if (Math.hypot((mine.x || 0) - sourceX, (mine.y || 0) - sourceY) > infusionRadius + mineR) continue;
+    if (infuseMineWithVoid(mine, infusionMult)) {
+      consumeCharge();
+      splash(w, mine.x, mine.y, "#d0aaff", 8, 0.95);
+    }
+  }
+
+  for (const beam of w.azureBeams || []) {
+    if ((p.voidCounterImprintCharges || 0) <= 0) break;
+    if (!beam || beam.voidInfused || (beam.life || 0) <= 0.001) continue;
+    const beamR = Math.max(16, Number(beam.radius) || 64);
+    if (Math.hypot((beam.x || 0) - sourceX, (beam.y || 0) - sourceY) > infusionRadius + beamR * 0.7) continue;
+    if (infuseActiveAegisGlassingBeamWithVoid(beam, infusionMult)) {
+      consumeCharge();
+      splash(w, beam.x, beam.y, "#d0aaff", 10, 1.05);
+    }
+  }
+
+  for (const sweep of w.skyGlassingSweepBeams || []) {
+    if ((p.voidCounterImprintCharges || 0) <= 0) break;
+    if (!sweep || sweep.voidInfused) continue;
+    const sweepR = Math.max(16, Number(sweep.radius) || SKY_GLASSING_SUMMON_RADIUS);
+    if (Math.hypot((sweep.x || 0) - sourceX, (sweep.y || 0) - sourceY) > infusionRadius + sweepR * 0.7) continue;
+    if (infuseSkyGlassingSweepWithVoid(sweep, infusionMult)) {
+      consumeCharge();
+      splash(w, sweep.x, sweep.y, "#c79dff", 9, 1.0);
+    }
+  }
+}
+
+function finalizeVoidCounterExile(w) {
+  const p = w?.player;
+  if (!w || !p) return;
+
+  const pending = Array.isArray(p.voidCounterPendingTeleporters)
+    ? p.voidCounterPendingTeleporters.filter(Boolean).slice(0, 1)
+    : [];
+  const teleporterDuration = Math.max(1, Number(p.voidCounterTeleporterDuration) || 15);
+  let spawnX = canvas.width * 0.5;
+  let spawnY = canvas.height * 0.5;
+  p.voidCounterTeleporters = [];
+
+  if (pending.length === 1) {
+    spawnX = pending[0].x;
+    spawnY = pending[0].y;
+    p.voidCounterTeleporters = [
+      {
+        x: pending[0].x,
+        y: pending[0].y,
+        life: teleporterDuration,
+        total: teleporterDuration,
+        infectEnabled: !!p.voidCounterInfectEnabled,
+        infectRadius: Math.max(0, Number(p.voidCounterInfectRadius) || 0),
+        infectInfusionMult: Math.max(1, Number(p.voidCounterInfectInfusionMult) || 1.9),
+        infectPulseInterval: Math.max(0, Number(p.voidCounterInfectPulseInterval) || 0),
+        infectLingeringDps: Math.max(0, Number(p.voidCounterInfectLingeringDps) || 0),
+        infectPulseT: 0,
+      },
+    ];
+    p.voidCounterSwapIndex = 0;
+  }
+
+  p.x = clamp(spawnX, 14, canvas.width - 14);
+  p.y = clamp(spawnY, 14, canvas.height - 14);
+  p.voidCounterPendingTeleporters = [];
+  p.voidCounterExileT = 0;
+  p.voidCounterExileTotal = 0;
+  p.voidCounterShiftCd = 0;
+  p.dashIFrames = Math.max(p.dashIFrames || 0, 0.2);
+  if (pending.length === 1) activateVoidCounterSlipstreamImprint(w, p);
+  splash(w, p.x, p.y, "#c7a1ff", 14, 1.6);
+}
+
+function placeVoidCounterTeleporterAtCursor(w) {
+  const p = w?.player;
+  if (!w || !p) return false;
+  if ((p.voidCounterExileT || 0) <= 0) return false;
+  if (!Array.isArray(p.voidCounterPendingTeleporters)) p.voidCounterPendingTeleporters = [];
+  if (p.voidCounterPendingTeleporters.length >= 1) return false;
+
+  const x = clamp(Number.isFinite(state.mouse.x) ? state.mouse.x : canvas.width * 0.5, 22, canvas.width - 22);
+  const y = clamp(Number.isFinite(state.mouse.y) ? state.mouse.y : canvas.height * 0.5, 22, canvas.height - 22);
+  p.voidCounterPendingTeleporters.push({ x, y });
+  const teleporterDuration = Math.max(1, Number(p.voidCounterTeleporterDuration) || 15);
+  p.voidCounterTeleporters = [{
+    x,
+    y,
+    life: teleporterDuration,
+    total: teleporterDuration,
+    infectEnabled: !!p.voidCounterInfectEnabled,
+    infectRadius: Math.max(0, Number(p.voidCounterInfectRadius) || 0),
+    infectInfusionMult: Math.max(1, Number(p.voidCounterInfectInfusionMult) || 1.9),
+    infectPulseInterval: Math.max(0, Number(p.voidCounterInfectPulseInterval) || 0),
+    infectLingeringDps: Math.max(0, Number(p.voidCounterInfectLingeringDps) || 0),
+    infectPulseT: 0,
+  }];
+  p.x = clamp(x, 14, canvas.width - 14);
+  p.y = clamp(y, 14, canvas.height - 14);
+  p.voidCounterExileT = 0;
+  p.voidCounterExileTotal = 0;
+  p.voidCounterPendingTeleporters = [];
+  p.voidCounterShiftCd = 0;
+  p.dashIFrames = Math.max(p.dashIFrames || 0, 0.2);
+  activateVoidCounterSlipstreamImprint(w, p);
+  splash(w, x, y, "#b488ff", 10, 1.3);
+  audio.play("warp");
+  return true;
+}
+
+function tryShiftVoidCounterTeleporter(w) {
+  const p = w?.player;
+  if (!w || !p) return false;
+  if ((p.voidCounterExileT || 0) > 0) return false;
+  if ((p.voidCounterShiftCd || 0) > 0) return false;
+  if (!Array.isArray(p.voidCounterTeleporters) || p.voidCounterTeleporters.length < 1) return false;
+
+  const target = p.voidCounterTeleporters[0];
+  if (!target) return false;
+  p.x = clamp(target.x, 14, canvas.width - 14);
+  p.y = clamp(target.y, 14, canvas.height - 14);
+  p.voidCounterSwapIndex = 0;
+  p.voidCounterShiftCd = 5;
+  p.dashIFrames = Math.max(p.dashIFrames || 0, 0.14);
+  activateVoidCounterSlipstreamImprint(w, p);
+  splash(w, p.x, p.y, "#c49bff", 11, 1.4);
+  audio.play("warp");
+  return true;
+}
+
+function stepVoidCounterState(w, dt) {
+  const p = w?.player;
+  if (!p) return;
+  p.voidCounterWindowT = Math.max(0, (p.voidCounterWindowT || 0) - dt);
+  p.voidCounterPulseT = Math.max(0, (p.voidCounterPulseT || 0) - dt);
+  p.voidCounterShiftCd = Math.max(0, (p.voidCounterShiftCd || 0) - dt);
+  stepVoidCounterSlipstreamInfusion(w, p, dt);
+
+  if (Array.isArray(p.voidCounterTeleporters) && p.voidCounterTeleporters.length > 0) {
+    const kept = [];
+    for (const tele of p.voidCounterTeleporters) {
+      if (!tele) continue;
+      tele.life = Math.max(0, (tele.life || 0) - dt);
+      tele.infectPulseT = Math.max(0, (tele.infectPulseT || 0) - dt);
+      const infectEnabled = !!tele.infectEnabled;
+      const infectRadius = Math.max(0, Number(tele.infectRadius) || 0);
+      const infectMult = Math.max(1, Number(tele.infectInfusionMult) || 1.9);
+      const infectLingeringDps = Math.max(0, Number(tele.infectLingeringDps) || 0);
+      if (infectEnabled && infectRadius > 0 && infectLingeringDps > 0.001) {
+        for (const e of w.enemies || []) {
+          if (!e || e.hp <= 0) continue;
+          const d = Math.hypot((e.x || 0) - tele.x, (e.y || 0) - tele.y);
+          if (d > infectRadius + (e.r || 10) * 0.45) continue;
+          markEnemyHit(e);
+          if (applyTypedShieldBlock(w, e, e.x, e.y, "void")) {
+            e.lastHitKind = "void_counter_infection";
+            continue;
+          }
+          const falloff = 1 - clamp(d / Math.max(1, infectRadius), 0, 1);
+          let dealt = infectLingeringDps * dt * (0.45 + falloff * 0.55);
+          if (isMiniBossKind(e.kind)) {
+            const guard = Math.max(0, Math.min(0.9, e.guard || 0));
+            dealt *= (1 - guard);
+          }
+          dealt = applyBulwarkTrapDamageBonus(w, e, dealt);
+          e.hp -= dealt;
+          registerSiphonOverlordHit(w, e, dealt);
+          e.lastHitKind = "void_counter_infection";
+          if (Math.random() < 0.09) {
+            splash(w, e.x, e.y, "#c89dff", 3, 0.7);
+          }
+        }
+      }
+      if (
+        infectEnabled
+        && infectRadius > 0
+        && (tele.infectPulseT || 0) <= 0
+      ) {
+        const mineInfused = [];
+        for (const mine of w.mines || []) {
+          if (!mine || mine.expired || (mine.chargesLeft || 0) <= 0 || mine.voidInfused) continue;
+          const mineR = Math.max(8, (mine.visualRadius || (mine.r || 50) * 0.22));
+          if (Math.hypot((mine.x || 0) - tele.x, (mine.y || 0) - tele.y) <= infectRadius + mineR) {
+            if (infuseMineWithVoid(mine, infectMult)) mineInfused.push(mine);
+          }
+        }
+        for (const mine of mineInfused) splash(w, mine.x, mine.y, "#c39aff", 8, 1.0);
+
+        for (const beam of w.azureBeams || []) {
+          if (!beam || beam.voidInfused || (beam.life || 0) <= 0.001) continue;
+          const beamR = Math.max(16, Number(beam.radius) || 64);
+          if (Math.hypot((beam.x || 0) - tele.x, (beam.y || 0) - tele.y) <= infectRadius + beamR * 0.6) {
+            if (infuseActiveAegisGlassingBeamWithVoid(beam, infectMult)) {
+              splash(w, beam.x, beam.y, "#c39aff", 10, 1.15);
+            }
+          }
+        }
+
+        for (const sweep of w.skyGlassingSweepBeams || []) {
+          if (!sweep || sweep.voidInfused) continue;
+          const sweepR = Math.max(16, Number(sweep.radius) || SKY_GLASSING_SUMMON_RADIUS);
+          if (Math.hypot((sweep.x || 0) - tele.x, (sweep.y || 0) - tele.y) <= infectRadius + sweepR * 0.6) {
+            if (infuseSkyGlassingSweepWithVoid(sweep, infectMult)) {
+              splash(w, sweep.x, sweep.y, "#bf92ff", 9, 1.1);
+            }
+          }
+        }
+        tele.infectPulseT = Math.max(0.05, Number(tele.infectPulseInterval) || 0.16);
+      }
+      if ((tele.life || 0) > 0.001) kept.push(tele);
+    }
+    p.voidCounterTeleporters = kept;
+    if (p.voidCounterTeleporters.length < 1) p.voidCounterSwapIndex = 0;
+  }
+
+  if ((p.voidCounterExileT || 0) > 0) {
+    p.voidCounterExileT = Math.max(0, (p.voidCounterExileT || 0) - dt);
+    if ((p.voidCounterExileT || 0) <= 0.001) {
+      finalizeVoidCounterExile(w);
+    }
+  }
+}
+
 function useVoidAbility(w, mode = "movement") {
   const p = w.player;
-  if (p.voidCd > 0) return;
   const bulwarkLockAnchor = findPlayerBulwarkLockAnchor(w);
 
   const module = pickAbility("void");
@@ -5346,7 +6536,40 @@ function useVoidAbility(w, mode = "movement") {
 
   const stacks = countSlottedByType(module.type);
 
+  if (module.type === "void_counter") {
+    if ((p.voidCounterExileT || 0) > 0) {
+      placeVoidCounterTeleporterAtCursor(w);
+      return;
+    }
+    if (p.voidCd > 0) return;
+    const stats = getVoidCounterAbilityStats(module, stacks);
+    p.voidCounterWindowT = stats.counterWindow;
+    p.voidCounterPulseT = 0.22;
+    p.voidCounterBurstRadius = stats.burstRadius;
+    p.voidCounterBurstDamage = stats.burstDamage;
+    p.voidCounterExileDuration = stats.exileDuration;
+    p.voidCounterTeleporterDuration = stats.teleporterDuration;
+    p.voidCounterInfectEnabled = !!stats.infectEnabled;
+    p.voidCounterInfectRadius = stats.infectRadius;
+    p.voidCounterInfectInfusionMult = stats.infectInfusionMult;
+    p.voidCounterInfectPulseInterval = stats.infectPulseInterval;
+    p.voidCounterInfectLingeringDps = stats.infectLingeringDps;
+    p.voidCounterImprintEnabled = !!stats.imprintEnabled;
+    p.voidCounterImprintDuration = stats.imprintDuration;
+    p.voidCounterImprintChargesBase = stats.imprintCharges;
+    p.voidCounterImprintInfusionMult = stats.imprintInfusionMult;
+    p.voidCounterImprintT = 0;
+    p.voidCounterImprintTotal = 0;
+    p.voidCounterImprintCharges = 0;
+    p.voidCounterPendingTeleporters = [];
+    p.voidCd = stats.cooldown;
+    splash(w, p.x, p.y, "#b58dff", 10, 1.15);
+    audio.play("warp");
+    return;
+  }
+
   if (module.type === "warp") {
+    if (p.voidCd > 0) return;
     const stats = getWarpAbilityStats(module, stacks);
     const sourceX = p.x;
     const sourceY = p.y;
@@ -5395,7 +6618,6 @@ function useVoidAbility(w, mode = "movement") {
 
 function useAzureAbility(w) {
   const p = w.player;
-  if (p.azureCd > 0 || (p.aegisCooldownPending || 0) > 0) return;
 
   const module = pickAbility("azure");
   if (!module) return;
@@ -5403,14 +6625,53 @@ function useAzureAbility(w) {
   const stacks = countSlottedByType(module.type);
 
   if (module.type === "rocket") {
-    const turn = 3.2 + module.level * 0.07;
-    const damage = 56 + module.level * 3.2;
-    const speed = 280;
-    w.rockets.push({ x: p.x, y: p.y, vx: Math.cos(p.angle) * speed, vy: Math.sin(p.angle) * speed, life: 4.2, dmg: damage, turn, affinity: "azure" });
-    p.azureCd = Math.max(5.2 - module.level * 0.06, 1.0) * (1 - Math.min(0.35, (stacks - 1) * 0.08));
+    if (getActiveRocketPodRockets(w).length > 0) {
+      detonateRocketPodCluster(w);
+      return;
+    }
+    if (p.azureCd > 0) return;
+    const stats = getRocketPodStats(module, stacks);
+    const aimX = Number.isFinite(state.mouse.x) ? state.mouse.x : (p.x + Math.cos(p.angle) * 100);
+    const aimY = Number.isFinite(state.mouse.y) ? state.mouse.y : (p.y + Math.sin(p.angle) * 100);
+    const baseAim = Math.atan2(aimY - p.y, aimX - p.x);
+    const count = Math.max(1, Math.floor(stats.clusterCount || 1));
+    for (let i = 0; i < count; i += 1) {
+      const centerOffset = i - (count - 1) * 0.5;
+      const spread = centerOffset * 0.16 + (Math.random() - 0.5) * 0.06;
+      const a = baseAim + spread;
+      const spawnX = p.x + Math.cos(a) * 14;
+      const spawnY = p.y + Math.sin(a) * 14;
+      w.rockets.push({
+        x: spawnX,
+        y: spawnY,
+        vx: Math.cos(a) * stats.speed,
+        vy: Math.sin(a) * stats.speed,
+        speed: stats.speed,
+        life: stats.life,
+        totalLife: stats.life,
+        dmg: stats.explosionDamage,
+        explosionRadius: stats.explosionRadius,
+        shockDps: stats.shockDps,
+        shockDuration: stats.shockDuration,
+        afterburnEnabled: !!stats.afterburnEnabled,
+        afterburnHealOnKill: stats.afterburnHealOnKill,
+        afterburnDuration: stats.afterburnDuration,
+        afterburnSpeedMult: stats.afterburnSpeedMult,
+        afterburnHealMissingPct: stats.afterburnHealMissingPct,
+        afterburnRange: stats.afterburnRange,
+        turn: stats.turnRate,
+        affinity: "azure",
+        followMouse: true,
+      });
+    }
+    p.azureCd = 0;
+    p.rocketPodCooldownPending = stats.cooldown;
+    splash(w, p.x, p.y, "#5fb3ff", 10 + Math.floor(count * 0.8), 1.8);
     audio.play("rocketLaunch");
     return;
   }
+
+  if (p.azureCd > 0 || (p.aegisCooldownPending || 0) > 0) return;
 
   if (module.type === "helper") {
     const summoned = summonHelperAllies(w, module.level);
@@ -5515,6 +6776,15 @@ function useAmberAbility(w, opts = null) {
       turretRange: Math.max(140, stats.radius * 3.1),
       turretMissileSpeed: Math.max(135, stats.gooSeekSpeed * 1.65),
       turretTurnRate: 3.2,
+      azureInfused: false,
+      azureInfusionT: 0,
+      azureInfusionTotal: 0,
+      azureArcCd: 0,
+      azureArcRange: 0,
+      azureArcInterval: 0,
+      azureArcDamageMult: 0,
+      azureArcShockMult: 0,
+      azureArcTargets: 1,
     });
     p.amberCharges = Math.max(0, p.amberCharges - 1);
     p.amberCd = p.amberCharges < maxStored && p.amberCd <= 0.001 ? stats.cooldown : p.amberCd;
@@ -6146,6 +7416,39 @@ function stepBossBursts(w, dt) {
   w.bossBursts = kept;
 }
 
+function spawnRocketShockFlash(w, x1, y1, x2, y2, intensity = 1, tint = "blue") {
+  if (!w || !Number.isFinite(x1) || !Number.isFinite(y1) || !Number.isFinite(x2) || !Number.isFinite(y2)) return;
+  if (!Array.isArray(w.rocketShockFlashes)) w.rocketShockFlashes = [];
+  const power = clamp(Number(intensity) || 1, 0.65, 1.65);
+  w.rocketShockFlashes.push({
+    x1,
+    y1,
+    x2,
+    y2,
+    life: 0.12 + power * 0.03,
+    total: 0.12 + power * 0.03,
+    width: 1.2 + power * 0.7,
+    jitter: 4 + power * 4,
+    seed: Math.random() * 1000,
+    power,
+    tint: tint === "green" ? "green" : "blue",
+  });
+  if (w.rocketShockFlashes.length > 180) {
+    w.rocketShockFlashes.splice(0, w.rocketShockFlashes.length - 180);
+  }
+}
+
+function stepRocketShockFlashes(w, dt) {
+  if (!Array.isArray(w?.rocketShockFlashes) || w.rocketShockFlashes.length <= 0) return;
+  const next = [];
+  for (const flash of w.rocketShockFlashes) {
+    if (!flash) continue;
+    flash.life = Math.max(0, (flash.life || 0) - dt);
+    if ((flash.life || 0) > 0.001) next.push(flash);
+  }
+  w.rocketShockFlashes = next;
+}
+
 function spawnEnemyByKind(w, kind, x, y) {
   const hpScale = w.scale.enemyHp;
   const spdScale = w.scale.enemySpeed;
@@ -6624,27 +7927,40 @@ function stepBullets(w, dt) {
 
 function stepRockets(w, dt) {
   for (const r of w.rockets) {
+    if (!r || (r.life || 0) <= 0) continue;
     r.px = r.x;
     r.py = r.y;
     r.life -= dt;
-    let target = null;
-    let best = Infinity;
-    for (const e of w.enemies) {
-      const dist = Math.hypot(e.x - r.x, e.y - r.y);
-      if (dist < best) {
-        best = dist;
-        target = e;
+    let targetX = null;
+    let targetY = null;
+    if (r.followMouse) {
+      targetX = Number.isFinite(state.mouse.x) ? state.mouse.x : r.x;
+      targetY = Number.isFinite(state.mouse.y) ? state.mouse.y : r.y;
+    } else {
+      let target = null;
+      let best = Infinity;
+      for (const e of w.enemies) {
+        const dist = Math.hypot(e.x - r.x, e.y - r.y);
+        if (dist < best) {
+          best = dist;
+          target = e;
+        }
+      }
+      if (target) {
+        targetX = target.x;
+        targetY = target.y;
       }
     }
 
-    if (target) {
-      const desired = Math.atan2(target.y - r.y, target.x - r.x);
+    if (Number.isFinite(targetX) && Number.isFinite(targetY)) {
+      const desired = Math.atan2(targetY - r.y, targetX - r.x);
       const current = Math.atan2(r.vy, r.vx);
       let delta = desired - current;
       while (delta > Math.PI) delta -= Math.PI * 2;
       while (delta < -Math.PI) delta += Math.PI * 2;
-      const next = current + clamp(delta, -r.turn * dt, r.turn * dt);
-      const speed = Math.hypot(r.vx, r.vy);
+      const turnRate = Math.max(0.2, Number(r.turn) || 3.2);
+      const next = current + clamp(delta, -turnRate * dt, turnRate * dt);
+      const speed = Math.max(1, Math.hypot(r.vx, r.vy) || Number(r.speed) || 250);
       r.vx = Math.cos(next) * speed;
       r.vy = Math.sin(next) * speed;
     }
@@ -6654,6 +7970,288 @@ function stepRockets(w, dt) {
   }
 
   w.rockets = w.rockets.filter((r) => r.life > 0);
+}
+
+function getRocketPodStats(module, stacks = 1) {
+  const tree = normalizeRocketPodSkillTree(module?.rocketTree, module?.level || 0);
+  const stackScale = getAbilityStackScale(stacks);
+  const stackBonus = Math.max(0, Math.floor(stacks - 1));
+  const afterburnEnabled = (tree.afterburnUnlock || 0) > 0 && (tree.infuseUnlock || 0) <= 0;
+  const mineInfusionEnabled = (tree.infuseUnlock || 0) > 0 && (tree.afterburnUnlock || 0) <= 0;
+  return {
+    cooldown: Math.max(6.3 - tree.cooldown * 0.11, 1.15) * stackScale,
+    clusterCount: clampInt(3 + Math.floor(tree.clusterCount * 0.5) + stackBonus, 3, 12),
+    explosionRadius: 106 + tree.explosionRadius * 6.1,
+    explosionDamage: 54 + tree.explosionDamage * 6.9,
+    shockDps: 16 + tree.shockDamage * 4.1 + stackBonus * 5.5,
+    shockDuration: 1.6 + tree.shockDuration * 0.12 + stackBonus * 0.2,
+    turnRate: 4.8 + tree.turnRate * 0.18,
+    speed: 272 + tree.speed * 4.4,
+    life: 5.1 + tree.life * 0.13,
+    afterburnEnabled,
+    afterburnHealOnKill: afterburnEnabled ? (6 + tree.afterburnShield * 2.8) : 0,
+    afterburnDuration: afterburnEnabled ? (1.05 + tree.afterburnDuration * 0.16) : 0,
+    afterburnSpeedMult: afterburnEnabled ? (0.1 + tree.afterburnSpeed * 0.018) : 0,
+    afterburnHealMissingPct: afterburnEnabled ? (0.05 + tree.afterburnConvert * 0.01) : 0,
+    afterburnRange: afterburnEnabled ? (96 + tree.afterburnRange * 13) : 0,
+    mineInfusionEnabled,
+    mineInfusionDuration: mineInfusionEnabled ? Number.POSITIVE_INFINITY : 0,
+    mineInfusionPermanent: mineInfusionEnabled,
+    mineArcRange: mineInfusionEnabled ? (72 + tree.infuseDuration * 5.5) : 0,
+    mineArcInterval: mineInfusionEnabled ? Math.max(0.45, 2.3 - tree.infuseCadence * 0.17) : 0,
+    mineArcDamageMult: mineInfusionEnabled ? (0.28 + tree.infusePayload * 0.055) : 0,
+    mineArcShockMult: mineInfusionEnabled ? (0.42 + tree.infusePayload * 0.05) : 0,
+    mineArcTargets: mineInfusionEnabled ? clampInt(1 + Math.floor(tree.infuseCount * 0.34), 1, 4) : 0,
+    tree,
+  };
+}
+
+function getRocketPodKillEffectProfile(w) {
+  const module = pickAbility("azure");
+  if (!module || module.type !== "rocket") return null;
+  const stats = getRocketPodStats(module, countSlottedByType(module.type));
+  if (stats.mineInfusionEnabled) {
+    return {
+      mode: "mine_infusion",
+      mineInfusionDuration: Number(stats.mineInfusionDuration) || 0,
+      mineInfusionPermanent: !!stats.mineInfusionPermanent,
+      mineArcRange: Math.max(24, Number(stats.mineArcRange) || 0),
+      mineArcInterval: Math.max(0.3, Number(stats.mineArcInterval) || 0),
+      mineArcDamageMult: Math.max(0.05, Number(stats.mineArcDamageMult) || 0),
+      mineArcShockMult: Math.max(0.05, Number(stats.mineArcShockMult) || 0),
+      mineArcTargets: clampInt(stats.mineArcTargets, 1, 4),
+    };
+  }
+  if (stats.afterburnEnabled) {
+    return {
+      mode: "leech",
+      healFlat: Math.max(0, Number(stats.afterburnHealOnKill) || 0),
+      healMissingPct: clamp(Number(stats.afterburnHealMissingPct) || 0, 0, 0.5),
+    };
+  }
+  return null;
+}
+
+function getActiveRocketPodRockets(w) {
+  if (!Array.isArray(w?.rockets)) return [];
+  return w.rockets.filter((rocket) => !!rocket && !!rocket.followMouse && (rocket.life || 0) > 0.001);
+}
+
+function maybeStartRocketPodCooldown(w) {
+  const p = w?.player;
+  if (!p) return;
+  if ((p.rocketPodCooldownPending || 0) <= 0.001) return;
+  if (getActiveRocketPodRockets(w).length > 0) return;
+  if ((p.azureCd || 0) <= 0.001) {
+    p.azureCd = Math.max(0, Number(p.rocketPodCooldownPending) || 0);
+  }
+  p.rocketPodCooldownPending = 0;
+}
+
+function pickRocketPodDetonationTarget(w) {
+  const active = getActiveRocketPodRockets(w);
+  if (active.length <= 0) return null;
+  const mouseX = Number.isFinite(state.mouse.x) ? state.mouse.x : null;
+  const mouseY = Number.isFinite(state.mouse.y) ? state.mouse.y : null;
+  if (!Number.isFinite(mouseX) || !Number.isFinite(mouseY)) {
+    return active[0];
+  }
+  let target = active[0];
+  let best = Math.hypot((target.x || 0) - mouseX, (target.y || 0) - mouseY);
+  for (let i = 1; i < active.length; i += 1) {
+    const rocket = active[i];
+    const d = Math.hypot((rocket.x || 0) - mouseX, (rocket.y || 0) - mouseY);
+    if (d < best) {
+      best = d;
+      target = rocket;
+    }
+  }
+  return target;
+}
+
+function triggerRocketAfterburnFromDetonation(w, rocket) {
+  const p = w?.player;
+  if (!p || !rocket) return false;
+  if (!rocket.afterburnEnabled) return false;
+  const triggerRange = Math.max(24, Number(rocket.afterburnRange) || 0);
+  const d = Math.hypot((rocket.x || 0) - p.x, (rocket.y || 0) - p.y);
+  if (d > triggerRange) return false;
+
+  const duration = Math.max(0, Number(rocket.afterburnDuration) || 0);
+  const speedMult = Math.max(0, Number(rocket.afterburnSpeedMult) || 0);
+  if (duration <= 0.001) return false;
+
+  p.rocketAfterburnT = Math.max(p.rocketAfterburnT || 0, duration);
+  p.rocketAfterburnTotal = Math.max(p.rocketAfterburnTotal || 0, duration);
+  p.rocketAfterburnSpeedMult = Math.max(p.rocketAfterburnSpeedMult || 0, speedMult);
+  splash(w, p.x, p.y, "#8fd5ff", 10, 1.25);
+  return true;
+}
+
+function detonateRocket(w, rocket, opts = {}) {
+  if (!w || !rocket || (rocket.life || 0) <= 0.001) return false;
+  const manual = !!opts.manual;
+  const playSound = opts.playSound !== false;
+  const radius = Math.max(18, Number(rocket.explosionRadius) || 95);
+  const baseDamage = Math.max(1, Number(rocket.dmg) || 40);
+  const shockDps = Math.max(0, Number(rocket.shockDps) || 0);
+  const shockDuration = Math.max(0, Number(rocket.shockDuration) || 0);
+  const affinity = rocket.affinity || "azure";
+  if (manual) {
+    triggerRocketAfterburnFromDetonation(w, rocket);
+  }
+
+  for (const e of w.enemies || []) {
+    if (!e || e.hp <= 0) continue;
+    const d = Math.hypot((e.x || 0) - (rocket.x || 0), (e.y || 0) - (rocket.y || 0));
+    if (d > radius + (e.r || 10) * 0.35) continue;
+
+    let impactX = rocket.x;
+    let impactY = rocket.y;
+    if (isBossBottomLeft(e.kind) && hasBossBottomLeftActiveShield(e) && d <= e.r + 12) {
+      const nearestShieldNode = getNearestBossBottomLeftShieldNode(e, w.t, rocket.x, rocket.y);
+      if (nearestShieldNode) {
+        impactX = nearestShieldNode.x;
+        impactY = nearestShieldNode.y;
+      }
+    }
+
+    markEnemyHit(e);
+    if (applyTypedShieldBlock(w, e, impactX, impactY, affinity)) {
+      e.lastHitKind = "rocket";
+      continue;
+    }
+    if (e.kind === "mega_cannon_boss" && e.shieldT > 0) {
+      const heal = Math.max(5, baseDamage * 0.48);
+      e.hp = Math.min(e.maxHp || e.hp, e.hp + heal);
+      splash(w, e.x, e.y, "#8effa6", 8, 1.1);
+      continue;
+    }
+
+    const falloff = 1 - clamp(d / Math.max(1, radius), 0, 1);
+    let dealt = baseDamage * (0.38 + falloff * 0.62);
+    if (isMiniBossKind(e.kind)) {
+      const guard = Math.max(0, Math.min(0.9, e.guard || 0));
+      dealt *= (1 - guard);
+    }
+    dealt = applyBulwarkTrapDamageBonus(w, e, dealt);
+    e.hp -= dealt;
+    registerSiphonOverlordHit(w, e, dealt);
+    e.lastHitKind = "rocket";
+
+    if (shockDps > 0.001 && shockDuration > 0.01 && dealt > 0.001) {
+      e.rocketShockDps = Math.max(shockDps, Number(e.rocketShockDps) || 0);
+      e.rocketShockT = Math.max(shockDuration, Number(e.rocketShockT) || 0);
+      e.rocketShockTotal = Math.max(shockDuration, Number(e.rocketShockTotal) || 0);
+      e.rocketShockSourceX = rocket.x;
+      e.rocketShockSourceY = rocket.y;
+    }
+    spawnRocketShockFlash(w, rocket.x, rocket.y, e.x, e.y, e.hp <= 0 ? 1.45 : 1.0);
+  }
+
+  const blastColor = manual ? "#63b8ff" : (rocket.energy ? "#9ddaff" : "#7ac9ff");
+  splash(w, rocket.x, rocket.y, blastColor, manual ? 24 : 18, manual ? 4.2 : 3.1);
+  if (manual) {
+    splash(w, rocket.x, rocket.y, "#d8f0ff", 12, 2.6);
+  }
+  if (playSound) audio.play("mineBlast");
+  rocket.life = -1;
+  return true;
+}
+
+function detonateRocketPodCluster(w) {
+  const target = pickRocketPodDetonationTarget(w);
+  if (!target) return 0;
+  const detonated = detonateRocket(w, target, { manual: true, playSound: true }) ? 1 : 0;
+  return detonated;
+}
+
+function findMineForAzureInfusion(w, sourceX, sourceY) {
+  if (!w || !Array.isArray(w.mines) || w.mines.length <= 0) return null;
+  let best = null;
+  let bestDist = Number.POSITIVE_INFINITY;
+  for (const mine of w.mines) {
+    if (!mine || mine.expired || (mine.chargesLeft || 0) <= 0) continue;
+    const d = Math.hypot((mine.x || 0) - sourceX, (mine.y || 0) - sourceY);
+    if (d < bestDist) {
+      bestDist = d;
+      best = mine;
+    }
+  }
+  return best;
+}
+
+function infuseMineWithAzure(mine, profile) {
+  if (!mine || !profile) return false;
+  if (mine.expired || (mine.chargesLeft || 0) <= 0) return false;
+  const permanent = !!profile.mineInfusionPermanent;
+  const duration = permanent ? Number.POSITIVE_INFINITY : Math.max(0.5, Number(profile.mineInfusionDuration) || 0);
+  if (!permanent && duration <= 0.001) return false;
+
+  const freshInfusion = !mine.azureInfused || (mine.azureInfusionT || 0) <= 0.001;
+  mine.azureInfused = true;
+  mine.azureInfusionPermanent = !!(mine.azureInfusionPermanent || permanent);
+  if (freshInfusion) {
+    if (mine.azureInfusionPermanent) {
+      mine.azureInfusionT = 1;
+      mine.azureInfusionTotal = 1;
+    } else {
+      mine.azureInfusionT = duration;
+      mine.azureInfusionTotal = duration;
+    }
+  } else {
+    if (mine.azureInfusionPermanent) {
+      mine.azureInfusionT = 1;
+      mine.azureInfusionTotal = 1;
+    } else {
+      mine.azureInfusionT = Math.max(0, Number(mine.azureInfusionT) || 0);
+      mine.azureInfusionTotal = Math.max(Number(mine.azureInfusionTotal) || 0, duration);
+    }
+  }
+  mine.azureArcInterval = Math.max(0.3, Number(profile.mineArcInterval) || 0);
+  mine.azureArcRange = Math.max(24, Number(mine.azureArcRange) || 0, Number(profile.mineArcRange) || 0);
+  mine.azureArcDamageMult = Math.max(0.05, Number(mine.azureArcDamageMult) || 0, Number(profile.mineArcDamageMult) || 0);
+  mine.azureArcShockMult = Math.max(0.05, Number(mine.azureArcShockMult) || 0, Number(profile.mineArcShockMult) || 0);
+  mine.azureArcTargets = clampInt(
+    Math.max(1, Number(mine.azureArcTargets) || 1, Number(profile.mineArcTargets) || 1),
+    1,
+    4,
+  );
+  mine.azureArcCd = Math.min(Math.max(0, Number(mine.azureArcCd) || 0), 0.24 + Math.random() * 0.1);
+  return true;
+}
+
+function tryApplyRocketPodKillEffect(w, enemy, killProfile = null) {
+  if (!w || !enemy) return false;
+  if (enemy.lastHitKind !== "rocket") return false;
+  const profile = killProfile || getRocketPodKillEffectProfile(w);
+  if (!profile) return false;
+
+  if (profile.mode === "mine_infusion") {
+    const mine = findMineForAzureInfusion(w, enemy.x || 0, enemy.y || 0);
+    if (!mine) return false;
+    if (!infuseMineWithAzure(mine, profile)) return false;
+    spawnRocketShockFlash(w, enemy.x, enemy.y, mine.x, mine.y, 1.3, "blue");
+    splash(w, mine.x, mine.y, "#7dd6ff", 8, 0.95);
+    return true;
+  }
+
+  const p = w.player;
+  if (!p) return false;
+  if (profile.mode !== "leech") return false;
+
+  const maxHp = Math.max(1, Number(p.maxHp) || 1);
+  const hp = Math.max(0, Number(p.hp) || 0);
+  const missingHp = Math.max(0, maxHp - hp);
+  const healFlat = Math.max(0, Number(profile.healFlat) || 0);
+  const healMissingPct = clamp(Number(profile.healMissingPct) || 0, 0, 0.5);
+  const heal = Math.min(missingHp, healFlat + missingHp * healMissingPct);
+  if (heal > 0.001) {
+    p.hp = Math.min(maxHp, hp + heal);
+  }
+  spawnRocketShockFlash(w, enemy.x, enemy.y, p.x, p.y, heal > 0.001 ? 1.45 : 1.1, "green");
+  splash(w, p.x, p.y, "#8dffaf", heal > 0.001 ? 8 : 5, heal > 0.001 ? 1.1 : 0.8);
+  return true;
 }
 
 function getMineLinkKey(a, b) {
@@ -7078,6 +8676,74 @@ function tryFireVoidGooTurret(w, mine) {
   mine.turretCd = Math.max(1.9, mine.turretCooldown || 2.4);
   splash(w, mine.x, mine.y, "#c495ff", 6, 0.9);
   audio.play("enemyShot");
+}
+
+function tryPulseAzureInfusedMineElectricity(w, mine) {
+  if (!mine || mine.expired || (mine.chargesLeft || 0) <= 0) return false;
+  if (!mine.azureInfused || (mine.azureInfusionT || 0) <= 0.001) return false;
+  if ((mine.azureArcCd || 0) > 0) return false;
+  if ((mine.armed || 0) > 0) return false;
+
+  const range = Math.max(34, Math.min(92, Number(mine.azureArcRange) || 58));
+  const targets = [];
+  for (const e of w.enemies || []) {
+    if (!e || e.hp <= 0) continue;
+    const d = Math.hypot((e.x || 0) - mine.x, (e.y || 0) - mine.y);
+    if (d <= range + (e.r || 10) * 0.35) targets.push({ enemy: e, dist: d });
+  }
+  if (targets.length <= 0) {
+    mine.azureArcCd = Math.max(0.25, Math.min(0.65, (mine.azureArcInterval || 2.4) * 0.32));
+    return false;
+  }
+  targets.sort((a, b) => a.dist - b.dist);
+
+  const targetCap = clampInt(Math.max(1, Number(mine.azureArcTargets) || 1), 1, 4);
+  const damageMult = Math.max(0.05, Number(mine.azureArcDamageMult) || 0.3);
+  const shockMult = Math.max(0.05, Number(mine.azureArcShockMult) || 0.45);
+  const burstDamageBase = Math.max(4, (mine.dmg || 44) * (0.13 + damageMult * 0.2));
+  const shockDpsBase = Math.max(2, burstDamageBase * (0.22 + shockMult * 0.16));
+  const shockDuration = Math.max(0.35, 0.45 + shockMult * 0.45);
+
+  let hitCount = 0;
+  for (let i = 0; i < targets.length && hitCount < targetCap; i += 1) {
+    const e = targets[i].enemy;
+    if (!e || e.hp <= 0) continue;
+    markEnemyHit(e);
+    if (applyTypedShieldBlock(w, e, mine.x, mine.y, "azure")) {
+      spawnRocketShockFlash(w, mine.x, mine.y, e.x, e.y, 0.95, "blue");
+      continue;
+    }
+
+    let dealt = burstDamageBase;
+    if (isMiniBossKind(e.kind)) {
+      const guard = Math.max(0, Math.min(0.9, e.guard || 0));
+      dealt *= (1 - guard);
+    }
+    dealt = applyBulwarkTrapDamageBonus(w, e, dealt);
+    if (e.kind === "mega_cannon_boss" && e.shieldT > 0) {
+      e.hp = Math.min(e.maxHp || e.hp, e.hp + dealt * 0.5);
+      splash(w, e.x, e.y, "#8effa6", 4, 0.7);
+    } else {
+      e.hp -= dealt;
+      registerSiphonOverlordHit(w, e, dealt);
+      e.lastHitKind = "mine";
+      e.rocketShockDps = Math.max(shockDpsBase, Number(e.rocketShockDps) || 0);
+      e.rocketShockT = Math.max(shockDuration, Number(e.rocketShockT) || 0);
+      e.rocketShockTotal = Math.max(shockDuration, Number(e.rocketShockTotal) || 0);
+      e.rocketShockSourceX = mine.x;
+      e.rocketShockSourceY = mine.y;
+    }
+    spawnRocketShockFlash(w, mine.x, mine.y, e.x, e.y, e.hp <= 0 ? 1.35 : 1.0, "blue");
+    hitCount += 1;
+  }
+
+  mine.azureArcCd = Math.max(0.28, (mine.azureArcInterval || 2.4) * (0.9 + Math.random() * 0.2));
+  if (hitCount > 0) {
+    splash(w, mine.x, mine.y, "#77cdff", 5 + hitCount * 2, 0.8);
+    if (Math.random() < 0.45) audio.play("enemyShot");
+    return true;
+  }
+  return false;
 }
 
 function stepBulwarkAnchors(w, dt) {
@@ -7533,8 +9199,36 @@ function stepMines(w, dt) {
     if (!Number.isFinite(m.turretRange)) m.turretRange = Math.max(140, (m.r || 54) * 3.1);
     if (!Number.isFinite(m.turretMissileSpeed)) m.turretMissileSpeed = Math.max(135, (m.gooSeekSpeed || 96) * 1.65);
     if (!Number.isFinite(m.turretTurnRate)) m.turretTurnRate = 3.2;
+    if (typeof m.azureInfused !== "boolean") m.azureInfused = false;
+    if (typeof m.azureInfusionPermanent !== "boolean") m.azureInfusionPermanent = false;
+    if (!Number.isFinite(m.azureInfusionT)) m.azureInfusionT = m.azureInfused ? (m.azureInfusionPermanent ? 1 : 15) : 0;
+    if (!Number.isFinite(m.azureInfusionTotal)) m.azureInfusionTotal = Math.max(0, m.azureInfusionT || 0);
+    if (!Number.isFinite(m.azureArcCd)) m.azureArcCd = Number.isFinite(m.azureMissileCd) ? m.azureMissileCd : 0;
+    if (!Number.isFinite(m.azureArcRange)) {
+      const legacyRadius = Number.isFinite(m.azureMissileRadiusMult) ? m.azureMissileRadiusMult : 0.75;
+      m.azureArcRange = Math.max(34, Math.min(92, 54 + (legacyRadius - 0.72) * 60));
+    }
+    if (!Number.isFinite(m.azureArcInterval)) m.azureArcInterval = Number.isFinite(m.azureMissileInterval) ? m.azureMissileInterval : 2.6;
+    if (!Number.isFinite(m.azureArcDamageMult)) m.azureArcDamageMult = Number.isFinite(m.azureMissileDamageMult) ? m.azureMissileDamageMult : 0.6;
+    if (!Number.isFinite(m.azureArcShockMult)) m.azureArcShockMult = Number.isFinite(m.azureMissileShockMult) ? m.azureMissileShockMult : 0.6;
+    if (!Number.isFinite(m.azureArcTargets)) m.azureArcTargets = Number.isFinite(m.azureMissileCount) ? m.azureMissileCount : 1;
     if (m.gooTurret) {
       m.turretCd = Math.max(0, m.turretCd - dt);
+    }
+    if (m.azureInfused) {
+      if (m.azureInfusionPermanent) {
+        m.azureInfusionT = 1;
+        m.azureInfusionTotal = 1;
+      } else {
+        m.azureInfusionT = Math.max(0, (m.azureInfusionT || 0) - dt);
+      }
+      m.azureArcCd = Math.max(0, (m.azureArcCd || 0) - dt);
+      if (!m.azureInfusionPermanent && (m.azureInfusionT || 0) <= 0.001) {
+        m.azureInfused = false;
+        m.azureInfusionT = 0;
+        m.azureInfusionTotal = 0;
+        m.azureInfusionPermanent = false;
+      }
     }
 
     if (m.expired || m.chargesLeft <= 0) {
@@ -7557,6 +9251,7 @@ function stepMines(w, dt) {
       }
       if (!m.expired && m.chargesLeft > 0) {
         tryFireVoidGooTurret(w, m);
+        tryPulseAzureInfusedMineElectricity(w, m);
         if (!m.expired && m.chargesLeft > 0) {
           kept.push(m);
         }
@@ -8079,6 +9774,28 @@ function stepEnemies(w, dt) {
     e.allyDrainPulse = Math.max(0, (e.allyDrainPulse || 0) - dt);
     e.gooMinePulse = Math.max(0, (e.gooMinePulse || 0) - dt);
     e.amberSpikeHitCd = Math.max(0, (e.amberSpikeHitCd || 0) - dt);
+    e.rocketShockT = Math.max(0, (e.rocketShockT || 0) - dt);
+
+    if ((e.rocketShockT || 0) > 0 && e.hp > 0) {
+      const shockDps = Math.max(0, Number(e.rocketShockDps) || 0);
+      if (shockDps > 0.001) {
+        let shockDealt = shockDps * dt;
+        if (isMiniBossKind(e.kind)) {
+          const guard = Math.max(0, Math.min(0.9, e.guard || 0));
+          shockDealt *= (1 - guard);
+        }
+        shockDealt = applyBulwarkTrapDamageBonus(w, e, shockDealt);
+        if (shockDealt > 0.001) {
+          e.hp -= shockDealt;
+          registerSiphonOverlordHit(w, e, shockDealt);
+          e.lastHitKind = "rocket";
+          e.hitFlash = Math.max(e.hitFlash || 0, 0.07);
+        }
+      }
+      if ((e.rocketShockT || 0) <= 0.001) {
+        e.rocketShockDps = 0;
+      }
+    }
 
     if (e.gooMine && Number.isFinite(e.gooMine.timer)) {
       e.gooMine.timer = Math.max(0, e.gooMine.timer - dt);
@@ -8811,6 +10528,7 @@ function getEnemyEssenceBase(kind) {
 
 function resolveCombat(w) {
   const p = w.player;
+  const playerUntargetable = (p.voidCounterExileT || 0) > 0;
 
   for (const b of w.bullets) {
     if (!b.enemy) {
@@ -8905,7 +10623,7 @@ function resolveCombat(w) {
         }
       }
 
-      if (b.life > 0 && Math.hypot(b.x - p.x, b.y - p.y) <= (b.megaShot ? 22 : b.voidMissile ? 17 : b.laserShot ? 16 : 15)) {
+      if (!playerUntargetable && b.life > 0 && Math.hypot(b.x - p.x, b.y - p.y) <= (b.megaShot ? 22 : b.voidMissile ? 17 : b.laserShot ? 16 : 15)) {
         if ((p.aegisT || 0) > 0 || p.dashIFrames <= 0) {
           const dmg = Math.abs(b.dmg) * w.scale.enemyDamage * (1 - Math.min(0.62, p.armor));
           const hitLanded = applyPlayerDamage(w, dmg, { hitFlash: 0.14, playSound: true, absorbSplash: false });
@@ -8921,7 +10639,7 @@ function resolveCombat(w) {
   }
 
   for (const e of w.enemies) {
-    if (Math.hypot(e.x - p.x, e.y - p.y) <= e.r + 13 && ((p.aegisT || 0) > 0 || p.dashIFrames <= 0)) {
+    if (!playerUntargetable && Math.hypot(e.x - p.x, e.y - p.y) <= e.r + 13 && ((p.aegisT || 0) > 0 || p.dashIFrames <= 0)) {
       const baseContact = getEnemyContactBase(e.kind);
       const dmg = baseContact * 0.016 * w.scale.enemyDamage * (1 - Math.min(0.62, p.armor));
       const hitLanded = applyPlayerDamage(w, dmg, { hitFlash: 0.1, absorbSplash: false });
@@ -8943,6 +10661,7 @@ function resolveCombat(w) {
   }
 
   for (const r of w.rockets) {
+    if (!r || (r.life || 0) <= 0.001) continue;
     let exploded = false;
     for (const e of w.enemies) {
       const prevX = Number.isFinite(r.px) ? r.px : r.x;
@@ -8957,51 +10676,12 @@ function resolveCombat(w) {
       }
     }
     if (!exploded) continue;
-
-    for (const e of w.enemies) {
-      if (e.hp <= 0) continue;
-      const d = Math.hypot(e.x - r.x, e.y - r.y);
-      if (d <= 95) {
-        let impactX = r.x;
-        let impactY = r.y;
-        if (isBossBottomLeft(e.kind) && hasBossBottomLeftActiveShield(e) && d <= e.r + 12) {
-          const nearestShieldNode = getNearestBossBottomLeftShieldNode(e, w.t, r.x, r.y);
-          if (nearestShieldNode) {
-            impactX = nearestShieldNode.x;
-            impactY = nearestShieldNode.y;
-          }
-        }
-        markEnemyHit(e);
-        if (applyTypedShieldBlock(w, e, impactX, impactY, r.affinity || "azure")) {
-          e.lastHitKind = "rocket";
-          continue;
-        }
-        if (e.kind === "mega_cannon_boss" && e.shieldT > 0) {
-          const heal = Math.max(5, r.dmg * 0.48);
-          e.hp = Math.min(e.maxHp || e.hp, e.hp + heal);
-          splash(w, e.x, e.y, "#8effa6", 8, 1.1);
-          continue;
-        }
-        const falloff = 1 - d / 95;
-        let dealt = r.dmg * (0.4 + falloff * 0.6);
-        if (isMiniBossKind(e.kind)) {
-          const guard = Math.max(0, Math.min(0.9, e.guard || 0));
-          dealt *= (1 - guard);
-        }
-        dealt = applyBulwarkTrapDamageBonus(w, e, dealt);
-        e.hp -= dealt;
-        registerSiphonOverlordHit(w, e, dealt);
-        e.lastHitKind = "rocket";
-      }
-    }
-
-    splash(w, r.x, r.y, "#ffd58a", 16, 2.9);
-    audio.play("mineBlast");
-    r.life = -1;
+    detonateRocket(w, r, { manual: false, playSound: true });
   }
 
   const alive = [];
   const spawned = [];
+  const rocketKillProfile = getRocketPodKillEffectProfile(w);
   for (const e of w.enemies) {
     if (e.hp > 0) {
       alive.push(e);
@@ -9013,6 +10693,7 @@ function resolveCombat(w) {
     }
 
     w.kills += 1;
+    tryApplyRocketPodKillEffect(w, e, rocketKillProfile);
     if (e.lastHitKind === "azure_beam") {
       const sourceBeam = e.lastAegisBeam;
       if (sourceBeam && (sourceBeam.life || 0) > 0) {
@@ -9370,6 +11051,45 @@ function drawBossBursts(w) {
   ctx.lineWidth = 1;
 }
 
+function drawRocketShockFlashes(w) {
+  if (!Array.isArray(w?.rocketShockFlashes) || w.rocketShockFlashes.length <= 0) return;
+  for (const flash of w.rocketShockFlashes) {
+    if (!flash || (flash.life || 0) <= 0.001) continue;
+    const green = flash.tint === "green";
+    const pct = clamp((flash.life || 0) / Math.max(0.001, flash.total || 1), 0, 1);
+    const dx = (flash.x2 || 0) - (flash.x1 || 0);
+    const dy = (flash.y2 || 0) - (flash.y1 || 0);
+    const dist = Math.max(0.001, Math.hypot(dx, dy));
+    const nx = -dy / dist;
+    const ny = dx / dist;
+    const pulse = (Math.sin(w.t * 34 + (flash.seed || 0)) + 1) * 0.5;
+    const jitter = (flash.jitter || 4) * (0.35 + pct * 0.65);
+    const segA = 0.33;
+    const segB = 0.67;
+    const mid1X = (flash.x1 || 0) + dx * segA + nx * (Math.sin((flash.seed || 0) + w.t * 28) * jitter);
+    const mid1Y = (flash.y1 || 0) + dy * segA + ny * (Math.sin((flash.seed || 0) + 1.9 + w.t * 30) * jitter);
+    const mid2X = (flash.x1 || 0) + dx * segB + nx * (Math.sin((flash.seed || 0) + 3.2 + w.t * 31) * jitter);
+    const mid2Y = (flash.y1 || 0) + dy * segB + ny * (Math.sin((flash.seed || 0) + 5.1 + w.t * 29) * jitter);
+
+    const strokeRgb = green ? "122,255,158" : "126,207,255";
+    const impactRgb = green ? "181,255,194" : "173,228,255";
+    ctx.strokeStyle = `rgba(${strokeRgb},${0.22 + pct * 0.52 + pulse * 0.1})`;
+    ctx.lineWidth = (flash.width || 1.6) * (0.7 + pct * 0.6);
+    ctx.beginPath();
+    ctx.moveTo(flash.x1 || 0, flash.y1 || 0);
+    ctx.lineTo(mid1X, mid1Y);
+    ctx.lineTo(mid2X, mid2Y);
+    ctx.lineTo(flash.x2 || 0, flash.y2 || 0);
+    ctx.stroke();
+
+    ctx.fillStyle = `rgba(${impactRgb},${0.2 + pct * 0.45})`;
+    ctx.beginPath();
+    ctx.arc(flash.x2 || 0, flash.y2 || 0, 2.8 + (flash.power || 1) * 1.5 + pulse * 1.2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.lineWidth = 1;
+}
+
 function getWorldVisualTheme(w) {
   if (w?.isMarathonMode) {
     const biomeTheme = w.marathon?.biome?.theme;
@@ -9391,8 +11111,10 @@ function drawGame() {
 
   drawGrid(w, theme);
   drawBossBursts(w);
+  drawRocketShockFlashes(w);
   const p = w.player;
   const warpComboActive = (p.warpComboT || 0) > 0;
+  const voidCounterExiled = (p.voidCounterExileT || 0) > 0;
   const comboQueuedEnemyIndex = warpComboActive && Array.isArray(p.warpComboQueuedEnemies)
     ? new Map(p.warpComboQueuedEnemies.map((enemy, idx) => [enemy, idx]))
     : null;
@@ -9431,6 +11153,70 @@ function drawGame() {
     }
   }
 
+  if (Array.isArray(p.voidCounterPendingTeleporters) && p.voidCounterPendingTeleporters.length > 0) {
+    for (let i = 0; i < p.voidCounterPendingTeleporters.length; i += 1) {
+      const tele = p.voidCounterPendingTeleporters[i];
+      if (!tele) continue;
+      const pulse = (Math.sin(w.t * 9 + i) + 1) * 0.5;
+      const r = 13 + pulse * 3;
+      ctx.fillStyle = "rgba(148,103,218,0.25)";
+      ctx.beginPath();
+      ctx.arc(tele.x, tele.y, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(205,171,255,0.86)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(tele.x, tele.y, r + 3, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = "rgba(242,230,255,0.95)";
+      ctx.font = "bold 11px 'Segoe UI', sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(String(i + 1), tele.x, tele.y + 4);
+    }
+    ctx.lineWidth = 1;
+  }
+
+  if (Array.isArray(p.voidCounterTeleporters) && p.voidCounterTeleporters.length > 0) {
+    for (let i = 0; i < p.voidCounterTeleporters.length; i += 1) {
+      const tele = p.voidCounterTeleporters[i];
+      if (!tele) continue;
+      const lifePct = clamp((tele.life || 0) / Math.max(0.001, tele.total || 1), 0, 1);
+      const infectEnabled = !!tele.infectEnabled;
+      const infectRadius = Math.max(0, Number(tele.infectRadius) || 0);
+      const pulse = (Math.sin(w.t * 8.2 + i * 0.9) + 1) * 0.5;
+      const r = 14 + pulse * 2.8;
+      if (infectEnabled && infectRadius > 0) {
+        const orbitPulse = (Math.sin(w.t * 3.7 + i * 1.2) + 1) * 0.5;
+        const ringR = infectRadius + orbitPulse * 3;
+        ctx.fillStyle = `rgba(142,95,221,${0.05 + lifePct * 0.045})`;
+        ctx.beginPath();
+        ctx.arc(tele.x, tele.y, ringR, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = `rgba(204,166,255,${0.22 + lifePct * 0.25})`;
+        ctx.lineWidth = 1.6;
+        ctx.setLineDash([9, 6]);
+        ctx.beginPath();
+        ctx.arc(tele.x, tele.y, ringR, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      ctx.fillStyle = `rgba(136,88,214,${0.2 + lifePct * 0.2})`;
+      ctx.beginPath();
+      ctx.arc(tele.x, tele.y, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = `rgba(211,174,255,${0.45 + lifePct * 0.45})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(tele.x, tele.y, r + 4, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.lineWidth = 1;
+      ctx.fillStyle = "rgba(242,232,255,0.95)";
+      ctx.font = "bold 11px 'Segoe UI', sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(String(i + 1), tele.x, tele.y + 4);
+    }
+  }
+
   for (let i = 0; i < w.mines.length; i += 1) {
     const a = w.mines[i];
     if (!a?.chainEnabled || a.expired || (a.chargesLeft || 0) <= 0) continue;
@@ -9462,11 +11248,21 @@ function drawGame() {
     const coreR = Math.max(5, m.visualRadius || m.r * 0.22);
     const armedPct = clamp(1 - (m.armed || 0) / Math.max(0.01, m.rearm || 0.9), 0, 1);
     const isVoidMine = m.voidInfused || m.affinity === "void";
-    const edgeColor = isVoidMine ? "204,150,255" : (m.gooEnabled ? "150,255,155" : "255,186,116");
-    const fillColor = isVoidMine ? "222,184,255" : (m.gooEnabled ? "168,255,176" : "255,206,138");
-    const coreColor = isVoidMine ? "#c897ff" : (m.gooEnabled ? "#a9ff9e" : "#ffcc8b");
-    const tickOn = isVoidMine ? "rgba(235,208,255,0.95)" : (m.gooEnabled ? "rgba(198,255,201,0.95)" : "rgba(255,228,170,0.95)");
-    const tickOff = isVoidMine ? "rgba(94,66,126,0.52)" : (m.gooEnabled ? "rgba(64,109,66,0.5)" : "rgba(116,91,58,0.5)");
+    const isAzureMine = !!m.azureInfused && (m.azureInfusionT || 0) > 0.001;
+    const isDualMine = isVoidMine && isAzureMine;
+    const edgeColor = isVoidMine
+      ? "204,150,255"
+      : (isAzureMine ? "128,214,255" : (m.gooEnabled ? "150,255,155" : "255,186,116"));
+    const fillColor = isVoidMine
+      ? "222,184,255"
+      : (isAzureMine ? "170,228,255" : (m.gooEnabled ? "168,255,176" : "255,206,138"));
+    const coreColor = isVoidMine ? "#c897ff" : (isAzureMine ? "#95dcff" : (m.gooEnabled ? "#a9ff9e" : "#ffcc8b"));
+    const tickOn = isVoidMine
+      ? "rgba(235,208,255,0.95)"
+      : (isAzureMine ? "rgba(215,244,255,0.96)" : (m.gooEnabled ? "rgba(198,255,201,0.95)" : "rgba(255,228,170,0.95)"));
+    const tickOff = isVoidMine
+      ? "rgba(94,66,126,0.52)"
+      : (isAzureMine ? "rgba(67,102,126,0.5)" : (m.gooEnabled ? "rgba(64,109,66,0.5)" : "rgba(116,91,58,0.5)"));
 
     ctx.strokeStyle = `rgba(${edgeColor},${0.55 + pulse * 0.2})`;
     ctx.lineWidth = 1.2;
@@ -9493,6 +11289,41 @@ function drawGame() {
       ctx.beginPath();
       ctx.arc(tx, ty, 1.8, 0, Math.PI * 2);
       ctx.fill();
+    }
+
+    if (isAzureMine) {
+      const infusionPct = clamp((m.azureInfusionT || 0) / Math.max(0.001, m.azureInfusionTotal || 1), 0, 1);
+      const azurePulse = (Math.sin(w.t * 9.2 + (m.id || 0) * 0.24) + 1) * 0.5;
+      const azureRingR = tickR + 3.4 + azurePulse * 1.9;
+      ctx.strokeStyle = `rgba(136,218,255,${0.25 + infusionPct * 0.4 + azurePulse * 0.14})`;
+      ctx.lineWidth = 1.7;
+      ctx.setLineDash([5, 4]);
+      ctx.beginPath();
+      ctx.arc(m.x, m.y, azureRingR, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.lineWidth = 1;
+    }
+    if (isDualMine) {
+      const dualPulse = (Math.sin(w.t * 8.6 + (m.id || 0) * 0.45) + 1) * 0.5;
+      const dualR = tickR + 6.6 + dualPulse * 1.7;
+      ctx.strokeStyle = `rgba(201,168,255,${0.2 + dualPulse * 0.22})`;
+      ctx.lineWidth = 1.6;
+      ctx.setLineDash([3, 5]);
+      ctx.beginPath();
+      ctx.arc(m.x, m.y, dualR, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.strokeStyle = `rgba(136,222,255,${0.16 + dualPulse * 0.22})`;
+      ctx.setLineDash([7, 4]);
+      ctx.beginPath();
+      ctx.arc(m.x, m.y, dualR + 3.3, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.lineWidth = 1;
+      ctx.fillStyle = "rgba(221,245,255,0.85)";
+      ctx.font = "bold 9px 'Segoe UI', sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("V+A", m.x, m.y - dualR - 3);
     }
 
     if (isVoidMine && m.gooTurret) {
@@ -9708,15 +11539,21 @@ function drawGame() {
   ctx.lineWidth = 1;
 
   for (const r of w.rockets) {
-    ctx.fillStyle = r.energy ? "#9df7ff" : "#ffd78a";
+    if (!r || (r.life || 0) <= 0.001) continue;
+    const isPlayerCluster = !!r.followMouse;
+    const isAzureRocket = r.affinity === "azure";
+    ctx.fillStyle = r.energy ? "#9df7ff" : (isAzureRocket ? "#4daeff" : "#ffd78a");
     ctx.beginPath();
     ctx.arc(r.x, r.y, 5.2, 0, Math.PI * 2);
     ctx.fill();
-    if (r.energy) {
+    if (r.energy || isPlayerCluster || isAzureRocket) {
       ctx.strokeStyle = "rgba(164,246,255,0.7)";
+      if (isPlayerCluster) ctx.strokeStyle = "rgba(120,196,255,0.8)";
+      if (isAzureRocket && !isPlayerCluster) ctx.strokeStyle = "rgba(128,208,255,0.82)";
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.arc(r.x, r.y, 8.2, 0, Math.PI * 2);
+      const ringR = isPlayerCluster ? 9.2 : (isAzureRocket ? 8.8 : 8.2);
+      ctx.arc(r.x, r.y, ringR, 0, Math.PI * 2);
       ctx.stroke();
     }
   }
@@ -10304,16 +12141,63 @@ function drawGame() {
     ctx.lineWidth = 1;
   }
 
-  ctx.save();
-  ctx.translate(p.x, p.y);
-  ctx.rotate(p.angle);
-  ctx.fillStyle = p.hitFlash > 0 ? "#ffd0d0" : "#dff4ff";
-  ctx.beginPath();
-  ctx.arc(0, 0, 12, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "#64c6ff";
-  ctx.fillRect(8, -3, 12, 6);
-  ctx.restore();
+  if (!voidCounterExiled) {
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.angle);
+    ctx.fillStyle = p.hitFlash > 0 ? "#ffd0d0" : "#dff4ff";
+    ctx.beginPath();
+    ctx.arc(0, 0, 12, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#64c6ff";
+    ctx.fillRect(8, -3, 12, 6);
+    ctx.restore();
+  } else {
+    const exilePct = clamp((p.voidCounterExileT || 0) / Math.max(0.001, p.voidCounterExileTotal || 1), 0, 1);
+    const pulse = (Math.sin(w.t * 10.8) + 1) * 0.5;
+    const r = 15 + pulse * 4 + exilePct * 6;
+    ctx.fillStyle = `rgba(74,36,128,${0.34 + pulse * 0.18})`;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = `rgba(190,150,255,${0.42 + pulse * 0.3})`;
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, r + 4, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.lineWidth = 1;
+  }
+
+  if ((p.voidCounterWindowT || 0) > 0) {
+    const windowPct = clamp((p.voidCounterWindowT || 0) / 0.1, 0, 1);
+    const pulse = (Math.sin(w.t * 22) + 1) * 0.5;
+    const baseR = Math.max(24, Number(p.voidCounterBurstRadius) || 110);
+    const ringR = 20 + baseR * 0.25 + pulse * 6;
+    ctx.strokeStyle = `rgba(198,158,255,${0.45 + windowPct * 0.45})`;
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, ringR, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.lineWidth = 1;
+  }
+
+  if ((p.voidCounterImprintT || 0) > 0 && (p.voidCounterImprintCharges || 0) > 0) {
+    const imprintPct = clamp((p.voidCounterImprintT || 0) / Math.max(0.001, p.voidCounterImprintTotal || 1), 0, 1);
+    const pulse = (Math.sin(w.t * 11.5) + 1) * 0.5;
+    const auraR = 24 + pulse * 4;
+    ctx.strokeStyle = `rgba(207,171,255,${0.42 + imprintPct * 0.4})`;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, auraR, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.lineWidth = 1;
+    ctx.fillStyle = "rgba(242,229,255,0.94)";
+    ctx.font = "bold 10px 'Segoe UI', sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(`IMPRINT ${Math.max(0, Math.floor(p.voidCounterImprintCharges || 0))}`, p.x, p.y - 28);
+  }
 
   if (p.mainGunComboEnabled && (p.mainGunComboStreak || 0) > 0) {
     const comboWindow = Math.max(0.001, p.mainGunComboWindow || p.mainGunComboT || 0.001);
@@ -10540,6 +12424,17 @@ function drawGame() {
     ctx.stroke();
   }
 
+  if ((p.rocketAfterburnT || 0) > 0) {
+    const afterburnPct = clamp((p.rocketAfterburnT || 0) / Math.max(0.001, p.rocketAfterburnTotal || 1), 0, 1);
+    const pulse = (Math.sin(w.t * 11.5) + 1) * 0.5;
+    ctx.strokeStyle = `rgba(150,218,255,${0.3 + afterburnPct * 0.4 + pulse * 0.15})`;
+    ctx.lineWidth = 2.1;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 22 + pulse * 2.2, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.lineWidth = 1;
+  }
+
   for (const pt of w.particles) {
     ctx.fillStyle = `rgba(${pt.r},${pt.g},${pt.b},${Math.max(0, pt.life / pt.ttl)})`;
     ctx.fillRect(pt.x, pt.y, 3, 3);
@@ -10666,6 +12561,8 @@ function shiftEntityByOffset(entity, dx, dy) {
   if (Number.isFinite(entity.y2)) entity.y2 += dy;
   if (Number.isFinite(entity.targetX)) entity.targetX += dx;
   if (Number.isFinite(entity.targetY)) entity.targetY += dy;
+  if (Number.isFinite(entity.rocketShockSourceX)) entity.rocketShockSourceX += dx;
+  if (Number.isFinite(entity.rocketShockSourceY)) entity.rocketShockSourceY += dy;
   if (Array.isArray(entity.points)) {
     for (const point of entity.points) {
       if (!point) continue;
@@ -10719,8 +12616,13 @@ function shiftWorldEntitiesByOffset(w, dx, dy) {
   shiftEntityListByOffset(w.lanceTrails, dx, dy);
   shiftEntityListByOffset(w.skyGlassingSweepBeams, dx, dy);
   shiftEntityListByOffset(w.rockets, dx, dy);
+  shiftEntityListByOffset(w.rocketShockFlashes, dx, dy);
   shiftEntityListByOffset(w.allies, dx, dy);
   shiftEntityListByOffset(w.particles, dx, dy);
+  if (w.player) {
+    shiftEntityListByOffset(w.player.voidCounterPendingTeleporters, dx, dy);
+    shiftEntityListByOffset(w.player.voidCounterTeleporters, dx, dy);
+  }
 }
 
 function applyMarathonCameraShift(w) {
@@ -10841,10 +12743,45 @@ function updateHud(w) {
     );
     const comboChainCap = Math.max(1, Math.floor(p.warpComboChainCap || 1));
     voidSnapshot.text = `Combo ${p.warpComboT.toFixed(1)}s (Queue ${comboChainCount}/${comboChainCap})`;
+  } else if ((p.voidCounterExileT || 0) > 0) {
+    const total = Math.max(0.001, Number(p.voidCounterExileTotal) || Number(p.voidCounterExileT) || 0.001);
+    const pending = Array.isArray(p.voidCounterPendingTeleporters) ? p.voidCounterPendingTeleporters.length : 0;
+    voidSnapshot.status = "ready";
+    voidSnapshot.fillPct = clamp((p.voidCounterExileT || 0) / total, 0, 1);
+    voidSnapshot.text = `Exile ${p.voidCounterExileT.toFixed(1)}s (${pending}/1)`;
+  } else if ((p.voidCounterWindowT || 0) > 0) {
+    const total = 0.1;
+    voidSnapshot.status = "ready";
+    voidSnapshot.fillPct = clamp((p.voidCounterWindowT || 0) / total, 0, 1);
+    voidSnapshot.text = `Counter ${(p.voidCounterWindowT || 0).toFixed(2)}s`;
+  } else if ((p.voidCounterImprintT || 0) > 0 && (p.voidCounterImprintCharges || 0) > 0) {
+    const total = Math.max(0.001, Number(p.voidCounterImprintTotal) || Number(p.voidCounterImprintT) || 0.001);
+    const charges = Math.max(0, Math.floor(p.voidCounterImprintCharges || 0));
+    voidSnapshot.status = "ready";
+    voidSnapshot.fillPct = clamp((p.voidCounterImprintT || 0) / total, 0, 1);
+    voidSnapshot.text = `Imprint ${p.voidCounterImprintT.toFixed(1)}s (${charges})`;
+  } else if (Array.isArray(p.voidCounterTeleporters) && p.voidCounterTeleporters.length >= 1) {
+    const life = Math.max(0, Number(p.voidCounterTeleporters[0]?.life) || 0);
+    const total = Math.max(0.001, Number(p.voidCounterTeleporters[0]?.total) || life || 0.001);
+    voidSnapshot.status = "ready";
+    voidSnapshot.fillPct = clamp(life / total, 0, 1);
+    voidSnapshot.text = `Teleporter ${life.toFixed(1)}s`;
   }
   setCooldownHud(ui.cdVoid, ui.cdVoidFill, ui.cdVoidText, voidSnapshot);
   const azureSnapshot = getAbilityCooldownSnapshot("azure", p);
-  if ((p.aegisT || 0) > 0) {
+  const azureModule = pickAbility("azure");
+  if (azureModule?.type === "rocket") {
+    const activeRockets = getActiveRocketPodRockets(w);
+    if (activeRockets.length > 0) {
+      const avgLifePct = activeRockets.reduce((sum, rocket) => {
+        const total = Math.max(0.001, Number(rocket.totalLife) || Number(rocket.life) || 1);
+        return sum + clamp((rocket.life || 0) / total, 0, 1);
+      }, 0) / Math.max(1, activeRockets.length);
+      azureSnapshot.status = "ready";
+      azureSnapshot.fillPct = clamp(avgLifePct, 0, 1);
+      azureSnapshot.text = `Detonate ${activeRockets.length}`;
+    }
+  } else if ((p.aegisT || 0) > 0) {
     azureSnapshot.status = "cooldown";
     azureSnapshot.fillPct = clamp((p.aegisT || 0) / Math.max(0.001, p.aegisDuration || 1), 0, 1);
     azureSnapshot.text = p.aegisBeamStats?.voidInfused ? "Active (Void Infused)" : "Active";
