@@ -7926,6 +7926,7 @@ function stepBullets(w, dt) {
 }
 
 function stepRockets(w, dt) {
+  const flockTargets = getRocketPodFlockTargets(w);
   for (const r of w.rockets) {
     if (!r || (r.life || 0) <= 0) continue;
     r.px = r.x;
@@ -7934,8 +7935,14 @@ function stepRockets(w, dt) {
     let targetX = null;
     let targetY = null;
     if (r.followMouse) {
-      targetX = Number.isFinite(state.mouse.x) ? state.mouse.x : r.x;
-      targetY = Number.isFinite(state.mouse.y) ? state.mouse.y : r.y;
+      const flockTarget = flockTargets?.get(r);
+      if (flockTarget) {
+        targetX = flockTarget.x;
+        targetY = flockTarget.y;
+      } else {
+        targetX = Number.isFinite(state.mouse.x) ? state.mouse.x : r.x;
+        targetY = Number.isFinite(state.mouse.y) ? state.mouse.y : r.y;
+      }
     } else {
       let target = null;
       let best = Infinity;
@@ -8035,6 +8042,85 @@ function getRocketPodKillEffectProfile(w) {
 function getActiveRocketPodRockets(w) {
   if (!Array.isArray(w?.rockets)) return [];
   return w.rockets.filter((rocket) => !!rocket && !!rocket.followMouse && (rocket.life || 0) > 0.001);
+}
+
+function getRocketPodFlockOffset(slotIndex, slotCount) {
+  const slot = Math.max(0, Math.floor(slotIndex));
+  const count = Math.max(1, Math.floor(slotCount));
+  const wingSpacing = clamp(13.5 + count * 0.52, 13.5, 20);
+  const rowSpacing = wingSpacing * 0.92;
+  if (slot <= 0) {
+    return { lateral: 0, back: 0 };
+  }
+  const row = Math.floor((slot + 1) / 2);
+  const side = slot % 2 === 1 ? -1 : 1;
+  return {
+    lateral: side * row * wingSpacing,
+    back: row * rowSpacing,
+  };
+}
+
+function getRocketPodFlockTargets(w) {
+  const active = getActiveRocketPodRockets(w);
+  if (active.length <= 0) return null;
+  const mouseX = Number.isFinite(state.mouse.x) ? state.mouse.x : null;
+  const mouseY = Number.isFinite(state.mouse.y) ? state.mouse.y : null;
+  if (!Number.isFinite(mouseX) || !Number.isFinite(mouseY)) return null;
+
+  let forwardX = 1;
+  let forwardY = 0;
+  let hasForward = false;
+  let centerX = 0;
+  let centerY = 0;
+  for (const rocket of active) {
+    centerX += rocket.x || 0;
+    centerY += rocket.y || 0;
+  }
+  centerX /= active.length;
+  centerY /= active.length;
+  const dxToMouse = mouseX - centerX;
+  const dyToMouse = mouseY - centerY;
+  const dToMouse = Math.hypot(dxToMouse, dyToMouse);
+  if (dToMouse > 0.001) {
+    forwardX = dxToMouse / dToMouse;
+    forwardY = dyToMouse / dToMouse;
+    hasForward = true;
+  }
+
+  if (!hasForward) {
+    let sumX = 0;
+    let sumY = 0;
+    for (const rocket of active) {
+      const speed = Math.hypot(rocket.vx || 0, rocket.vy || 0);
+      if (speed <= 0.001) continue;
+      sumX += (rocket.vx || 0) / speed;
+      sumY += (rocket.vy || 0) / speed;
+    }
+    const sumLen = Math.hypot(sumX, sumY);
+    if (sumLen > 0.001) {
+      forwardX = sumX / sumLen;
+      forwardY = sumY / sumLen;
+      hasForward = true;
+    }
+  }
+
+  if (!hasForward) {
+    forwardX = 1;
+    forwardY = 0;
+  }
+
+  const rightX = -forwardY;
+  const rightY = forwardX;
+  const targets = new Map();
+  for (let i = 0; i < active.length; i += 1) {
+    const rocket = active[i];
+    const offset = getRocketPodFlockOffset(i, active.length);
+    targets.set(rocket, {
+      x: mouseX - forwardX * offset.back + rightX * offset.lateral,
+      y: mouseY - forwardY * offset.back + rightY * offset.lateral,
+    });
+  }
+  return targets;
 }
 
 function maybeStartRocketPodCooldown(w) {
